@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard</title>
+    <style>
+        /* Orange & White Palette */
+        :root {
+            --primary-orange: #FF6600; /* Main Accent */
+            --secondary-orange: #FF9933; /* Light Accent */
+            --header-background: #FFFFFF; /* White Header */
+            --body-background: #F8F8F8; /* Light Grey Body */
+            --card-background: #FFFFFF; /* White Card */
+            --text-color: #333333; /* Dark Text */
+            --light-text: #666666; /* Lighter Text */
+            --border-color: #E0E0E0; /* Light Border */
+            --button-hover-bg: #E65C00; /* Darker orange for hover */
+            --link-color: #007bff; /* For logout/admin links */
+            --error-color: #DC3545; /* Red */
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--body-background);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* --- Header Styles --- */
+        .header {
+            background-color: var(--header-background);
+            padding: 15px 30px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--primary-orange);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-left .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-orange);
+            text-decoration: none;
+            margin-right: 30px;
+        }
+
+        .header-left .nav-link {
+            font-size: 1.1rem;
+            color: var(--light-text);
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .header-left .nav-link:hover {
+            background-color: #f0f0f0;
+            color: var(--primary-orange);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right .profile-button {
+            background-color: var(--primary-orange);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-right: 15px;
+        }
+
+        .header-right .profile-button:hover {
+            background-color: var(--button-hover-bg);
+        }
+
+        .header-right .logout-btn {
+            background-color: var(--link-color); /* Contrast for logout */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+        .header-right .logout-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 40px 30px;
+            max-width: 1200px;
+            margin: 0 auto; /* Center content */
+        }
+
+        .content-section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary-orange);
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        /* --- Application Cards --- */
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .app-card {
+            background-color: var(--card-background);
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            min-height: 180px;
+            border: 1px solid var(--border-color);
+        }
+
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .app-card img {
+            width: 70px;
+            height: 70px;
+            margin-bottom: 15px;
+            object-fit: contain;
+        }
+
+        .app-card h3 {
+            font-size: 1.2rem;
+            color: var(--text-color);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        /* --- Error Card --- */
+        #error-card {
+            background-color: #ffe0e3;
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+            padding: 1.2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 30px auto;
+            max-width: 500px;
+        }
+
+        /* --- Profile Modal Styles --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-background);
+            margin: auto;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 32px;
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+            position: absolute;
+            top: 15px;
+            right: 25px;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: var(--primary-orange);
+            text-decoration: none;
+        }
+
+        .modal-content h2 {
+            color: var(--primary-orange);
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .profile-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--border-color);
+            font-size: 1.05rem;
+        }
+
+        .profile-detail:last-child {
+            border-bottom: none;
+        }
+
+        .profile-detail strong {
+            color: var(--primary-orange);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                padding: 15px 20px;
+            }
+            .header-left {
+                margin-bottom: 15px;
+                width: 100%;
+                justify-content: space-between;
+            }
+            .header-right {
+                width: 100%;
+                justify-content: center;
+            }
+            .header-left .logo {
+                margin-right: 0;
+            }
+            .header-right .profile-button {
+                margin-right: 10px;
+            }
+            .main-content {
+                padding: 20px;
+            }
+            .app-grid {
+                grid-template-columns: 1fr;
+            }
+            .content-section-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <a href="/dashboard" class="logo">My SSO App</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+
+        <a href="/admin/dashboard" class="nav-link" id="admin-panel-link" style="display: none;">Admin Panel</a>
+    </div>
+    <div class="header-right">
+        <button class="profile-button" id="profile-button">Profile</button>
+        <button class="logout-btn" id="logout-button">Logout</button>
+    </div>
+</div>
+
+<div class="main-content">
+    <h2 class="content-section-title">Hello, <span id="user-greeting-name">User</span>! Welcome to your Dashboard.</h2>
+
+    <div id="error-card" style="display: none;"></div>
+
+    <h3 class="content-section-title">My Applications</h3>
+    <div class="app-grid" id="app-grid-container">
+
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/cloud.png" alt="Cloud App Icon">
+            <h3>Cloud Storage</h3>
+        </div>
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/google-docs.png" alt="Documents App Icon">
+            <h3>Document Editor</h3>
+        </div>
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/microsoft-outlook-2019--v1.png" alt="Email Service App Icon">
+            <h3>Email Service</h3>
+        </div>
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/microsoft-teams.png" alt="Teams App Icon">
+            <h3>Team Chat</h3>
+        </div>
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/jira.png" alt="Jira App Icon">
+            <h3>Project Tracker</h3>
+        </div>
+        <div class="app-card" onclick="window.location.href='#'">
+            <img src="https://img.icons8.com/color/96/000000/github.png" alt="GitHub App Icon">
+            <h3>Code Repository</h3>
+        </div>
+
+    </div>
+</div>
+
+
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeProfileModal()">&times;</span>
+        <h2>User Profile</h2>
+        <div class="profile-detail">
+            <strong>Username:</strong> <span id="profile-username"></span>
+        </div>
+        <div class="profile-detail">
+            <strong>Email:</strong> <span id="profile-email"></span>
+        </div>
+        <div class="profile-detail">
+            <strong>First Name:</strong> <span id="profile-firstName"></span>
+        </div>
+        <div class="profile-detail">
+            <strong>Last Name:</strong> <span id="profile-lastName"></span>
+        </div>
+        <div class="profile-detail">
+            <strong>Auth Provider:</strong> <span id="profile-authProvider"></span>
+        </div>
+        <div class="profile-detail">
+            <strong>Roles:</strong> <span id="profile-roles"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Self-executing function to run on page load
+    (async function() {
+        const userGreetingNameEl = document.getElementById('user-greeting-name');
+        const adminPanelLinkEl = document.getElementById('admin-panel-link');
+        const errorCardEl = document.getElementById('error-card');
+
+        // --- 1. Handle Token from URL (from SSO login) ---
+        const params = new URLSearchParams(window.location.search);
+        const tokenFromUrl = params.get('token');
+        let token = localStorage.getItem('accessToken');
+
+        if (tokenFromUrl) {
+            token = tokenFromUrl;
+            localStorage.setItem('accessToken', tokenFromUrl);
+            // Clean the URL
+            window.history.replaceState({}, document.title, "/dashboard");
+        }
+
+        if (!token) {
+            errorCardEl.textContent = 'Session not found. Please log in.';
+            errorCardEl.style.display = 'block';
+            userGreetingNameEl.textContent = "Guest";
+            return;
+        }
+
+        // --- 2. Fetch User Data from Secured API ---
+        try {
+            const response = await fetch('/api/user/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+
+                // Save fresh user info (including latest roles)
+                localStorage.setItem('userInfo', JSON.stringify(user));
+
+                updateUIWithUserInfo(user);
+
+            } else if (response.status === 401 || response.status === 403) {
+                throw new Error("Session expired or access denied.");
+            } else {
+                throw new Error('Failed to fetch user data');
+            }
+
+        } catch (e) {
+            console.error('Error fetching user:', e);
+            // Show error card instead of just text
+            const currentError = (e.message.includes("Session expired") || e.message.includes("access denied")) ? "Session Expired. Please log in again." : "Error loading user data.";
+            errorCardEl.textContent = currentError;
+            errorCardEl.style.display = 'block';
+            userGreetingNameEl.textContent = "Guest";
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userInfo');
+        }
+    })();
+
+    // Helper function to update the page UI
+    function updateUIWithUserInfo(user) {
+        const userGreetingNameEl = document.getElementById('user-greeting-name');
+        const adminPanelLinkEl = document.getElementById('admin-panel-link');
+
+        userGreetingNameEl.textContent = user.firstName || user.username;
+
+        // Check for Admin Role and display link
+        if (user.roles && user.roles.includes('ROLE_ADMIN')) {
+            adminPanelLinkEl.style.display = 'block';
+        }
+    }
+
+    // --- Logout Functionality ---
+    document.getElementById('logout-button').addEventListener('click', () => {
+        // Clear the token and user info from local storage (stateless logout)
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userInfo');
+
+        window.location.href = '/login';
+    });
+
+    // --- Profile Modal Functions ---
+    const profileModal = document.getElementById('profileModal');
+    const profileButton = document.getElementById('profile-button');
+    const profileUsername = document.getElementById('profile-username');
+    const profileEmail = document.getElementById('profile-email');
+    const profileFirstName = document.getElementById('profile-firstName');
+    const profileLastName = document.getElementById('profile-lastName');
+    const profileAuthProvider = document.getElementById('profile-authProvider');
+    const profileRoles = document.getElementById('profile-roles');
+
+    profileButton.addEventListener('click', () => {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+        if (userInfo) {
+            profileUsername.textContent = userInfo.username;
+            profileEmail.textContent = userInfo.email;
+            profileFirstName.textContent = userInfo.firstName || 'N/A';
+            profileLastName.textContent = userInfo.lastName || 'N/A';
+            profileAuthProvider.textContent = userInfo.authProvider;
+            profileRoles.textContent = userInfo.roles || 'ROLE_USER';
+        } else {
+            profileUsername.textContent = 'N/A';
+            profileEmail.textContent = 'N/A';
+            profileFirstName.textContent = 'N/A';
+            profileLastName.textContent = 'N/A';
+            profileAuthProvider.textContent = 'N/A';
+            profileRoles.textContent = 'N/A';
+        }
+        profileModal.style.display = "flex";
+    });
+
+    function closeProfileModal() {
+        profileModal.style.display = "none";
+    }
+
+    // Close the modal if user clicks outside of it
+    window.onclick = function(event) {
+        if (event.target == profileModal) {
+            profileModal.style.display = "none";
+        }
+    }
+</script>
+
+</body>
+</html>

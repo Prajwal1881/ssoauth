@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - SSO Authentication</title>
+
+    <style>
+        :root {
+            --primary-orange: #FF6600;
+            --secondary-orange: #FF9933;
+            --background-color: #F8F8F8;
+            --form-background: #FFFFFF;
+            --text-color: #333333;
+            --input-bg: #FFFFFF;
+            --border-color: #DDDDDD;
+            --button-text: #FFFFFF;
+            --link-color: #007bff;
+            --error-color: #DC3545;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .login-container {
+            background: var(--form-background);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-orange);
+        }
+
+        .login-form .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+         .login-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .login-form input[type="email"],
+        .login-form input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.2);
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            box-sizing: border-box;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-orange);
+            color: var(--button-text);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-orange);
+        }
+
+        .btn-secondary {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #EEEEEE;
+            border-color: var(--secondary-orange);
+        }
+
+        /* Specific style to hide SSO buttons initially */
+        .sso-button {
+             display: none; /* Hide buttons by default */
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #888;
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .divider:not(:empty)::before {
+            margin-right: .5em;
+        }
+
+        .divider:not(:empty)::after {
+            margin-left: .5em;
+        }
+
+        .signup-link {
+            font-size: 0.9rem;
+        }
+
+        .signup-link a {
+            color: var(--link-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+
+        #error-message {
+            color: var(--error-color);
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid var(--error-color);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <h2>Sign In</h2>
+
+    <div id="error-message"></div>
+
+    <form id="login-form" class="login-form">
+        <div class="form-group">
+            <label for="usernameOrEmail">Username or Email</label>
+            <input type="email" id="usernameOrEmail" name="usernameOrEmail" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+    </form>
+
+    <div class="divider" id="sso-divider" style="display: none;">OR</div>
+
+    <a href="/oauth2/authorization/miniorange" class="btn btn-secondary sso-button" id="oidc_miniorange_button">
+        Login with miniOrange SSO (OIDC)
+    </a>
+    <a th:href="${jwtSsoUrl}" class="btn btn-secondary sso-button" id="jwt_miniorange_button">
+        Login with miniOrange JWT
+    </a>
+    <div class="signup-link">
+        Don't have an account? <a href="/signup">Sign up here</a>
+    </div>
+</div>
+
+<script>
+    // --- Logic for Local Login (unchanged) ---
+    document.getElementById('login-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const usernameOrEmail = document.getElementById('usernameOrEmail').value;
+        const password = document.getElementById('password').value;
+        const errorMessageDiv = document.getElementById('error-message');
+        errorMessageDiv.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/auth/signin', {
+                 method: 'POST',
+                 headers: {'Content-Type': 'application/json'},
+                 body: JSON.stringify({ usernameOrEmail: usernameOrEmail, password: password })
+            });
+            const data = await response.json();
+            if (response.ok && data.accessToken && data.userInfo) {
+                localStorage.setItem('accessToken', data.accessToken);
+                localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
+                let targetUrl = '/dashboard';
+                if (data.userInfo.roles && data.userInfo.roles.includes('ROLE_ADMIN')) {
+                    targetUrl = '/admin/dashboard';
+                }
+                window.location.href = targetUrl;
+            } else {
+                let message = data.message || `Login failed (Status: ${response.status})`;
+                if (data.errors) { message = Object.values(data.errors).join('; '); }
+                errorMessageDiv.textContent = message;
+                errorMessageDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Login failed:', error);
+            errorMessageDiv.textContent = 'Error connecting to the server. Please try again later.';
+            errorMessageDiv.style.display = 'block';
+        }
+    });
+
+    // --- NEW: Logic for Dynamic SSO Buttons ---
+    (async function fetchEnabledSsoProviders() {
+        const ssoDivider = document.getElementById('sso-divider');
+        try {
+            // Fetch the list of enabled providers from your backend
+            // TODO: Create this backend endpoint: /api/sso/enabled-providers
+            // It should return a JSON array like ["oidc_miniorange", "jwt_miniorange"]
+            const response = await fetch('/api/sso/enabled-providers'); // Assumed API endpoint
+
+            if (!response.ok) {
+                console.error("Failed to fetch enabled SSO providers:", response.status);
+                return; // Don't show any SSO buttons if fetch fails
+            }
+
+            const enabledProviders = await response.json(); // Expecting an array of strings
+
+            if (enabledProviders && Array.isArray(enabledProviders) && enabledProviders.length > 0) {
+                // Show the "OR" divider since SSO options are available
+                ssoDivider.style.display = 'flex';
+
+                // Iterate through the enabled providers and show corresponding buttons
+                enabledProviders.forEach(providerId => {
+                    // Construct the button ID based on the provider identifier
+                    const buttonId = providerId + '_button';
+                    const button = document.getElementById(buttonId);
+                    if (button) {
+                        button.style.display = 'inline-block'; // Make the button visible
+                        console.log("Enabled SSO button:", buttonId);
+                    } else {
+                        console.warn("SSO button element not found for provider ID:", providerId);
+                    }
+                });
+            } else {
+                console.log("No SSO providers are enabled or returned data is invalid.");
+                ssoDivider.style.display = 'none'; // Keep divider hidden if no SSO buttons
+            }
+
+        } catch (error) {
+            console.error('Error fetching or processing enabled SSO providers:', error);
+             ssoDivider.style.display = 'none'; // Keep divider hidden on error
+        }
+    })();
+</script>
+
+</body>
+</html>
