@@ -199,3 +199,9 @@ INSERT INTO sso_provider_configs
 (provider_id, provider_type, display_name, enabled, created_at, updated_at)
 VALUES
 ('saml_miniorange', 'SAML', 'MiniOrange SAML', false, NOW(), NOW());
+
+
+
+UPDATE users
+SET auth_provider = 'OIDC'
+WHERE auth_provider = 'SSO';
