@@ -186,12 +186,18 @@
 
     <div class="divider" id="sso-divider" style="display: none;">OR</div>
 
-    <a href="/oauth2/authorization/miniorange" class="btn btn-secondary sso-button" id="oidc_miniorange_button">
+    <a href="/oauth2/authorization/oidc_miniorange" class="btn btn-secondary sso-button" id="oidc_miniorange_button">
         Login with miniOrange SSO (OIDC)
     </a>
+
     <a th:href="${jwtSsoUrl}" class="btn btn-secondary sso-button" id="jwt_miniorange_button">
         Login with miniOrange JWT
     </a>
+
+    <a href="/saml2/authenticate/saml_miniorange" class="btn btn-secondary sso-button" id="saml_miniorange_button">
+        Login with miniOrange SAML
+    </a>
+
     <div class="signup-link">
         Don't have an account? <a href="/signup">Sign up here</a>
     </div>
@@ -239,16 +245,14 @@
         const ssoDivider = document.getElementById('sso-divider');
         try {
             // Fetch the list of enabled providers from your backend
-            // TODO: Create this backend endpoint: /api/sso/enabled-providers
-            // It should return a JSON array like ["oidc_miniorange", "jwt_miniorange"]
-            const response = await fetch('/api/sso/enabled-providers'); // Assumed API endpoint
+            const response = await fetch('/api/sso/enabled-providers');
 
             if (!response.ok) {
                 console.error("Failed to fetch enabled SSO providers:", response.status);
                 return; // Don't show any SSO buttons if fetch fails
             }
 
-            const enabledProviders = await response.json(); // Expecting an array of strings
+            const enabledProviders = await response.json(); // Expecting ["oidc_miniorange", "jwt_miniorange", "saml_miniorange"]
 
             if (enabledProviders && Array.isArray(enabledProviders) && enabledProviders.length > 0) {
                 // Show the "OR" divider since SSO options are available

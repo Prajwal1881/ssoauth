@@ -26,6 +26,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -43,9 +45,15 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
+    // Inject your dynamic repositories
+    private final DynamicClientRegistrationRepository dynamicOidcRepository;
+    private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
+
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
-                                                          AuthenticationSuccessHandler oidcLoginSuccessHandler) throws Exception {
+                                                          AuthenticationSuccessHandler oidcLoginSuccessHandler,
+                                                          AuthenticationSuccessHandler samlLoginSuccessHandler
+    ) throws Exception {
         http
                 // --- CSRF Configuration ---
                 .csrf(AbstractHttpConfigurer::disable) // Disable CSRF as we use JWT
@@ -63,9 +71,11 @@ public class SecurityConfig {
                                 "/", "/login", "/signup", "/error",
                                 "/css/**", "/js/**", "/images/**", // Static assets
                                 "/api/auth/**", // Local Sign-in/Sign-up API
-                                "/api/sso/enabled-providers", // <<<--- ADDED: Endpoint for login page JS
+                                "/api/sso/enabled-providers",
                                 "/oauth2/**", // OIDC flow URLs
                                 "/login/jwt/callback", // Manual JWT flow callback
+                                "/saml2/**",
+                                "/login/saml2/**",
                                 "/dashboard", // User dashboard page is public
                                 "/admin/dashboard" // Admin dashboard page is public
                         ).permitAll()
@@ -80,16 +90,22 @@ public class SecurityConfig {
 
                 // --- OAuth2 / OIDC Login Configuration ---
                 .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/login") // Where to redirect if OIDC login is needed
-                        .successHandler(oidcLoginSuccessHandler) // Custom handler after successful OIDC login
+                        .loginPage("/login")
+                        .clientRegistrationRepository(dynamicOidcRepository)
+                        .successHandler(oidcLoginSuccessHandler)
+                )
+
+                // --- SAML 2.0 Login Configuration ---
+                .saml2Login(saml2 -> saml2
+                        .loginPage("/login")
+                        .relyingPartyRegistrationRepository(dynamicSamlRepository)
+                        .successHandler(samlLoginSuccessHandler)
                 )
 
                 // --- Authentication Provider ---
-                // Configures the DaoAuthenticationProvider for local username/password checks
                 .authenticationProvider(authenticationProvider())
 
                 // --- Custom JWT Filter ---
-                // Add our custom filter to process JWTs from Authorization headers
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -97,7 +113,6 @@ public class SecurityConfig {
 
     /**
      * This handler is only for the OIDC (OAuth2) flow.
-     * Checks user role for redirect destination.
      */
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
@@ -107,20 +122,33 @@ public class SecurityConfig {
         return (request, response, authentication) -> {
             OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
             User appUser = authService.processOidcLogin(oidcUser); // Find/create user in DB
-            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername()); // Create local JWT
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // Check for admin role
-            String targetUrl = "/dashboard"; // Default to user dashboard
-            if (appUser.hasRole("ROLE_ADMIN")) {
-                targetUrl = "/admin/dashboard"; // Redirect admins to admin dashboard
-            }
-
-            String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8); // Redirect to UI with token
+            String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
+            String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
             response.sendRedirect(redirectUrl);
         };
     }
 
-    // --- Local Authentication Beans ---
+    /**
+     * This handler is only for the SAML flow.
+     */
+    @Bean
+    public AuthenticationSuccessHandler samlLoginSuccessHandler(
+            AuthService authService,
+            JwtTokenProvider jwtTokenProvider
+    ) {
+        return (request, response, authentication) -> {
+            Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
+            User appUser = authService.processSamlLogin(samlUser); // Find/create user in DB
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
+
+            String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
+            String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+            response.sendRedirect(redirectUrl);
+        };
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -128,32 +156,34 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        // This provider handles the username/password authentication against your database
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService); // Tells it how to load user details
-        authProvider.setPasswordEncoder(passwordEncoder()); // Tells it how to check passwords
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        // Exposes the AuthenticationManager bean, needed by AuthService for local login
         return config.getAuthenticationManager();
     }
 
-    // --- CORS Configuration Bean ---
+    // --- *** THIS IS THE CORRECTED BEAN *** ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Adjust origins as needed for your frontend (if it's on a different port/domain)
-        configuration.setAllowedOrigins(List.of("http://localhost:8080", "http://localhost:3000")); // Allow frontend
+
+        // --- THIS IS THE FIX ---
+        // Instead of a specific list, we use a pattern.
+        // This allows any origin, which is required for SAML POST bindings.
+        configuration.addAllowedOriginPattern("*");
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Allow all headers
-        configuration.setAllowCredentials(true); // Allow cookies/auth headers
-        configuration.setMaxAge(3600L); // Cache preflight response for 1 hour
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true); // This is critical for SAML
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Apply CORS to all paths
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }

@@ -37,6 +37,7 @@ public class SsoProviderConfigUpdateRequest {
 
     // JWT
     private String jwtSsoUrl;
+    private String jwtRedirectUri; // *** NEW FIELD ADDED ***
     private String jwtCertificate;
 
     // SAML

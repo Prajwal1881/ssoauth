@@ -53,18 +53,21 @@ public class JwtSsoController {
             String firstName = claims.get("given_name", String.class);
             String lastName = claims.get("family_name", String.class);
             String providerId = claims.getSubject();
+            String issuer = claims.getIssuer(); // Get the issuer to use as registrationId
 
             if (firstName == null) firstName = claims.get("firstName", String.class);
             if (lastName == null) lastName = claims.get("lastName", String.class);
 
             // 3. Find or create the user in our local database
             // AuthService handles cache bypass and ensuring correct roles are loaded/set
+            // *** THIS IS THE CORRECTED LINE ***
             User user = authService.processSsoLogin(
                     email,
                     firstName,
                     lastName,
                     providerId,
-                    User.AuthProvider.SSO_JWT
+                    User.AuthProvider.SSO_JWT,
+                    issuer // Pass the issuer as the 6th argument
             );
             log.info("User processed (found or created) successfully. User ID: {}", user.getId());
 

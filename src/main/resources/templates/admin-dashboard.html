@@ -86,6 +86,38 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: var(--form-background); margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 550px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .close { color: #aaa; float: right; font-size: 30px; font-weight: bold; cursor: pointer; line-height: 1; }
+
+        /* --- Styles for password toggle --- */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%; /* Make wrapper take full width */
+            margin-bottom: 15px; /* Add margin here */
+        }
+        .password-wrapper input {
+            padding-right: 65px; /* Make space for the button */
+            margin-bottom: 0; /* Remove margin from input */
+        }
+        .toggle-password {
+            position: absolute;
+            right: 1px;
+            top: 1px;
+            bottom: 1px;
+            border: none;
+            background: #f0f0f0;
+            color: var(--text-color);
+            padding: 0 10px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            border-radius: 0 4px 4px 0;
+            z-index: 2;
+            width: 60px; /* Give button a fixed width */
+        }
+        .toggle-password:hover {
+            background: #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -125,7 +157,7 @@
     <div id="samlConfig" class="tab-content">
         <h2>SAML Configuration</h2>
         <div id="saml-error-message" class="error" style="display: none;"></div>
-        <form id="samlConfigForm" class="sso-form" data-provider-type="SAML">
+        <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
             <div class="toggle-switch">
                 <label for="samlEnable">Enable SAML Provider:</label>
                 <label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label>
@@ -145,7 +177,7 @@
     <div id="oidcConfig" class="tab-content">
         <h2>OAuth 2.0 / OpenID Connect Configuration</h2>
         <div id="oidc-error-message" class="error" style="display: none;"></div>
-        <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC">
+        <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
             <div class="toggle-switch">
                 <label for="oidcEnable">Enable OIDC Provider:</label>
                 <label class="switch"><input type="checkbox" id="oidcEnable"><span class="slider"></span></label>
@@ -156,14 +188,18 @@
             <input type="url" id="oidcIssuerUri" placeholder="e.g., https://csumairkhan.xecurify.com">
             <div class="form-row">
                 <div><label for="oidcClientId">Client ID:</label><input type="text" id="oidcClientId"></div>
-                <div><label for="oidcClientSecret">Client Secret:</label><input type="password" id="oidcClientSecret" placeholder="Enter new secret to update"></div>
+
+                <div>
+                    <label for="oidcClientSecret">Client Secret:</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="oidcClientSecret" placeholder="Enter new secret to update">
+                        <button type="button" class="toggle-password" id="toggleOidcSecret">Show</button>
+                    </div>
+                </div>
             </div>
             <label for="oidcScopes">Scopes (comma-separated):</label>
             <input type="text" id="oidcScopes" value="openid, profile, email">
-            <label for="oidcAuthGrantType">Authorization Grant Type:</label>
-            <select id="oidcAuthGrantType"><option value="authorization_code" selected>Authorization Code</option></select>
-            <label for="oidcClientName">Client Name (Optional):</label>
-            <input type="text" id="oidcClientName" placeholder="e.g., MiniOrange">
+
             <label for="oidcAuthorizationUri">Authorization Endpoint URI:</label>
             <input type="url" id="oidcAuthorizationUri">
             <label for="oidcTokenUri">Token Endpoint URI:</label>
@@ -181,7 +217,7 @@
     <div id="jwtConfig" class="tab-content">
         <h2>Manual JWT Configuration</h2>
         <div id="jwt-error-message" class="error" style="display: none;"></div>
-        <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT">
+        <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT" data-provider-id="jwt_miniorange">
             <div class="toggle-switch">
                 <label for="jwtEnable">Enable JWT Provider:</label>
                 <label class="switch"><input type="checkbox" id="jwtEnable"><span class="slider"></span></label>
@@ -192,7 +228,14 @@
             <input type="url" id="jwtSsoUrl" placeholder="e.g., https://idp.example.com/jwtsso/appid">
             <div class="form-row">
                 <div><label for="jwtClientId">Client ID:</label><input type="text" id="jwtClientId"></div>
-                <div><label for="jwtClientSecret">Client Secret (if applicable):</label><input type="password" id="jwtClientSecret" placeholder="Secret if needed by IdP"></div>
+
+                <div>
+                    <label for="jwtClientSecret">Client Secret (if applicable):</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="jwtClientSecret" placeholder="Secret if needed by IdP">
+                        <button type="button" class="toggle-password" id="toggleJwtSecret">Show</button>
+                    </div>
+                </div>
             </div>
             <label for="jwtRedirectUri">Redirect URI (Callback URL):</label>
             <input type="url" id="jwtRedirectUri" placeholder="e.g., http://localhost:8080/login/jwt/callback">
@@ -202,7 +245,10 @@
             <textarea id="jwtCertificate" placeholder="Paste PEM certificate here..."></textarea>
             <button type="submit" class="btn-save">Save JWT Config</button>
         </form>
-    </div> </div> <div id="userModal" class="modal">
+    </div>
+</div>
+
+<div id="userModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
         <h2 id="modalTitle">User Form</h2>
@@ -265,7 +311,7 @@
         }
     }
 
-    // --- User Management Functions (All functions are included) ---
+    // --- User Management Functions ---
      async function loadUsers() {
          clearErrors();
         if (!token) { showError("Token not found."); userTableBody.innerHTML = '<tr><td colspan="8">Auth failed.</td></tr>'; return; }
@@ -345,15 +391,23 @@
         } catch (error) { console.error('Load SSO config error:', error); showSsoError(`Load failed: ${error.message}`, 'all'); }
     }
 
-    // --- Populate SSO Forms ---
+    // --- *** THIS IS THE CORRECTED POPULATE FUNCTION *** ---
     function populateSsoForms(configs) {
         configDataStore = {};
-        // Reset forms
-        samlConfigForm.reset(); oidcConfigForm.reset(); jwtConfigForm.reset();
-        // Clear data attributes
-        delete samlConfigForm.dataset.providerId;
-        delete oidcConfigForm.dataset.providerId;
-        delete jwtConfigForm.dataset.providerId;
+        // Reset forms to clear old data
+        samlConfigForm.reset();
+        oidcConfigForm.reset();
+        jwtConfigForm.reset();
+
+        // Reset placeholders
+        document.getElementById('oidcClientSecret').placeholder = 'Enter new secret to update';
+        document.getElementById('jwtClientSecret').placeholder = 'Enter new secret to update (if used)';
+
+        // Reset password fields to "password" type and buttons to "Show"
+        document.getElementById('oidcClientSecret').setAttribute('type', 'password');
+        document.getElementById('toggleOidcSecret').textContent = 'Show';
+        document.getElementById('jwtClientSecret').setAttribute('type', 'password');
+        document.getElementById('toggleJwtSecret').textContent = 'Show';
 
 
         configs.forEach(config => {
@@ -361,78 +415,75 @@
                 console.error("Config object missing providerId or id:", config);
                 return; // Skip this config
             }
+            // Populate the store { "oidc_miniorange": 1, "jwt_miniorange": 2 }
             configDataStore[config.providerId] = config.id;
 
             try {
-                if (config.providerType === 'SAML') {
+                if (config.providerType === 'SAML' && config.providerId === samlConfigForm.dataset.providerId) {
+                    console.log("Populating SAML form for:", config.providerId);
                     document.getElementById('samlEnable').checked = config.enabled;
                     document.getElementById('samlDisplayName').value = config.displayName || '';
                     document.getElementById('samlEntityId').value = config.samlEntityId || '';
                     document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
                     document.getElementById('samlCertificate').value = config.samlCertificate || '';
-                    samlConfigForm.dataset.providerId = config.providerId;
-                    console.log(`Set providerId '${config.providerId}' for SAML form.`);
-                } else if (config.providerType === 'OIDC') {
+
+                } else if (config.providerType === 'OIDC' && config.providerId === oidcConfigForm.dataset.providerId) {
+                    console.log("Populating OIDC form for:", config.providerId);
                      document.getElementById('oidcEnable').checked = config.enabled;
                      document.getElementById('oidcDisplayName').value = config.displayName || '';
                      document.getElementById('oidcIssuerUri').value = config.issuerUri || '';
                      document.getElementById('oidcClientId').value = config.clientId || '';
-                     document.getElementById('oidcClientSecret').value = '';
-                     document.getElementById('oidcClientSecret').placeholder = 'Enter new secret to update';
+                     // *** THIS IS THE FIX: Populate the secret field ***
+                     document.getElementById('oidcClientSecret').value = config.clientSecret || '';
                      document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
-                     document.getElementById('oidcAuthGrantType').value = 'authorization_code';
-                     document.getElementById('oidcClientName').value = config.clientName || '';
                      document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
                      document.getElementById('oidcTokenUri').value = config.tokenUri || '';
                      document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
                      document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
                      document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
-                     oidcConfigForm.dataset.providerId = config.providerId;
-                     console.log(`Set providerId '${config.providerId}' for OIDC form. Actual: ${oidcConfigForm.dataset.providerId}`);
-                } else if (config.providerType === 'JWT') {
+
+                } else if (config.providerType === 'JWT' && config.providerId === jwtConfigForm.dataset.providerId) {
+                    console.log("Populating JWT form for:", config.providerId);
                      document.getElementById('jwtEnable').checked = config.enabled;
                      document.getElementById('jwtDisplayName').value = config.displayName || '';
                      document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
                      document.getElementById('jwtClientId').value = config.clientId || '';
-                     document.getElementById('jwtClientSecret').value = '';
-                     document.getElementById('jwtClientSecret').placeholder = 'Enter new secret to update (if used)';
-                     document.getElementById('jwtRedirectUri').value = config.redirectUri || 'http://localhost:8080/login/jwt/callback';
+                     // *** THIS IS THE FIX: Populate the secret field ***
+                     document.getElementById('jwtClientSecret').value = config.clientSecret || '';
+                     document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || 'http://localhost:8080/login/jwt/callback';
                      document.getElementById('jwtIssuerUri').value = config.issuerUri || '';
                      document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
-                     jwtConfigForm.dataset.providerId = config.providerId;
-                     console.log(`Set providerId '${config.providerId}' for JWT form. Actual: ${jwtConfigForm.dataset.providerId}`);
                 }
             } catch (e) {
                 console.error(`Error populating form for provider ${config.providerId}:`, e);
+                showSsoError(`Error populating form: ${e.message}`, config.providerType);
             }
         });
         console.log("Populated forms. Store:", configDataStore);
     }
 
-    // --- Save SSO Config Logic ---
+    // --- Save SSO Config Logic (Create or Update) ---
     async function saveSsoConfig(formElement, providerType) {
         clearSsoErrors(providerType);
         if (!token) { showSsoError("Token not found.", providerType); return; }
 
-        console.log("Form Element on Save:", formElement);
-        console.log("Form Dataset on Save:", formElement.dataset);
-
         const providerId = formElement.dataset.providerId;
-        console.log(`Attempting to save ${providerType}. Read providerId from form dataset: '${providerId}'`);
+        if (!providerId) {
+            const errorMsg = "Form is missing 'data-provider-id' attribute. Cannot save.";
+            showSsoError(errorMsg, providerType);
+            console.error(errorMsg);
+            return;
+        }
 
         const configId = configDataStore[providerId];
-        console.log(`Looked up configId for '${providerId}': ${configId}`);
+        const isUpdate = !!configId;
+        const url = isUpdate ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
+        const method = isUpdate ? 'PUT' : 'POST';
 
-        if (!providerId || !configId) {
-             const errorMsg = `Config ID not found for provider '${providerId}'. Store: ${JSON.stringify(configDataStore)}. Cannot save.`;
-             showSsoError(errorMsg, providerType);
-             console.error("Save failed:", errorMsg);
-             return;
-        }
+        console.log(`Saving ${providerType}. Mode: ${isUpdate ? 'UPDATE' : 'CREATE'}. URL: ${url}`);
 
         let configData = { providerId: providerId, providerType: providerType };
 
-        // Gather data based on form type
         if (providerType === 'SAML') {
             configData.enabled = document.getElementById('samlEnable').checked;
             configData.displayName = document.getElementById('samlDisplayName').value;
@@ -446,9 +497,11 @@
              configData.issuerUri = document.getElementById('oidcIssuerUri').value;
              configData.clientId = document.getElementById('oidcClientId').value;
              const secret = document.getElementById('oidcClientSecret').value;
-             if (secret && secret.trim() !== '') configData.clientSecret = secret; else delete configData.clientSecret;
+             // *** THIS IS THE UPDATED LOGIC TO HANDLE PRE-FILLED SECRETS ***
+             if (secret && secret.trim() !== '') {
+                configData.clientSecret = secret;
+             }
              configData.scopes = document.getElementById('oidcScopes').value;
-             configData.clientName = document.getElementById('oidcClientName').value;
              configData.authorizationUri = document.getElementById('oidcAuthorizationUri').value;
              configData.tokenUri = document.getElementById('oidcTokenUri').value;
              configData.userInfoUri = document.getElementById('oidcUserInfoUri').value;
@@ -460,27 +513,35 @@
             configData.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
             configData.clientId = document.getElementById('jwtClientId').value;
             const secret = document.getElementById('jwtClientSecret').value;
-            if (secret && secret.trim() !== '') configData.clientSecret = secret; else delete configData.clientSecret;
-            configData.redirectUri = document.getElementById('jwtRedirectUri').value;
-open                configData.issuerUri = document.getElementById('jwtIssuerUri').value;
+            // *** THIS IS THE UPDATED LOGIC TO HANDLE PRE-FILLED SECRETS ***
+             if (secret && secret.trim() !== '') {
+                configData.clientSecret = secret;
+             }
+            configData.jwtRedirectUri = document.getElementById('jwtRedirectUri').value;
+            configData.issuerUri = document.getElementById('jwtIssuerUri').value;
             configData.jwtCertificate = document.getElementById('jwtCertificate').value;
         }
 
-        console.log("Saving SSO Config - ID:", configId, "Data:", configData);
+        console.log(`Saving SSO Config - ${method}. Data:`, configData);
 
         try {
-            const response = await fetch(`/api/admin/sso-config/${configId}`, {
-                method: 'PUT',
+            const response = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify(configData)
             });
             if (!response.ok) { await handleApiError(response, `save ${providerType} config`, false, getErrorDivForType(providerType)); return; }
-            alert(`${providerType} configuration saved successfully! Reloading configurations...`);
-            if (providerType === 'OIDC') document.getElementById('oidcClientSecret').value = '';
-            if (providerType === 'JWT') document.getElementById('jwtClientSecret').value = '';
+
+            alert(`${providerType} configuration saved successfully!`);
+
+            // *** DO NOT CLEAR PASSWORD FIELDS. RELOAD WILL HANDLE IT. ***
+
+            // IMPORTANT: Reload all configs to get the new ID / updated data
             loadSsoConfigurations();
+
         } catch (error) { console.error(`Error saving ${providerType} config:`, error); showSsoError(`Failed to save: ${error.message}`, providerType); }
     }
+
 
     // --- Attach Save Logic ---
     samlConfigForm.addEventListener('submit', (e) => { e.preventDefault(); saveSsoConfig(e.target, 'SAML'); });
@@ -524,6 +585,30 @@ open                configData.issuerUri = document.getElementById('jwtIssuerUri
          if (errorDisplayDiv) { errorDisplayDiv.textContent = errorMessage; errorDisplayDiv.style.display = 'block'; }
          else { console.error("Target error div not found for message:", errorMessage); }
      }
+
+
+    // --- Password Toggle Functionality ---
+    function setupPasswordToggle(inputId, toggleId) {
+        const passwordInput = document.getElementById(inputId);
+        const toggleButton = document.getElementById(toggleId);
+
+        if (passwordInput && toggleButton) {
+            toggleButton.addEventListener('click', (e) => {
+                // Prevent the click from submitting the form
+                e.preventDefault();
+
+                // Check the current type
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+
+                // Change the button text
+                toggleButton.textContent = type === 'password' ? 'Show' : 'Hide';
+            });
+        }
+    }
+    // Setup toggles for both secret fields
+    setupPasswordToggle('oidcClientSecret', 'toggleOidcSecret');
+    setupPasswordToggle('jwtClientSecret', 'toggleJwtSecret');
 
 
     // --- Logout Functionality ---

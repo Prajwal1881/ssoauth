@@ -21,6 +21,7 @@ public class SsoProviderConfigDto {
     // Common
     private String issuerUri;
     private String clientId;
+    private String clientSecret; // <<< --- ADD THIS FIELD ---
     // Exclude clientSecret by default for GET requests
     private String scopes;
 
@@ -33,12 +34,13 @@ public class SsoProviderConfigDto {
 
     // JWT
     private String jwtSsoUrl;
-    private String jwtCertificate; // Or maybe just indicate if present
+    private String jwtRedirectUri; // *** THIS FIELD WAS ADDED ***
+    private String jwtCertificate;
 
     // SAML
     private String samlSsoUrl;
     private String samlEntityId;
-    private String samlCertificate; // Or maybe just indicate if present
+    private String samlCertificate;
 
     // Add createdAt, updatedAt if needed
 }

@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
 import java.util.Optional;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,11 +25,20 @@ public class SsoConfigService {
 
     // Get all configurations (for admin list)
     public List<SsoProviderConfigDto> getAllConfigs() {
-        log.info("Fetching all SSO provider configurations");
+        log.info("Fetching all SSO provider configurations as DTOs");
         return configRepository.findAll().stream()
                 .map(this::mapEntityToDto)
                 .collect(Collectors.toList());
     }
+
+    // *** --- ADD THIS NEW METHOD --- ***
+    // Get all config entities (for internal services)
+    public List<SsoProviderConfig> getAllConfigEntities() {
+        log.info("Fetching all SSO provider configuration ENTITIES");
+        return configRepository.findAll();
+    }
+    // *** --- END NEW METHOD --- ***
+
 
     // Get a specific config by ID (for editing)
     public SsoProviderConfigDto getConfigById(Long id) {
@@ -58,12 +69,14 @@ public class SsoConfigService {
             throw new IllegalArgumentException("Provider ID and Type cannot be changed.");
         }
 
-        // Copy properties from DTO to entity (excluding ID, createdAt, updatedAt)
-        // Be careful with BeanUtils in production - consider explicit mapping or MapStruct
-        BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt");
+        // Copy all non-secret properties
+        BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret");
 
-        // Explicitly handle potentially sensitive or null fields if BeanUtils isn't precise enough
-        // existingConfig.setClientSecret(dto.getClientSecret()); // Example
+        // Only update the client secret if a new, non-blank value is provided
+        if (StringUtils.hasText(dto.getClientSecret())) {
+            log.debug("Client secret is being updated for config ID: {}", id);
+            existingConfig.setClientSecret(dto.getClientSecret());
+        }
 
         SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
         log.info("SSO config updated successfully for ID: {}", id);
@@ -81,9 +94,7 @@ public class SsoConfigService {
     // Mapper helper
     private SsoProviderConfigDto mapEntityToDto(SsoProviderConfig entity) {
         SsoProviderConfigDto dto = new SsoProviderConfigDto();
-        // Copy properties, potentially excluding sensitive ones like clientSecret
-        BeanUtils.copyProperties(entity, dto, "clientSecret"); // Example: Exclude secret
-        // dto.setClientSecret(null); // Explicitly nullify if needed
+        BeanUtils.copyProperties(entity, dto);
         return dto;
     }
 

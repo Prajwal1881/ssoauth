@@ -72,6 +72,10 @@ public class SsoProviderConfig {
     @Column(length = 512)
     private String jwtSsoUrl; // URL to redirect the user to for initiating JWT SSO
 
+    // *** NEW FIELD ADDED ***
+    @Column(length = 512)
+    private String jwtRedirectUri; // Callback URL for JWT flow
+
     // Use TEXT type for potentially long certificate strings in PostgreSQL
     @Column(columnDefinition = "TEXT")
     private String jwtCertificate; // Public certificate (PEM format) for JWT signature verification

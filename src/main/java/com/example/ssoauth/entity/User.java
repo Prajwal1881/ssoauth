@@ -110,11 +110,11 @@ public class User {
         return Arrays.asList(this.roles.split(",")).contains(role.trim());
     }
 
+    // *** UPDATED ENUM ***
     public enum AuthProvider {
         LOCAL,
-        SSO, // OIDC Flow
-        GOOGLE, // Placeholder
-        MINIORANGE, // Placeholder
+        OIDC, // Standard OIDC flow
+        SAML, // Standard SAML flow
         SSO_JWT // Manual JWT Flow
     }
 }

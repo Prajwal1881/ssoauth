@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 
 @Service
 @RequiredArgsConstructor
@@ -113,49 +114,83 @@ public class AuthService {
 
     /**
      * Handles the OIDC login flow.
-     * Extracts info from the OidcUser and calls the generic processSsoLogin method.
      */
     @Transactional
     public User processOidcLogin(OidcUser oidcUser) {
         log.info("Processing OIDC Login for email: {}", oidcUser.getEmail());
+        // Use OIDC 'sub' (subject) claim as the unique provider ID
         return processSsoLogin(
                 oidcUser.getEmail(),
                 oidcUser.getGivenName(),
                 oidcUser.getFamilyName(),
                 oidcUser.getSubject(),
-                User.AuthProvider.SSO
+                User.AuthProvider.OIDC,
+                oidcUser.getIssuer().toString() // Pass issuer as registrationId
         );
     }
 
     /**
-     * Generic method to find or create an SSO user in the database.
-     * UPDATED: Uses cache-bypassing query to ensure roles are current.
+     * NEW: Handles the SAML login flow.
      */
     @Transactional
-    public User processSsoLogin(String email, String firstName, String lastName, String providerId, User.AuthProvider provider) {
+    public User processSamlLogin(Saml2AuthenticatedPrincipal samlUser) {
+        String email = samlUser.getFirstAttribute("email");
+        if (email == null) {
+            // Fallback to NameID if email attribute isn't present
+            email = samlUser.getName();
+        }
+        log.info("Processing SAML Login for email: {}", email);
+
+        // Use SAML 'NameID' as the unique provider ID
+        String providerId = samlUser.getName();
+
+        // Extract registrationId (e.g., "saml_miniorange")
+        String registrationId = samlUser.getRelyingPartyRegistrationId();
+
+        return processSsoLogin(
+                email,
+                samlUser.getFirstAttribute("firstName"),
+                samlUser.getFirstAttribute("lastName"),
+                providerId,
+                User.AuthProvider.SAML,
+                registrationId // Pass the registrationId
+        );
+    }
+
+
+    /**
+     * Generic method to find or create an SSO user in the database.
+     * UPDATED to find or create by providerId OR email.
+     */
+    @Transactional
+    public User processSsoLogin(String email, String firstName, String lastName, String providerId, User.AuthProvider provider, String registrationId) {
         if (email == null || email.isEmpty()) {
             log.error("Email from SSO provider ({}) is null or empty. Cannot process login.", provider);
             throw new IllegalArgumentException("Email from SSO provider cannot be null");
         }
-        log.info("Processing SSO login for email: {}, provider: {}", email, provider);
+        log.info("Processing SSO login for email: {}, provider: {}, providerId: {}", email, provider, providerId);
 
-        // !!! CRITICAL FIX: Use the cache-bypassing query here !!!
-        User user = userRepository.findByEmail(email)
+        // Try to find user by their unique providerId first
+        User user = userRepository.findByProviderId(providerId)
+                .or(() -> {
+                    // If not found by providerId, try by email
+                    log.warn("User not found by providerId {}. Attempting lookup by email: {}", providerId, email);
+                    return userRepository.findByEmail(email); // Uses cache-bypassing query
+                })
                 .map(existingUser -> {
-                    // User exists, update last login time and return
-                    log.info("Found existing user by email: {}. Updating last login.", email);
-                    // The returned entity has the FRESH roles loaded directly from DB.
-                    if (provider == User.AuthProvider.SSO_JWT) {
-                        // This ensures the entity is marked as having the Admin role for the current transaction
-                        existingUser.addRole("ROLE_ADMIN");
-                        log.info("Forced ROLE_ADMIN onto entity for redirection check.");
-                    }
-                    return existingUser;
+                    // User exists, update details if necessary
+                    log.info("Found existing user by email or providerId: {}. Updating details.", email);
+                    existingUser.setAuthProvider(provider);
+                    existingUser.setProviderId(providerId); // Ensure providerId is set
+                    existingUser.setLastLogin(LocalDateTime.now());
+                    return userRepository.save(existingUser);
                 })
                 .orElseGet(() -> {
                     // User does not exist, create a new one
                     log.info("Creating new SSO user via {} for email: {}", provider, email);
-                    String username = generateUniqueUsername(email, provider, providerId);
+
+                    // Use registrationId (e.g., saml_miniorange) to generate a unique username
+                    String username = generateUniqueUsername(email, registrationId);
 
                     User newUser = User.builder()
                             .username(username)
@@ -171,11 +206,10 @@ public class AuthService {
                             .accountNonLocked(true)
                             .credentialsNonExpired(true)
                             .build();
+                    newUser.setLastLogin(LocalDateTime.now());
                     return userRepository.save(newUser);
                 });
 
-        userRepository.updateLastLogin(user.getId(), LocalDateTime.now());
-        log.info("Updated last login for user ID: {}", user.getId());
         return user;
     }
 
@@ -197,19 +231,29 @@ public class AuthService {
     }
 
     // Helper to generate a potentially unique username
-    private String generateUniqueUsername(String email, User.AuthProvider provider, String providerId) {
-        String baseUsername = email.split("@")[0] + "_" + provider.name().toLowerCase();
+    private String generateUniqueUsername(String email, String registrationId) {
+        // Clean up registrationId to be a valid username part
+        String cleanRegId = registrationId.replaceAll("[^a-zA-Z0-9_]", "_");
+
+        String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "_") + "_" + cleanRegId;
+
+        // Ensure username is not too long
+        if (baseUsername.length() > 40) {
+            baseUsername = baseUsername.substring(0, 40);
+        }
+
         if (!userRepository.existsByUsername(baseUsername)) {
             return baseUsername;
         }
-        // If base exists, add part of the providerId hash for uniqueness
-        String uniqueSuffix = Integer.toHexString(providerId.hashCode()).substring(0, Math.min(6, Integer.toHexString(providerId.hashCode()).length()));
-        String finalUsername = baseUsername + "_" + uniqueSuffix;
 
-        // Final check in case of hash collision (rare)
+        // If base exists, add counter
+        String finalUsername = baseUsername;
         int counter = 1;
         while (userRepository.existsByUsername(finalUsername)) {
-            finalUsername = baseUsername + "_" + uniqueSuffix + "_" + counter++;
+            finalUsername = baseUsername + "_" + counter++;
+            if (finalUsername.length() > 50) { // Max username length
+                finalUsername = baseUsername.substring(0, 40) + "_" + counter++;
+            }
         }
         return finalUsername;
     }
