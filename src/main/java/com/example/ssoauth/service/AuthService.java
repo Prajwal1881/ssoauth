@@ -1,8 +1,10 @@
 package com.example.ssoauth.service;
 
 import com.example.ssoauth.dto.*;
+import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.ResourceAlreadyExistsException;
+import com.example.ssoauth.exception.SSOAuthenticationException;
 import com.example.ssoauth.repository.UserRepository;
 import com.example.ssoauth.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +16,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 
@@ -28,10 +35,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final SsoConfigService ssoConfigService;
 
-    /**
-     * Handles local username/password sign-in.
-     */
     @Transactional
     public JwtAuthResponse signIn(SignInRequest signInRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -40,18 +45,13 @@ public class AuthService {
                         signInRequest.getPassword()
                 )
         );
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
         String username = authentication.getName();
         User user = userRepository.findByUsernameOrEmail(username, username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
-
         userRepository.updateLastLogin(user.getId(), LocalDateTime.now());
-
         String accessToken = jwtTokenProvider.generateToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(username);
-
         return JwtAuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -60,20 +60,14 @@ public class AuthService {
                 .userInfo(mapToUserInfo(user))
                 .build();
     }
-
-    /**
-     * Handles local user sign-up.
-     */
     @Transactional
     public JwtAuthResponse signUp(SignUpRequest signUpRequest) {
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
             throw new ResourceAlreadyExistsException("Username is already taken!");
         }
-
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             throw new ResourceAlreadyExistsException("Email is already in use!");
         }
-
         User user = User.builder()
                 .username(signUpRequest.getUsername())
                 .email(signUpRequest.getEmail())
@@ -87,22 +81,16 @@ public class AuthService {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .build();
-
         User savedUser = userRepository.save(user);
-
-        // Authenticate the user immediately after sign-up
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         signUpRequest.getUsername(),
                         signUpRequest.getPassword()
                 )
         );
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
         String accessToken = jwtTokenProvider.generateToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getUsername());
-
         return JwtAuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -112,95 +100,174 @@ public class AuthService {
                 .build();
     }
 
+
     /**
-     * Handles the OIDC login flow.
+     * UPDATED: Handles the OIDC login flow using "smart" attribute finding
      */
     @Transactional
     public User processOidcLogin(OidcUser oidcUser) {
-        log.info("Processing OIDC Login for email: {}", oidcUser.getEmail());
-        // Use OIDC 'sub' (subject) claim as the unique provider ID
+        String registrationId = oidcUser.getIssuer().toString();
+
+        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
+                .orElseGet(() -> {
+                    if (oidcUser.getIssuer().toString().startsWith("httpss://csumairkhan.xecurify.com")) {
+                        return ssoConfigService.getConfigByProviderId("oidc_miniorange")
+                                .orElseThrow(() -> new SSOAuthenticationException("No OIDC config found for 'oidc_miniorange'"));
+                    }
+                    throw new SSOAuthenticationException("No OIDC config found for issuer: " + registrationId);
+                });
+
+        Map<String, Object> claims = oidcUser.getClaims();
+
+        // --- NEW: LOG ALL OIDC ATTRIBUTES ---
+        log.info("--- OIDC ATTRIBUTE DUMP (START) ---");
+        log.info("Provider: {}", config.getProviderId());
+        claims.forEach((key, value) -> log.info("  Claim: '{}', Value: '{}'", key, value.toString()));
+        log.info("--- OIDC ATTRIBUTE DUMP (END) ---");
+
+        // --- "SMART" ATTRIBUTE FINDING ---
+        String username = findOidcAttribute(claims, "preferred_username", "username", "uid");
+        String email = findOidcAttribute(claims, "email", "mail", "userPrincipalName");
+        String firstName = findOidcAttribute(claims, "given_name", "firstName", "fn");
+        String lastName = findOidcAttribute(claims, "family_name", "lastName", "sn");
+
+        if (email == null) email = oidcUser.getEmail(); // Fallback
+
+        log.info("Processing OIDC Login for email: {}", email);
+
         return processSsoLogin(
-                oidcUser.getEmail(),
-                oidcUser.getGivenName(),
-                oidcUser.getFamilyName(),
+                username,
+                email,
+                firstName,
+                lastName,
                 oidcUser.getSubject(),
                 User.AuthProvider.OIDC,
-                oidcUser.getIssuer().toString() // Pass issuer as registrationId
+                config.getProviderId()
         );
     }
 
     /**
-     * NEW: Handles the SAML login flow.
+     * UPDATED: Handles the SAML login flow using "smart" attribute finding
      */
     @Transactional
     public User processSamlLogin(Saml2AuthenticatedPrincipal samlUser) {
-        String email = samlUser.getFirstAttribute("email");
-        if (email == null) {
-            // Fallback to NameID if email attribute isn't present
-            email = samlUser.getName();
-        }
-        log.info("Processing SAML Login for email: {}", email);
-
-        // Use SAML 'NameID' as the unique provider ID
-        String providerId = samlUser.getName();
-
-        // Extract registrationId (e.g., "saml_miniorange")
         String registrationId = samlUser.getRelyingPartyRegistrationId();
 
+        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
+                .orElseThrow(() -> new SSOAuthenticationException("No SAML config found for: " + registrationId));
+
+        Map<String, List<Object>> attributes = samlUser.getAttributes();
+
+        // --- NEW: LOG ALL SAML ATTRIBUTES ---
+        log.info("--- SAML ATTRIBUTE DUMP (START) ---");
+        log.info("Provider: {}", config.getProviderId());
+        attributes.forEach((key, value) -> log.info("  Attribute: '{}', Value: '{}'", key,
+                value.stream().map(Object::toString).collect(Collectors.joining(","))
+        ));
+        log.info("--- SAML ATTRIBUTE DUMP (END) ---");
+
+        // --- "SMART" ATTRIBUTE FINDING ---
+        String username = findSamlAttribute(attributes, "username", "uid", "preferred_username");
+        String email = findSamlAttribute(attributes, "email", "mail", "userPrincipalName");
+        String firstName = findSamlAttribute(attributes, "firstName", "givenName", "fn");
+        String lastName = findSamlAttribute(attributes, "lastName", "sn");
+
+        if (email == null) email = samlUser.getName(); // Fallback
+
+        log.info("Processing SAML Login for email: {}", email);
+
         return processSsoLogin(
+                username,
                 email,
-                samlUser.getFirstAttribute("firstName"),
-                samlUser.getFirstAttribute("lastName"),
-                providerId,
+                firstName,
+                lastName,
+                samlUser.getName(),
                 User.AuthProvider.SAML,
-                registrationId // Pass the registrationId
+                registrationId
         );
+    }
+
+    // Helper to find the first matching OIDC claim
+    private String findOidcAttribute(Map<String, Object> claims, String... keys) {
+        for (String key : keys) {
+            if (claims.containsKey(key) && claims.get(key) != null) {
+                return claims.get(key).toString();
+            }
+        }
+        return null;
+    }
+
+    // Helper to find the first matching SAML attribute
+    private String findSamlAttribute(Map<String, List<Object>> attributes, String... keys) {
+        for (String key : keys) {
+            if (attributes.containsKey(key) && attributes.get(key) != null && !attributes.get(key).isEmpty()) {
+                Object value = attributes.get(key).get(0);
+                if (value != null) {
+                    return value.toString();
+                }
+            }
+        }
+        return null;
     }
 
 
     /**
-     * Generic method to find or create an SSO user in the database.
-     * UPDATED to find or create by providerId OR email.
+     * UPDATED: Generic method to find or create an SSO user
      */
     @Transactional
-    public User processSsoLogin(String email, String firstName, String lastName, String providerId, User.AuthProvider provider, String registrationId) {
+    public User processSsoLogin(String username, String email, String firstName, String lastName, String providerId, User.AuthProvider provider, String registrationId) {
         if (email == null || email.isEmpty()) {
             log.error("Email from SSO provider ({}) is null or empty. Cannot process login.", provider);
             throw new IllegalArgumentException("Email from SSO provider cannot be null");
         }
         log.info("Processing SSO login for email: {}, provider: {}, providerId: {}", email, provider, providerId);
 
-        // Try to find user by their unique providerId first
         User user = userRepository.findByProviderId(providerId)
                 .or(() -> {
-                    // If not found by providerId, try by email
                     log.warn("User not found by providerId {}. Attempting lookup by email: {}", providerId, email);
-                    return userRepository.findByEmail(email); // Uses cache-bypassing query
+                    return userRepository.findByEmail(email);
                 })
                 .map(existingUser -> {
-                    // User exists, update details if necessary
                     log.info("Found existing user by email or providerId: {}. Updating details.", email);
                     existingUser.setAuthProvider(provider);
-                    existingUser.setProviderId(providerId); // Ensure providerId is set
+                    existingUser.setProviderId(providerId);
                     existingUser.setLastLogin(LocalDateTime.now());
+                    if (!StringUtils.hasText(existingUser.getFirstName()) && StringUtils.hasText(firstName)) {
+                        existingUser.setFirstName(firstName);
+                    }
+                    if (!StringUtils.hasText(existingUser.getLastName()) && StringUtils.hasText(lastName)) {
+                        existingUser.setLastName(lastName);
+                    }
                     return userRepository.save(existingUser);
                 })
                 .orElseGet(() -> {
-                    // User does not exist, create a new one
                     log.info("Creating new SSO user via {} for email: {}", provider, email);
 
-                    // Use registrationId (e.g., saml_miniorange) to generate a unique username
-                    String username = generateUniqueUsername(email, registrationId);
+                    // --- "TRY/FALLBACK" USERNAME LOGIC ---
+                    String finalUsername;
+                    if (StringUtils.hasText(username) && !userRepository.existsByUsername(username)) {
+                        // Use the username from IdP if it's provided and available
+                        finalUsername = username;
+                        log.info("Using provided username from IdP: {}", finalUsername);
+                    } else {
+                        // Fallback to generating a unique username
+                        if (StringUtils.hasText(username)) {
+                            log.warn("Username '{}' from IdP already exists. Generating a unique username.", username);
+                        }
+                        finalUsername = generateUniqueUsername(email, registrationId);
+                        log.info("Generated unique username: {}", finalUsername);
+                    }
+                    // --- END LOGIC ---
 
                     User newUser = User.builder()
-                            .username(username)
+                            .username(finalUsername)
                             .email(email)
-                            .password(passwordEncoder.encode(generateRandomPassword())) // Unusable password
+                            .password(passwordEncoder.encode(generateRandomPassword()))
                             .firstName(firstName)
                             .lastName(lastName)
                             .authProvider(provider)
                             .providerId(providerId)
-                            .roles("ROLE_USER") // New SSO users get default role
+                            .roles("ROLE_USER")
                             .enabled(true)
                             .accountNonExpired(true)
                             .accountNonLocked(true)
@@ -230,14 +297,11 @@ public class AuthService {
                 .build();
     }
 
-    // Helper to generate a potentially unique username
     private String generateUniqueUsername(String email, String registrationId) {
-        // Clean up registrationId to be a valid username part
         String cleanRegId = registrationId.replaceAll("[^a-zA-Z0-9_]", "_");
 
         String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "_") + "_" + cleanRegId;
 
-        // Ensure username is not too long
         if (baseUsername.length() > 40) {
             baseUsername = baseUsername.substring(0, 40);
         }
@@ -246,12 +310,11 @@ public class AuthService {
             return baseUsername;
         }
 
-        // If base exists, add counter
         String finalUsername = baseUsername;
         int counter = 1;
         while (userRepository.existsByUsername(finalUsername)) {
             finalUsername = baseUsername + "_" + counter++;
-            if (finalUsername.length() > 50) { // Max username length
+            if (finalUsername.length() > 50) {
                 finalUsername = baseUsername.substring(0, 40) + "_" + counter++;
             }
         }

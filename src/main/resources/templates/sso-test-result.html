@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>SSO Test Result</title>
+    <style>
+        :root {
+            --primary-orange: #FF6600;
+            --success-color: #28a745;
+            --success-bg: #d4edda;
+            --error-color: #DC3545;
+            --error-bg: #f8d7da;
+            --text-color: #333333;
+            --border-color: #DDDDDD;
+            --form-background: #FFFFFF;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+            background-color: #f9f9f9;
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--form-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .header-banner {
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+        .header-banner.success {
+            background-color: var(--success-bg);
+            color: var(--success-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .header-banner.error {
+            background-color: var(--error-bg);
+            color: var(--error-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .content { padding: 25px; }
+        .content p { font-size: 1.1em; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            text-align: left;
+            word-break: break-all;
+        }
+        th {
+            background-color: #f4f4f4;
+            font-weight: 600;
+            width: 30%;
+        }
+        .close-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: var(--primary-orange);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div th:if="${success}" class="header-banner success">
+        <img th:src="@{/images/success.png}" alt="Success" style="width: 50px; height: 50px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;">
+        TEST SUCCESSFUL
+    </div>
+
+    <div th:if="${!success}" class="header-banner error">
+        TEST FAILED
+    </div>
+
+    <div class="content">
+        <p th:if="${success}">Hello, <strong th:text="${email}">user@example.com</strong>!</p>
+        <p th:if="${success}">Here are the attributes received from your Identity Provider:</p>
+
+        <p th:if="${!success}">
+            <strong>Error:</strong>
+            <span th:text="${errorMessage}">An unknown error occurred.</span>
+        </p>
+
+        <table th:if="${success}">
+            <thead>
+            <tr>
+                <th>ATTRIBUTE NAME</th>
+                <th>ATTRIBUTE VALUE</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="attr : ${attributes}">
+                <td th:text="${attr.key}"></td>
+                <td th:text="${attr.value}"></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <a href="#" onclick="window.close();" class="close-btn">Close Window</a>
+    </div>
+</div>
+
+</body>
+</html>

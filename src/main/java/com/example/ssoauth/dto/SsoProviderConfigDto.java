@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// DTO for returning config details (exclude sensitive info like secret if needed)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,8 +20,7 @@ public class SsoProviderConfigDto {
     // Common
     private String issuerUri;
     private String clientId;
-    private String clientSecret; // <<< --- ADD THIS FIELD ---
-    // Exclude clientSecret by default for GET requests
+    private String clientSecret;
     private String scopes;
 
     // OIDC
@@ -34,7 +32,7 @@ public class SsoProviderConfigDto {
 
     // JWT
     private String jwtSsoUrl;
-    private String jwtRedirectUri; // *** THIS FIELD WAS ADDED ***
+    private String jwtRedirectUri;
     private String jwtCertificate;
 
     // SAML
@@ -42,5 +40,6 @@ public class SsoProviderConfigDto {
     private String samlEntityId;
     private String samlCertificate;
 
-    // Add createdAt, updatedAt if needed
+    // --- Attribute Mapping Fields ---
+    // (We are removing all 'attribute...' fields)
 }

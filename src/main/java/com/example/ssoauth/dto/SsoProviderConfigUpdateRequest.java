@@ -5,15 +5,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-// DTO for updating configurations via API
 @Data
 public class SsoProviderConfigUpdateRequest {
 
     @NotBlank
-    private String providerId; // Usually not updatable, but needed for lookup/validation
+    private String providerId;
 
     @NotNull
-    private SsoProviderType providerType; // Usually not updatable
+    private SsoProviderType providerType;
 
     @NotBlank
     private String displayName;
@@ -21,11 +20,10 @@ public class SsoProviderConfigUpdateRequest {
     @NotNull
     private Boolean enabled;
 
-    // Include all fields that can be updated from the admin UI
-    // Make them nullable/optional as needed
+    // Common
     private String issuerUri;
     private String clientId;
-    private String clientSecret; // Allow updating the secret
+    private String clientSecret;
     private String scopes;
 
     // OIDC
@@ -37,11 +35,14 @@ public class SsoProviderConfigUpdateRequest {
 
     // JWT
     private String jwtSsoUrl;
-    private String jwtRedirectUri; // *** NEW FIELD ADDED ***
+    private String jwtRedirectUri;
     private String jwtCertificate;
 
     // SAML
     private String samlSsoUrl;
     private String samlEntityId;
     private String samlCertificate;
+
+    // --- Attribute Mapping Fields ---
+    // (We are removing all 'attribute...' fields)
 }

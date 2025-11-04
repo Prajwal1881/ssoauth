@@ -10,92 +10,90 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
-/**
- * Entity representing the configuration for an external SSO provider.
- * Stores details for OIDC, Manual JWT, or SAML protocols.
- */
 @Entity
-@Table(name = "sso_provider_configs") // Maps to the database table
-@Data // Lombok annotation for getters, setters, toString, equals, hashCode
-@NoArgsConstructor // Lombok annotation for no-args constructor
-@AllArgsConstructor // Lombok annotation for all-args constructor
-@Builder // Lombok annotation for builder pattern
+@Table(name = "sso_provider_configs")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class SsoProviderConfig {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // Primary key
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
-    private String providerId; // Unique identifier (e.g., 'oidc_miniorange', 'jwt_google')
+    private String providerId;
 
-    @Enumerated(EnumType.STRING) // Store enum names (OIDC, JWT, SAML) as strings
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private SsoProviderType providerType; // Type of SSO protocol
+    private SsoProviderType providerType;
 
     @Column(nullable = false, length = 100)
-    private String displayName; // User-friendly name for the provider
+    private String displayName;
 
     @Column(nullable = false)
-    private boolean enabled; // Toggle to enable/disable this provider
+    private boolean enabled;
 
-    // --- Common Fields (used by multiple protocols) ---
+    // --- Common Fields ---
     @Column(length = 512)
-    private String issuerUri; // Issuer identifier (iss claim or entity ID)
+    private String issuerUri;
 
     @Column(length = 255)
-    private String clientId; // Client ID provided by the IdP
-
-    @Column(length = 512) // Increased length for potentially long secrets
-    private String clientSecret; // Client Secret provided by the IdP (consider encryption)
+    private String clientId;
 
     @Column(length = 512)
-    private String scopes; // Requested scopes (e.g., "openid, profile, email"), comma-separated
+    private String clientSecret;
+
+    @Column(length = 512)
+    private String scopes;
 
     // --- OIDC Specific Fields ---
     @Column(length = 512)
-    private String authorizationUri; // OIDC Authorization Endpoint URL
+    private String authorizationUri;
 
     @Column(length = 512)
-    private String tokenUri; // OIDC Token Endpoint URL
+    private String tokenUri;
 
     @Column(length = 512)
-    private String userInfoUri; // OIDC UserInfo Endpoint URL
+    private String userInfoUri;
 
     @Column(length = 512)
-    private String jwkSetUri; // OIDC JWK Set URL for token signature verification
+    private String jwkSetUri;
 
     @Column(length = 100)
-    private String userNameAttribute; // Claim to use as the principal name (e.g., 'email', 'sub')
+    private String userNameAttribute;
 
     // --- Manual JWT Specific Fields ---
     @Column(length = 512)
-    private String jwtSsoUrl; // URL to redirect the user to for initiating JWT SSO
+    private String jwtSsoUrl;
 
-    // *** NEW FIELD ADDED ***
     @Column(length = 512)
-    private String jwtRedirectUri; // Callback URL for JWT flow
+    private String jwtRedirectUri;
 
-    // Use TEXT type for potentially long certificate strings in PostgreSQL
     @Column(columnDefinition = "TEXT")
-    private String jwtCertificate; // Public certificate (PEM format) for JWT signature verification
+    private String jwtCertificate;
 
     // --- SAML Specific Fields ---
     @Column(length = 512)
-    private String samlSsoUrl; // SAML SingleSignOnService URL (POST or Redirect binding)
+    private String samlSsoUrl;
 
     @Column(length = 512)
-    private String samlEntityId; // SAML Identity Provider Entity ID (often same as issuerUri)
+    private String samlEntityId;
 
-    // Use TEXT type for potentially long certificate strings in PostgreSQL
     @Column(columnDefinition = "TEXT")
-    private String samlCertificate; // SAML public signing certificate (PEM format)
+    private String samlCertificate;
+
+
+    // --- Attribute Mapping Fields ---
+    // (We are removing all 'attribute_...' fields)
+
 
     // --- Timestamps ---
-    @CreationTimestamp // Automatically set on creation
+    @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp // Automatically set on update
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
 }

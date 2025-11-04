@@ -9,6 +9,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils; // NEW IMPORT
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -35,23 +36,32 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
             return null;
         }
 
-        // Convert our SsoProviderConfig entity to a Spring Security ClientRegistration object
-        return ClientRegistration.withRegistrationId(config.getProviderId())
+        // --- THIS IS THE FIX ---
+        // We will now build the registration dynamically
+        ClientRegistration.Builder builder = ClientRegistration.withRegistrationId(config.getProviderId())
                 .clientId(config.getClientId())
                 .clientSecret(config.getClientSecret())
                 .clientName(config.getDisplayName())
-                .issuerUri(config.getIssuerUri())
                 .authorizationUri(config.getAuthorizationUri())
                 .tokenUri(config.getTokenUri())
                 .userInfoUri(config.getUserInfoUri())
                 .jwkSetUri(config.getJwkSetUri())
                 .userNameAttributeName(config.getUserNameAttribute())
                 .authorizationGrantType(new AuthorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE.getValue()))
-                .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}") // Spring will resolve {baseUrl} and {registrationId}
+                .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                 .scope(Arrays.stream(config.getScopes().split(","))
                         .map(String::trim)
                         .collect(Collectors.toSet()))
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC) // Or as configured
-                .build();
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
+
+        // *** THIS IS THE CRITICAL CHANGE ***
+        // Only set the Issuer URI if the user has provided one.
+        // If it's blank, we let Spring Security discover it automatically
+        // (which is the correct behavior for your MiniOrange setup).
+        if (StringUtils.hasText(config.getIssuerUri())) {
+            builder.issuerUri(config.getIssuerUri());
+        }
+
+        return builder.build();
     }
 }

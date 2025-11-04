@@ -5,7 +5,9 @@ import com.example.ssoauth.security.JwtAuthenticationEntryPoint;
 import com.example.ssoauth.security.JwtTokenProvider;
 import com.example.ssoauth.service.AuthService;
 import com.example.ssoauth.entity.User;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,21 +33,22 @@ import org.springframework.security.saml2.provider.service.registration.RelyingP
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // Enables @PreAuthorize for method-level security
+@EnableMethodSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-
-    // Inject your dynamic repositories
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
 
@@ -55,64 +58,55 @@ public class SecurityConfig {
                                                           AuthenticationSuccessHandler samlLoginSuccessHandler
     ) throws Exception {
         http
-                // --- CSRF Configuration ---
-                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF as we use JWT
-
-                // --- CORS Configuration ---
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Apply CORS settings
-
-                // --- Exception Handling ---
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)) // Custom entry point for unauthorized errors
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint))
 
-                // --- Authorization Rules ---
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers( // Public endpoints
+                        .requestMatchers(
                                 "/", "/login", "/signup", "/error",
-                                "/css/**", "/js/**", "/images/**", // Static assets
-                                "/api/auth/**", // Local Sign-in/Sign-up API
+                                "/css/**", "/js/**", "/images/**",
+                                "/api/auth/**",
                                 "/api/sso/enabled-providers",
-                                "/oauth2/**", // OIDC flow URLs
-                                "/login/jwt/callback", // Manual JWT flow callback
+                                // *** --- THIS IS THE FIX --- ***
+                                // We add the new public test URL here
+                                "/api/sso/test-attributes/**",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
+                                "/login/jwt/callback",
                                 "/saml2/**",
                                 "/login/saml2/**",
-                                "/dashboard", // User dashboard page is public
-                                "/admin/dashboard" // Admin dashboard page is public
+                                "/dashboard",
+                                "/admin/dashboard",
+                                "/admin/sso-test-result"
                         ).permitAll()
-                        .requestMatchers( // Admin-only API endpoints
-                                "/api/admin/**" // Secure only the ADMIN API
+                        .requestMatchers(
+                                "/api/admin/**"
                         ).hasRole("ADMIN")
-                        .requestMatchers( // Regular user API endpoints
-                                "/api/user/**" // Secure USER API
+                        .requestMatchers(
+                                "/api/user/**"
                         ).hasRole("USER")
-                        .anyRequest().authenticated() // Secure everything else by default
+                        .anyRequest().authenticated()
                 )
-
-                // --- OAuth2 / OIDC Login Configuration ---
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
                         .clientRegistrationRepository(dynamicOidcRepository)
                         .successHandler(oidcLoginSuccessHandler)
                 )
-
-                // --- SAML 2.0 Login Configuration ---
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
                         .successHandler(samlLoginSuccessHandler)
                 )
-
-                // --- Authentication Provider ---
                 .authenticationProvider(authenticationProvider())
-
-                // --- Custom JWT Filter ---
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     /**
-     * This handler is only for the OIDC (OAuth2) flow.
+     * UPDATED: This handler now checks if it's a test.
      */
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
@@ -120,10 +114,26 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider
     ) {
         return (request, response, authentication) -> {
+            HttpSession session = request.getSession();
+            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
             OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
-            User appUser = authService.processOidcLogin(oidcUser); // Find/create user in DB
-            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
+            // Check if this is an attribute test
+            if (testProviderId != null) {
+                log.info("OIDC login is an attribute test for: {}", testProviderId);
+                Map<String, String> attributes = new HashMap<>();
+                oidcUser.getClaims().forEach((key, value) -> {
+                    attributes.put(key, value.toString());
+                });
+
+                session.setAttribute("sso_test_attributes", attributes);
+                response.sendRedirect("/admin/sso-test-result");
+                return; // Stop processing
+            }
+
+            // --- Normal Login Flow ---
+            User appUser = authService.processOidcLogin(oidcUser);
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
             String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
             response.sendRedirect(redirectUrl);
@@ -131,7 +141,7 @@ public class SecurityConfig {
     }
 
     /**
-     * This handler is only for the SAML flow.
+     * UPDATED: This handler now checks if it's a test.
      */
     @Bean
     public AuthenticationSuccessHandler samlLoginSuccessHandler(
@@ -139,10 +149,30 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider
     ) {
         return (request, response, authentication) -> {
+            HttpSession session = request.getSession();
+            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
             Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
-            User appUser = authService.processSamlLogin(samlUser); // Find/create user in DB
-            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
+            // Check if this is an attribute test
+            if (testProviderId != null && testProviderId.equals(samlUser.getRelyingPartyRegistrationId())) {
+                log.info("SAML login is an attribute test for: {}", testProviderId);
+                Map<String, String> attributes = new HashMap<>();
+                attributes.put("NameID", samlUser.getName()); // Add NameID
+                samlUser.getAttributes().forEach((key, value) -> {
+                    String aValue = value.stream()
+                            .map(Object::toString)
+                            .collect(Collectors.joining(", "));
+                    attributes.put(key, aValue);
+                });
+
+                session.setAttribute("sso_test_attributes", attributes);
+                response.sendRedirect("/admin/sso-test-result");
+                return; // Stop processing
+            }
+
+            // --- Normal Login Flow ---
+            User appUser = authService.processSamlLogin(samlUser);
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
             String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
             response.sendRedirect(redirectUrl);
@@ -167,21 +197,14 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // --- *** THIS IS THE CORRECTED BEAN *** ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // --- THIS IS THE FIX ---
-        // Instead of a specific list, we use a pattern.
-        // This allows any origin, which is required for SAML POST bindings.
         configuration.addAllowedOriginPattern("*");
-
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // This is critical for SAML
+        configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
