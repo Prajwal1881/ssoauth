@@ -108,12 +108,12 @@
         <p>Use the tabs above to manage users or configure Single Sign-On providers.</p>
         <h4>How to Test Your SSO Configuration:</h4>
         <ol>
-            <li>Configure and save an SSO provider (e.g., OIDC or SAML).</li>
+            <li>Configure and save an SSO provider (e.g., OIDC, SAML, or JWT).</li>
             <li>Click the **"Test Connection"** button. This will open a new popup window.</li>
             <li>Perform a real SSO login as a test user *in that popup window*.</li>
             <li>The popup window will refresh and show you a "TEST SUCCESSFUL" message along with a table of all attributes your app received from the IdP.</li>
             <li>You can also check your application's console logs for a message starting with "--- ATTRIBUTE DUMP (START) ---".</li>
-        </ol>
+            </I>
     </div>
 
     <div id="userManagement" class="tab-content">
@@ -234,6 +234,9 @@
             <textarea id="jwtCertificate" placeholder="Paste PEM certificate here..."></textarea>
 
             <button type="submit" class="btn-save">Save JWT Config</button>
+            <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">
+                Test Connection
+            </button>
         </form>
     </div>
 </div>
@@ -418,7 +421,8 @@
                      document.getElementById('oidcDisplayName').value = config.displayName || '';
                      document.getElementById('oidcIssuerUri').value = config.issuerUri || '';
                      document.getElementById('oidcClientId').value = config.clientId || '';
-                     document.getElementById('oidcClientSecret').value = config.clientSecret || '';
+                     // Do NOT populate the secret field, it's write-only
+                     // document.getElementById('oidcClientSecret').value = config.clientSecret || '';
                      document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
                      document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
                      document.getElementById('oidcTokenUri').value = config.tokenUri || '';
@@ -430,7 +434,8 @@
                      document.getElementById('jwtDisplayName').value = config.displayName || '';
                      document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
                      document.getElementById('jwtClientId').value = config.clientId || '';
-                     document.getElementById('jwtClientSecret').value = config.clientSecret || '';
+                     // Do NOT populate the secret field, it's write-only
+                     // document.getElementById('jwtClientSecret').value = config.clientSecret || '';
                      document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || 'http://localhost:8080/login/jwt/callback';
                      document.getElementById('jwtIssuerUri').value = config.issuerUri || '';
                      document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
@@ -455,6 +460,7 @@
         }
 
         const configId = configDataStore[providerId];
+        // *** FIX: Check if config exists in store. If not, it's a CREATE. ***
         const isUpdate = !!configId;
         const url = isUpdate ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
         const method = isUpdate ? 'PUT' : 'POST';
@@ -467,7 +473,7 @@
             configData.samlEntityId = document.getElementById('samlEntityId').value;
             configData.samlSsoUrl = document.getElementById('samlSsoUrl').value;
             configData.samlCertificate = document.getElementById('samlCertificate').value;
-            configData.issuerUri = configData.samlEntityId;
+            configData.issuerUri = configData.samlEntityId; // Set common field
         } else if (providerType === 'OIDC') {
              configData.enabled = document.getElementById('oidcEnable').checked;
              configData.displayName = document.getElementById('oidcDisplayName').value;
@@ -489,7 +495,7 @@
             const secret = document.getElementById('jwtClientSecret').value;
              if (secret && secret.trim() !== '') configData.clientSecret = secret;
             configData.jwtRedirectUri = document.getElementById('jwtRedirectUri').value;
-            configData.issuerUri = document.getElementById('jwtIssuerUri').value;
+            configData.issuerUri = document.getElementById('jwtIssuerUri').value; // Use common field
             configData.jwtCertificate = document.getElementById('jwtCertificate').value;
         }
 
@@ -600,12 +606,14 @@
 
     // --- Initial Load ---
     if (token) {
+        // Load the welcome tab by default, which is already set to active
     } else {
          showError("Authentication token not found. Please log in again.");
-         userTableBody.innerHTML = '<tr><td colspan="8">Authentication failed.</td></tr>';
+         // Disable tabs if no token
     }
     document.getElementById("welcome").style.display = "block";
 </script>
+
 
 </body>
 </html>
