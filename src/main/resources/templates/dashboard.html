@@ -50,6 +50,13 @@
             align-items: center;
         }
 
+        /* NEW: Header logo styles */
+        .header-logo-img {
+            max-height: 40px;
+            margin-right: 15px;
+            display: none; /* Hide by default */
+        }
+
         .header-left .logo {
             font-size: 1.8rem;
             font-weight: 700;
@@ -289,10 +296,13 @@
 
 <div class="header">
     <div class="header-left">
-        <a href="/dashboard" class="logo">My SSO App</a>
+        <img src="" alt="Logo" class="header-logo-img" id="header-logo" />
+        <a href="/dashboard" class="logo" id="header-logo-text">My SSO App</a>
         <a href="/dashboard" class="nav-link">Dashboard</a>
 
         <a href="/admin/dashboard" class="nav-link" id="admin-panel-link" style="display: none;">Admin Panel</a>
+
+        <a href="/super-admin/dashboard" class="nav-link" id="super-admin-panel-link" style="display: none;">Super Admin</a>
     </div>
     <div class="header-right">
         <button class="profile-button" id="profile-button">Profile</button>
@@ -367,9 +377,36 @@
     (async function() {
         const userGreetingNameEl = document.getElementById('user-greeting-name');
         const adminPanelLinkEl = document.getElementById('admin-panel-link');
+        const superAdminPanelLinkEl = document.getElementById('super-admin-panel-link'); // NEW
         const errorCardEl = document.getElementById('error-card');
 
-        // --- 1. Handle Token from URL (from SSO login) ---
+        // --- 1. Apply Branding ---
+        try {
+            const response = await fetch('/api/public/branding');
+            if (response.ok) {
+                const branding = await response.json();
+                if (branding.brandingLogoUrl) {
+                    const logoEl = document.getElementById('header-logo');
+                    logoEl.src = branding.brandingLogoUrl;
+                    logoEl.style.display = 'inline-block';
+                    document.getElementById('header-logo-text').style.display = 'none'; // Hide text logo
+                }
+                if (branding.tenantName) {
+                    document.getElementById('header-logo-text').textContent = branding.tenantName;
+                }
+                if (branding.brandingPrimaryColor) {
+                    document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+                    // Also update button hover
+                    // This is a simple shade darker, you might want to calculate this
+                    // or have a --secondary-color in your branding API response.
+                    // For now, let's keep it simple.
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching branding:', error);
+        }
+
+        // --- 2. Handle Token from URL (from SSO login) ---
         const params = new URLSearchParams(window.location.search);
         const tokenFromUrl = params.get('token');
         let token = localStorage.getItem('accessToken');
@@ -385,10 +422,12 @@
             errorCardEl.textContent = 'Session not found. Please log in.';
             errorCardEl.style.display = 'block';
             userGreetingNameEl.textContent = "Guest";
+            // NEW: Redirect to login if no token
+            setTimeout(() => { window.location.href = '/login'; }, 2000);
             return;
         }
 
-        // --- 2. Fetch User Data from Secured API ---
+        // --- 3. Fetch User Data from Secured API ---
         try {
             const response = await fetch('/api/user/me', {
                 method: 'GET',
@@ -399,12 +438,8 @@
 
             if (response.ok) {
                 const user = await response.json();
-
-                // Save fresh user info (including latest roles)
                 localStorage.setItem('userInfo', JSON.stringify(user));
-
                 updateUIWithUserInfo(user);
-
             } else if (response.status === 401 || response.status === 403) {
                 throw new Error("Session expired or access denied.");
             } else {
@@ -413,13 +448,14 @@
 
         } catch (e) {
             console.error('Error fetching user:', e);
-            // Show error card instead of just text
             const currentError = (e.message.includes("Session expired") || e.message.includes("access denied")) ? "Session Expired. Please log in again." : "Error loading user data.";
             errorCardEl.textContent = currentError;
             errorCardEl.style.display = 'block';
             userGreetingNameEl.textContent = "Guest";
             localStorage.removeItem('accessToken');
             localStorage.removeItem('userInfo');
+            // NEW: Redirect to login on auth error
+            setTimeout(() => { window.location.href = '/login'; }, 2000);
         }
     })();
 
@@ -427,25 +463,29 @@
     function updateUIWithUserInfo(user) {
         const userGreetingNameEl = document.getElementById('user-greeting-name');
         const adminPanelLinkEl = document.getElementById('admin-panel-link');
+        const superAdminPanelLinkEl = document.getElementById('super-admin-panel-link'); // NEW
 
         userGreetingNameEl.textContent = user.firstName || user.username;
 
-        // Check for Admin Role and display link
-        if (user.roles && user.roles.includes('ROLE_ADMIN')) {
-            adminPanelLinkEl.style.display = 'block';
+        // --- UPDATED: Show correct admin link based on role ---
+        if (user.roles) {
+            if (user.roles.includes('ROLE_SUPER_ADMIN')) {
+                superAdminPanelLinkEl.style.display = 'block';
+            }
+            if (user.roles.includes('ROLE_ADMIN')) {
+                adminPanelLinkEl.style.display = 'block';
+            }
         }
     }
 
-    // --- Logout Functionality ---
+    // --- Logout Functionality (Unchanged) ---
     document.getElementById('logout-button').addEventListener('click', () => {
-        // Clear the token and user info from local storage (stateless logout)
         localStorage.removeItem('accessToken');
         localStorage.removeItem('userInfo');
-
         window.location.href = '/login';
     });
 
-    // --- Profile Modal Functions ---
+    // --- Profile Modal Functions (Unchanged) ---
     const profileModal = document.getElementById('profileModal');
     const profileButton = document.getElementById('profile-button');
     const profileUsername = document.getElementById('profile-username');
@@ -479,7 +519,6 @@
         profileModal.style.display = "none";
     }
 
-    // Close the modal if user clicks outside of it
     window.onclick = function(event) {
         if (event.target == profileModal) {
             profileModal.style.display = "none";

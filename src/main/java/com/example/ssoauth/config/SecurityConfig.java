@@ -51,6 +51,7 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
+    private final TenantIdentificationFilter tenantIdentificationFilter; // NEW
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
@@ -69,8 +70,7 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/**",
                                 "/api/sso/enabled-providers",
-                                // *** --- THIS IS THE FIX --- ***
-                                // We add the new public test URL here
+                                "/api/public/branding", // NEW public endpoint
                                 "/api/sso/test-attributes/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
@@ -79,14 +79,18 @@ public class SecurityConfig {
                                 "/login/saml2/**",
                                 "/dashboard",
                                 "/admin/dashboard",
-                                "/admin/sso-test-result"
+                                "/admin/sso-test-result",
+                                "/super-admin/dashboard" // NEW Super Admin UI
                         ).permitAll()
                         .requestMatchers(
                                 "/api/admin/**"
-                        ).hasRole("ADMIN")
+                        ).hasRole("ADMIN") // This is now CUSTOMER ADMIN
+                        .requestMatchers(
+                                "/api/super-admin/**"
+                        ).hasRole("SUPER_ADMIN") // NEW Super Admin API
                         .requestMatchers(
                                 "/api/user/**"
-                        ).hasRole("USER")
+                        ).hasAnyRole("USER", "ADMIN", "SUPER_ADMIN") // Allow all roles to access /me
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -100,13 +104,15 @@ public class SecurityConfig {
                         .successHandler(samlLoginSuccessHandler)
                 )
                 .authenticationProvider(authenticationProvider())
+                // NEW: Add Tenant filter BEFORE JWT filter
+                .addFilterBefore(tenantIdentificationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     /**
-     * UPDATED: This handler now checks if it's a test.
+     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
      */
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
@@ -134,14 +140,22 @@ public class SecurityConfig {
             // --- Normal Login Flow ---
             User appUser = authService.processOidcLogin(oidcUser);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
-            String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
+
+            // NEW: Redirect based on role
+            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
+                targetUrl = "/super-admin/dashboard";
+            } else if (appUser.hasRole("ROLE_ADMIN")) {
+                targetUrl = "/admin/dashboard";
+            }
+
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
             response.sendRedirect(redirectUrl);
         };
     }
 
     /**
-     * UPDATED: This handler now checks if it's a test.
+     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
      */
     @Bean
     public AuthenticationSuccessHandler samlLoginSuccessHandler(
@@ -173,7 +187,15 @@ public class SecurityConfig {
             // --- Normal Login Flow ---
             User appUser = authService.processSamlLogin(samlUser);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
-            String targetUrl = appUser.hasRole("ROLE_ADMIN") ? "/admin/dashboard" : "/dashboard";
+
+            // NEW: Redirect based on role
+            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
+                targetUrl = "/super-admin/dashboard";
+            } else if (appUser.hasRole("ROLE_ADMIN")) {
+                targetUrl = "/admin/dashboard";
+            }
+
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
             response.sendRedirect(redirectUrl);
         };

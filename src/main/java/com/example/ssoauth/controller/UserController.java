@@ -1,10 +1,13 @@
 package com.example.ssoauth.controller;
 
+import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.UserInfo;
 import com.example.ssoauth.entity.User;
+import com.example.ssoauth.repository.TenantRepository; // NEW IMPORT
 import com.example.ssoauth.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException; // NEW IMPORT
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // Import Slf4j
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,50 +15,56 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
-@Slf4j // Add logger
+@Slf4j
 public class UserController {
 
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository; // NEW IMPORT
 
-    /**
-     * Retrieves details for the currently authenticated user.
-     * UPDATED: Uses findByEmail to ensure fresh roles are loaded (assuming email is reliable here).
-     */
     @GetMapping("/me")
     public ResponseEntity<UserInfo> getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             log.warn("Attempt to access /api/user/me without authentication.");
-            return ResponseEntity.status(401).build(); // Explicitly return 401
+            return ResponseEntity.status(401).build();
         }
 
-        String usernameOrEmail = authentication.getName(); // This is usually the username from UserDetails
-        log.info("Fetching current user details for principal: {}", usernameOrEmail);
+        String username = authentication.getName();
+        log.info("Fetching current user details for principal: {}", username);
 
-        // !!! FIX: Load user bypassing cache to get fresh roles !!!
-        // We assume the principal name (username) might be different from email,
-        // so we first get the user, then use their email for the fresh load.
-        // If username and email are always the same, you could simplify this.
-        User potentiallyStaleUser = userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with principal: " + usernameOrEmail));
+        // --- FIX: Get String subdomain and convert to Long ID ---
+        String subdomain = TenantContext.getCurrentTenant();
+        Optional<User> userOpt;
 
-        // Now load fresh data using the email
-        User freshUser = userRepository.findByEmail(potentiallyStaleUser.getEmail()) // Uses the cache-bypassing findByEmail
-                .orElseThrow(() -> new UsernameNotFoundException("Fresh user data not found for email: " + potentiallyStaleUser.getEmail()));
+        if (subdomain != null) {
+            // 1. Find the tenant ID from the subdomain
+            Long tenantId = tenantRepository.findBySubdomain(subdomain)
+                    .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
+                    .getId();
+            // 2. Use the Long ID to find the user
+            userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, username, tenantId, username);
+        } else {
+            // This is a Super Admin
+            userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(username, username);
+        }
+        // --- END FIX ---
 
-        log.info("Successfully loaded fresh user data for ID: {}. Roles: '{}'", freshUser.getId(), freshUser.getRoles());
+        User user = userOpt.orElseThrow(() -> new UsernameNotFoundException("User not found with principal: " + username));
 
-        // Map the FRESH user data to the DTO
+        log.info("Successfully loaded fresh user data for ID: {}. Roles: '{}'", user.getId(), user.getRoles());
+
         UserInfo userInfo = UserInfo.builder()
-                .id(freshUser.getId())
-                .username(freshUser.getUsername())
-                .email(freshUser.getEmail())
-                .firstName(freshUser.getFirstName())
-                .lastName(freshUser.getLastName())
-                .authProvider(freshUser.getAuthProvider().name())
-                .roles(freshUser.getRoles()) // Use roles from the fresh entity
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .authProvider(user.getAuthProvider().name())
+                .roles(user.getRoles())
                 .build();
 
         log.info("Returning UserInfo for /api/user/me with roles: '{}'", userInfo.getRoles());

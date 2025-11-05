@@ -7,6 +7,7 @@
 
     <style>
         :root {
+            /* Default/fallback colors */
             --primary-orange: #FF6600;
             --secondary-orange: #FF9933;
             --background-color: #F8F8F8;
@@ -39,6 +40,16 @@
             width: 100%;
             max-width: 400px;
             text-align: center;
+        }
+
+        /* NEW: Branding Logo */
+        .branding-logo {
+            max-height: 70px;
+            max-width: 80%;
+            margin-bottom: 1.5rem;
+            object-fit: contain;
+            /* Hide if no src is set */
+            display: none;
         }
 
         h2 {
@@ -110,9 +121,9 @@
             border-color: var(--secondary-orange);
         }
 
-        /* Specific style to hide SSO buttons initially */
+        /* This class is now added dynamically by the script */
         .sso-button {
-             display: none; /* Hide buttons by default */
+             display: inline-block;
         }
 
         .divider {
@@ -168,7 +179,9 @@
 <body>
 
 <div class="login-container">
-    <h2>Sign In</h2>
+    <img src="" alt="Tenant Logo" class="branding-logo" id="branding-logo" />
+
+    <h2 id="login-title">Sign In</h2>
 
     <div id="error-message"></div>
 
@@ -186,17 +199,8 @@
 
     <div class="divider" id="sso-divider" style="display: none;">OR</div>
 
-    <a href="/oauth2/authorization/oidc_miniorange" class="btn btn-secondary sso-button" id="oidc_miniorange_button">
-        Login with miniOrange SSO (OIDC)
-    </a>
+    <div id="sso-button-container"></div>
 
-    <a th:href="${jwtSsoUrl}" class="btn btn-secondary sso-button" id="jwt_miniorange_button">
-        Login with miniOrange JWT
-    </a>
-
-    <a href="/saml2/authenticate/saml_miniorange" class="btn btn-secondary sso-button" id="saml_miniorange_button">
-        Login with miniOrange SAML
-    </a>
 
     <div class="signup-link">
         Don't have an account? <a href="/signup">Sign up here</a>
@@ -204,7 +208,7 @@
 </div>
 
 <script>
-    // --- Logic for Local Login (unchanged) ---
+    // --- Logic for Local Login ---
     document.getElementById('login-form').addEventListener('submit', async function(event) {
         event.preventDefault();
         const usernameOrEmail = document.getElementById('usernameOrEmail').value;
@@ -222,13 +226,22 @@
             if (response.ok && data.accessToken && data.userInfo) {
                 localStorage.setItem('accessToken', data.accessToken);
                 localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
+
                 let targetUrl = '/dashboard';
-                if (data.userInfo.roles && data.userInfo.roles.includes('ROLE_ADMIN')) {
-                    targetUrl = '/admin/dashboard';
+                if (data.userInfo.roles) {
+                    if (data.userInfo.roles.includes('ROLE_SUPER_ADMIN')) {
+                        targetUrl = '/super-admin/dashboard';
+                    } else if (data.userInfo.roles.includes('ROLE_ADMIN')) {
+                        targetUrl = '/admin/dashboard';
+                    }
                 }
                 window.location.href = targetUrl;
             } else {
                 let message = data.message || `Login failed (Status: ${response.status})`;
+                // This handles the new security rule for subdomain-only login
+                if (message.includes("organization's login URL")) {
+                    message = "Please use your organization's specific login URL (e.g., acme.localhost:8080)";
+                }
                 if (data.errors) { message = Object.values(data.errors).join('; '); }
                 errorMessageDiv.textContent = message;
                 errorMessageDiv.style.display = 'block';
@@ -240,44 +253,72 @@
         }
     });
 
-    // --- NEW: Logic for Dynamic SSO Buttons ---
-    (async function fetchEnabledSsoProviders() {
+    // --- UPDATED: Logic for Dynamic SSO Buttons & Branding ---
+    (async function initializeTenantLogin() {
         const ssoDivider = document.getElementById('sso-divider');
+        const ssoButtonContainer = document.getElementById('sso-button-container');
+
+        // --- 1. Fetch Branding ---
         try {
-            // Fetch the list of enabled providers from your backend
+            const response = await fetch('/api/public/branding');
+            if (response.ok) {
+                const branding = await response.json();
+                if (branding.tenantName) {
+                     document.getElementById('login-title').textContent = `Sign In to ${branding.tenantName}`;
+                }
+                if (branding.brandingLogoUrl) {
+                    const logoEl = document.getElementById('branding-logo');
+                    logoEl.src = branding.brandingLogoUrl;
+                    logoEl.style.display = 'block';
+                }
+                if (branding.brandingPrimaryColor) {
+                    document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+                }
+            } else {
+                 console.log("No custom branding found, using defaults.");
+            }
+        } catch (error) {
+            console.error('Error fetching branding:', error);
+        }
+
+        // --- 2. Fetch Enabled SSO Providers (NEW LOGIC) ---
+        try {
+            // This API now returns List<EnabledProviderDto>
             const response = await fetch('/api/sso/enabled-providers');
 
             if (!response.ok) {
                 console.error("Failed to fetch enabled SSO providers:", response.status);
-                return; // Don't show any SSO buttons if fetch fails
+                return;
             }
 
-            const enabledProviders = await response.json(); // Expecting ["oidc_miniorange", "jwt_miniorange", "saml_miniorange"]
+            const enabledProviders = await response.json();
 
             if (enabledProviders && Array.isArray(enabledProviders) && enabledProviders.length > 0) {
-                // Show the "OR" divider since SSO options are available
+                // Show the "OR" divider
                 ssoDivider.style.display = 'flex';
 
-                // Iterate through the enabled providers and show corresponding buttons
-                enabledProviders.forEach(providerId => {
-                    // Construct the button ID based on the provider identifier
-                    const buttonId = providerId + '_button';
-                    const button = document.getElementById(buttonId);
-                    if (button) {
-                        button.style.display = 'inline-block'; // Make the button visible
-                        console.log("Enabled SSO button:", buttonId);
-                    } else {
-                        console.warn("SSO button element not found for provider ID:", providerId);
-                    }
+                // Clear any old buttons
+                ssoButtonContainer.innerHTML = '';
+
+                // Dynamically create a button for each enabled provider
+                enabledProviders.forEach(provider => {
+                    const ssoButton = document.createElement('a');
+                    ssoButton.href = provider.ssoUrl;
+                    ssoButton.textContent = provider.displayName; // Use the display name from the DB
+                    ssoButton.className = 'btn btn-secondary sso-button'; // Apply standard classes
+
+                    ssoButtonContainer.appendChild(ssoButton);
+                    console.log("Enabled SSO button:", provider.displayName);
                 });
             } else {
-                console.log("No SSO providers are enabled or returned data is invalid.");
-                ssoDivider.style.display = 'none'; // Keep divider hidden if no SSO buttons
+                console.log("No SSO providers are enabled for this tenant.");
+                ssoDivider.style.display = 'none';
+                ssoButtonContainer.innerHTML = '';
             }
-
         } catch (error) {
             console.error('Error fetching or processing enabled SSO providers:', error);
-             ssoDivider.style.display = 'none'; // Keep divider hidden on error
+             ssoDivider.style.display = 'none';
+             ssoButtonContainer.innerHTML = '';
         }
     })();
 </script>

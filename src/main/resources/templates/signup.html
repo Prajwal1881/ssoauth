@@ -7,6 +7,7 @@
 
     <style>
         :root {
+            /* Default/fallback colors */
             --primary-orange: #FF6600;
             --secondary-orange: #FF9933;
             --background-color: #F8F8F8;
@@ -41,6 +42,15 @@
             text-align: center;
         }
 
+        /* NEW: Branding Logo */
+        .branding-logo {
+            max-height: 70px;
+            max-width: 80%;
+            margin-bottom: 1.5rem;
+            object-fit: contain;
+            display: none; /* Hide by default */
+        }
+
         h2 {
             margin-bottom: 1.5rem;
             font-weight: 600;
@@ -50,6 +60,14 @@
         .signup-form .form-group {
             margin-bottom: 1rem;
             text-align: left;
+        }
+
+        /* NEW: Added label style */
+        .signup-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
         .signup-form input {
@@ -117,7 +135,9 @@
 <body>
 
 <div class="signup-container">
-    <h2>Create Account</h2>
+    <img src="" alt="Tenant Logo" class="branding-logo" id="branding-logo" />
+
+    <h2 id="signup-title">Create Account</h2>
 
     <div id="error-message"></div>
 
@@ -151,6 +171,30 @@
 </div>
 
 <script>
+    // --- NEW: Branding Fetch ---
+    (async function initializeTenantSignup() {
+        try {
+            const response = await fetch('/api/public/branding');
+            if (response.ok) {
+                const branding = await response.json();
+                if (branding.tenantName) {
+                     document.getElementById('signup-title').textContent = `Create Account for ${branding.tenantName}`;
+                }
+                if (branding.brandingLogoUrl) {
+                    const logoEl = document.getElementById('branding-logo');
+                    logoEl.src = branding.brandingLogoUrl;
+                    logoEl.style.display = 'block';
+                }
+                if (branding.brandingPrimaryColor) {
+                    document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching branding:', error);
+        }
+    })();
+
+    // --- Signup Logic (Unchanged) ---
     document.getElementById('signup-form').addEventListener('submit', async function(event) {
         event.preventDefault();
 

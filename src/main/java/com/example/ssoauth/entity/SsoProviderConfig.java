@@ -6,24 +6,36 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sso_provider_configs")
+@Table(name = "sso_provider_configs", uniqueConstraints = {
+        // --- FIX ---
+        // Changed "provider_id" to "providerId" to match the
+        // entity's property name, which is also the database column name.
+        @UniqueConstraint(columnNames = {"tenant_id", "providerId"})
+        // --- End Fix ---
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 public class SsoProviderConfig {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String providerId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Tenant tenant;
+
+    @Column(nullable = false, length = 100)
+    private String providerId; // This property maps to the "providerId" column
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -83,11 +95,6 @@ public class SsoProviderConfig {
 
     @Column(columnDefinition = "TEXT")
     private String samlCertificate;
-
-
-    // --- Attribute Mapping Fields ---
-    // (We are removing all 'attribute_...' fields)
-
 
     // --- Timestamps ---
     @CreationTimestamp

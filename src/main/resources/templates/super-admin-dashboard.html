@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Super Admin Dashboard</title>
+    <style>
+        :root {
+            --primary-orange: #FF6600;
+            --secondary-orange: #FF9933;
+            --background-color: #F8F8F8;
+            --form-background: #FFFFFF;
+            --text-color: #333333;
+            --border-color: #DDDDDD;
+            --error-color: #DC3545;
+            --success-color: #28a745;
+            --link-color: #007bff;
+            --input-focus-border: var(--primary-orange);
+            --input-focus-shadow: rgba(255, 102, 0, 0.2);
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0; margin: 0; background-color: var(--background-color); color: var(--text-color); }
+        h1, h2, h3 { color: var(--primary-orange); font-weight: 600; margin-bottom: 10px; }
+        .admin-container { padding: 20px 30px; }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; background-color: #fff; padding: 10px 30px; border-bottom: 2px solid var(--primary-orange); box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .admin-header h1 { font-size: 1.5em; margin: 0; }
+        .admin-nav a, .admin-nav button { margin-left: 15px; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em; }
+        .admin-nav .button-link { background-color: #6c757d; color: white; border: none; }
+        .admin-nav .btn-logout { background-color: var(--link-color); color: white; border: none; cursor: pointer; }
+
+        .content-box { padding: 20px; background-color: var(--form-background); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; background-color: var(--form-background); border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid var(--border-color); padding: 12px; text-align: left; font-size: 0.9em; }
+        th { background-color: #EFEFEF; font-weight: 600; border-bottom: 2px solid var(--primary-orange); }
+        tr:nth-child(even) { background-color: #F8F8F8; }
+
+        button, .button-link { margin: 5px 2px; padding: 8px 15px; border-radius: 4px; border: none; font-size: 0.9em; cursor: pointer; }
+        .btn-create { background-color: #28a745; color: white; }
+        .btn-edit { background-color: var(--secondary-orange); color: var(--text-color); }
+        .btn-save { background-color: var(--primary-orange); color: white; margin-top: 10px; }
+        .btn-onboard { background-color: #17a2b8; color: white; }
+
+        label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; }
+        input[type=text], input[type=email], input[type=password], input[type=url] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 1em; box-sizing: border-box; background-color: #fff; }
+        input:focus { outline: none; border-color: var(--input-focus-border); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
+
+        .form-row { display: flex; flex-wrap: wrap; gap: 20px; }
+        .form-row > div { flex: 1; min-width: 200px; }
+
+        .error { color: var(--error-color); background-color: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: var(--form-background); margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 550px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .close { color: #aaa; float: right; font-size: 30px; font-weight: bold; cursor: pointer; line-height: 1; }
+    </style>
+</head>
+<body>
+
+<div class="admin-header">
+    <h1>Super Admin Panel</h1>
+    <div class="admin-nav">
+        <a href="/dashboard" class="button-link">Go to My Dashboard</a>
+        <button id="logout-button" class="btn-logout">Logout</button>
+    </div>
+</div>
+
+<div class="admin-container">
+    <div id="error-message" class="error" style="display: none;"></div>
+
+    <div class="content-box">
+        <h2>Create New Tenant</h2>
+        <form id="tenant-form">
+            <div class="form-row">
+                <div>
+                    <label for="tenantName">Tenant Name:</label>
+                    <input type="text" id="tenantName" placeholder="e.g., ACME Corporation" required>
+                </div>
+                <div>
+                    <label for="tenantSubdomain">Subdomain:</label>
+                    <input type="text" id="tenantSubdomain" placeholder="e.g., acme (no spaces)" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-create">Create Tenant</button>
+        </form>
+    </div>
+
+    <div class="content-box">
+        <h2>Manage Tenants</h2>
+        <table id="tenant-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Subdomain</th>
+                <th>User Count</th> <th>Enabled Providers</th> <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr><td colspan="6">Loading tenants...</td></tr> </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="editTenantModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('editTenantModal')">&times;</span>
+        <h2 id="editModalTitle">Edit Tenant</h2>
+        <div id="edit-modal-error" class="error" style="display: none;"></div>
+        <form id="editTenantForm">
+            <input type="hidden" id="editTenantId">
+            <div>
+                <label for="editTenantName">Tenant Name:</label>
+                <input type="text" id="editTenantName" required>
+            </div>
+            <div>
+                <label for="editTenantSubdomain">Subdomain:</label>
+                <input type="text" id="editTenantSubdomain" required>
+            </div>
+            <div>
+                <label for="editBrandingLogoUrl">Branding Logo URL:</label>
+                <input type="url" id="editBrandingLogoUrl" placeholder="https://example.com/logo.png">
+            </div>
+            <div>
+                <label for="editBrandingPrimaryColor">Branding Primary Color:</label>
+                <input type="text" id="editBrandingPrimaryColor" placeholder="#FF6600">
+            </div>
+            <button type="submit" class="btn-save">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<div id="onboardAdminModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('onboardAdminModal')">&times;</span>
+        <h2 id="onboardModalTitle">Onboard Customer Admin</h2>
+        <div id="onboard-modal-error" class="error" style="display: none;"></div>
+        <form id="onboardAdminForm">
+            <input type="hidden" id="onboardTenantId">
+            <div><label for="adminUsername">Admin Username:</label><input type="text" id="adminUsername" required></div>
+            <div><label for="adminEmail">Admin Email:</label><input type="email" id="adminEmail" required></div>
+            <div><label for="adminPassword">Admin Password:</label><input type="password" id="adminPassword" required></div>
+            <div><label for="adminFirstName">First Name:</label><input type="text" id="adminFirstName"></div>
+            <div><label for="adminLastName">Last Name:</label><input type="text" id="adminLastName"></div>
+            <button type="submit" class="btn-save">Create Admin</button>
+        </form>
+    </div>
+</div>
+
+
+<script>
+    const token = localStorage.getItem('accessToken');
+    const tenantTableBody = document.getElementById('tenant-table').getElementsByTagName('tbody')[0];
+    const errorMessageDiv = document.getElementById('error-message');
+
+    const editTenantModal = document.getElementById('editTenantModal');
+    const onboardAdminModal = document.getElementById('onboardAdminModal');
+
+    const tenantForm = document.getElementById('tenant-form');
+    const editTenantForm = document.getElementById('editTenantForm');
+    const onboardAdminForm = document.getElementById('onboardAdminForm');
+
+    const editModalError = document.getElementById('edit-modal-error');
+    const onboardModalError = document.getElementById('onboard-modal-error');
+
+    // --- Initial Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!token) {
+            window.location.href = '/login';
+            return;
+        }
+        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+        if (!userInfo || !userInfo.roles || !userInfo.roles.includes('ROLE_SUPER_ADMIN')) {
+            showError("Access Denied. You are not a Super Admin.");
+            setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+            return;
+        }
+        loadTenants();
+    });
+
+    // --- Load Tenants (UPDATED) ---
+    async function loadTenants() {
+        clearErrors();
+        tenantTableBody.innerHTML = '<tr><td colspan="6">Loading...</td></tr>'; // UPDATED COLSPAN
+        try {
+            // This API endpoint now returns the new TenantDetailDto
+            const response = await fetch('/api/super-admin/tenants', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) { return handleApiError(response, "load tenants"); }
+
+            const tenants = await response.json();
+            renderTenantTable(tenants);
+        } catch (error) {
+            console.error('Load tenants error:', error);
+            showError(`Failed to load tenants: ${error.message}`);
+        }
+    }
+
+    // --- Render Tenant Table (UPDATED) ---
+    function renderTenantTable(tenants) {
+        tenantTableBody.innerHTML = '';
+        if (!tenants || tenants.length === 0) {
+            tenantTableBody.innerHTML = '<tr><td colspan="6">No tenants found. Create one above.</td></tr>'; // UPDATED COLSPAN
+            return;
+        }
+        tenants.forEach(tenant => {
+            const row = tenantTableBody.insertRow();
+            row.insertCell().textContent = tenant.id;
+            row.insertCell().textContent = tenant.name;
+            row.insertCell().textContent = tenant.subdomain;
+
+            // NEW: Add stats data
+            row.insertCell().textContent = tenant.userCount;
+            row.insertCell().textContent = tenant.enabledProviders.join(', ') || 'None';
+
+            row.insertCell().innerHTML = `
+                <button onclick="openEditTenantModal(${tenant.id})" class="btn-edit">Edit</button>
+                <button onclick="openOnboardAdminModal(${tenant.id}, '${tenant.name}')" class="btn-onboard">Onboard Admin</button>
+            `;
+        });
+    }
+
+    // --- Create Tenant ---
+    tenantForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearErrors();
+        const tenantData = {
+            name: document.getElementById('tenantName').value,
+            subdomain: document.getElementById('tenantSubdomain').value,
+            // Send empty strings for branding, not null
+            brandingLogoUrl: "",
+            brandingPrimaryColor: ""
+        };
+
+        try {
+            const response = await fetch('/api/super-admin/tenants', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(tenantData)
+            });
+            if (!response.ok) { return handleApiError(response, "create tenant"); }
+
+            tenantForm.reset();
+            loadTenants(); // Refresh table
+        } catch (error) {
+            console.error("Save error:", error);
+            showError(`Error: ${error.message}`);
+        }
+    });
+
+    // --- Edit Tenant ---
+    async function openEditTenantModal(tenantId) {
+        clearErrors();
+        clearModalError('edit');
+        editTenantForm.reset();
+
+        try {
+            // This endpoint just returns the simple TenantDto, which is fine
+            const response = await fetch(`/api/super-admin/tenants/${tenantId}`, {
+                 headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) { return handleApiError(response, `fetch tenant ${tenantId}`); }
+            const tenant = await response.json();
+
+            document.getElementById('editModalTitle').textContent = `Edit Tenant: ${tenant.name}`;
+            document.getElementById('editTenantId').value = tenant.id;
+            document.getElementById('editTenantName').value = tenant.name;
+            document.getElementById('editTenantSubdomain').value = tenant.subdomain;
+            document.getElementById('editBrandingLogoUrl').value = tenant.brandingLogoUrl || '';
+            document.getElementById('editBrandingPrimaryColor').value = tenant.brandingPrimaryColor || '';
+
+            editTenantModal.style.display = "block";
+        } catch(error) {
+            console.error("Edit error:", error);
+            showError(`Load failed: ${error.message}`);
+        }
+    }
+
+    editTenantForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearModalError('edit');
+        const tenantId = document.getElementById('editTenantId').value;
+        const tenantData = {
+            name: document.getElementById('editTenantName').value,
+            subdomain: document.getElementById('editTenantSubdomain').value,
+            brandingLogoUrl: document.getElementById('editBrandingLogoUrl').value,
+            brandingPrimaryColor: document.getElementById('editBrandingPrimaryColor').value
+        };
+
+        try {
+            const response = await fetch(`/api/super-admin/tenants/${tenantId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(tenantData)
+            });
+            if (!response.ok) { return handleApiError(response, "update tenant", true, 'edit'); }
+
+            closeModal('editTenantModal');
+            loadTenants(); // Refresh table
+        } catch (error) {
+            console.error("Update error:", error);
+            showModalError(`Error: ${error.message}`, 'edit');
+        }
+    });
+
+    // --- Onboard Admin ---
+    function openOnboardAdminModal(tenantId, tenantName) {
+        clearErrors();
+        clearModalError('onboard');
+        onboardAdminForm.reset();
+        document.getElementById('onboardModalTitle').textContent = `Create Admin for: ${tenantName}`;
+        document.getElementById('onboardTenantId').value = tenantId;
+        onboardAdminModal.style.display = "block";
+    }
+
+    onboardAdminForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearModalError('onboard');
+        const tenantId = document.getElementById('onboardTenantId').value;
+        const adminData = {
+            username: document.getElementById('adminUsername').value,
+            email: document.getElementById('adminEmail').value,
+            password: document.getElementById('adminPassword').value,
+            firstName: document.getElementById('adminFirstName').value,
+            lastName: document.getElementById('adminLastName').value,
+            roles: 'ROLE_ADMIN,ROLE_USER'
+        };
+
+        try {
+            const response = await fetch(`/api/super-admin/tenants/${tenantId}/admin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(adminData)
+            });
+            if (!response.ok) { return handleApiError(response, "create admin", true, 'onboard'); }
+
+            alert("Customer Admin created successfully!");
+            closeModal('onboardAdminModal');
+            loadTenants(); // Refresh table to show new user count
+        } catch (error) {
+            console.error("Onboard error:", error);
+            showModalError(`Error: ${error.message}`, 'onboard');
+        }
+    });
+
+    // --- Modal Helpers ---
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = "none";
+    }
+    window.onclick = function(event) {
+        if (event.target == editTenantModal) closeModal('editTenantModal');
+        if (event.target == onboardAdminModal) closeModal('onboardAdminModal');
+    }
+
+    // --- Error Handling Helpers ---
+    function showError(message) { errorMessageDiv.textContent = message; errorMessageDiv.style.display = 'block'; }
+    function clearErrors() { errorMessageDiv.textContent = ''; errorMessageDiv.style.display = 'none'; }
+
+    function showModalError(message, type = 'edit') {
+        const div = (type === 'edit') ? editModalError : onboardModalError;
+        div.textContent = message;
+        div.style.display = 'block';
+    }
+    function clearModalError(type = 'edit') {
+        if (type === 'all' || type === 'edit') { editModalError.textContent = ''; editModalError.style.display = 'none'; }
+        if (type === 'all' || type === 'onboard') { onboardModalError.textContent = ''; onboardModalError.style.display = 'none'; }
+    }
+
+     async function handleApiError(response, actionDescription, showInModal = false, modalType = 'edit') {
+         let targetErrorDiv = showInModal ? (modalType === 'edit' ? editModalError : onboardModalError) : errorMessageDiv;
+         let errorMessage = `Failed to ${actionDescription} (Status: ${response.status})`;
+         try {
+             const errorData = await response.json();
+             if (errorData.errors) errorMessage = "Validation Failed: " + Object.values(errorData.errors).join('; ');
+             else errorMessage = errorData.message || errorMessage;
+         } catch (e) { /* Ignore */ }
+
+         console.error(`API Error during ${actionDescription}:`, errorMessage);
+         if (response.status === 403) errorMessage = "Permission Denied. You must be a Super Admin.";
+         else if (response.status === 401) errorMessage = "Session Expired. Please log in.";
+
+         targetErrorDiv.textContent = errorMessage;
+         targetErrorDiv.style.display = 'block';
+     }
+
+    // --- Logout Functionality ---
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userInfo');
+            window.location.href = '/login';
+        });
+    }
+</script>
+
+</body>
+</html>

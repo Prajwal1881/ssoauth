@@ -1,85 +1,175 @@
 package com.example.ssoauth.service;
 
-import com.example.ssoauth.dto.SignUpRequest; // Used for creating users
-import com.example.ssoauth.dto.UserUpdateRequest; // Used for updating users
+import com.example.ssoauth.config.TenantContext;
+import com.example.ssoauth.dto.BrandingRequestDto;
+import com.example.ssoauth.dto.SignUpRequest;
+import com.example.ssoauth.dto.UserUpdateRequest;
 import com.example.ssoauth.dto.UserInfo;
+import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.ResourceAlreadyExistsException;
+import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // Added Slf4j for logging
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Session;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils; // Used for checking empty strings
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // Added for logging
+@Slf4j
 public class AdminService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TenantRepository tenantRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
-     * Finds all users and maps them to UserInfo DTOs.
-     * @return List of UserInfo objects.
+     * Helper to get the current tenant ID (Long) from the subdomain (String) in the context.
      */
+    private Long getTenantIdFromContext() {
+        String subdomain = TenantContext.getCurrentTenant();
+        if (subdomain == null) {
+            // This case should only apply to Super Admins on the root domain
+            throw new EntityNotFoundException("No tenant context found. Access denied.");
+        }
+        // This database lookup runs safely *inside* the calling method's transaction
+        return tenantRepository.findBySubdomain(subdomain)
+                .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
+                .getId();
+    }
+
+    // --- Branding Methods ---
+
+    /**
+     * FIX: Ensures transactional boundary for read operations.
+     */
+    @Transactional(readOnly = true)
+    public BrandingRequestDto getTenantBranding() {
+        Long tenantId = getTenantIdFromContext();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found with ID: " + tenantId));
+
+        return mapTenantToBrandingDto(tenant);
+    }
+
+    @Transactional
+    public BrandingRequestDto updateTenantBranding(BrandingRequestDto request) {
+        Long tenantId = getTenantIdFromContext();
+
+        String newSubdomain = request.getSubdomain().toLowerCase().trim();
+
+        Optional<Tenant> existingTenant = tenantRepository.findBySubdomain(newSubdomain);
+        if (existingTenant.isPresent() && !existingTenant.get().getId().equals(tenantId)) {
+            log.warn("Branding update failed: Subdomain '{}' already in use by tenant ID {}", newSubdomain, existingTenant.get().getId());
+            throw new ResourceAlreadyExistsException("This branding name (subdomain) is already in use. Please choose another.");
+        }
+
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found with ID: " + tenantId));
+
+        tenant.setSubdomain(newSubdomain);
+        tenant.setBrandingLogoUrl(StringUtils.hasText(request.getBrandingLogoUrl()) ? request.getBrandingLogoUrl() : null);
+        tenant.setBrandingPrimaryColor(StringUtils.hasText(request.getBrandingPrimaryColor()) ? request.getBrandingPrimaryColor() : null);
+
+        Tenant savedTenant = tenantRepository.save(tenant);
+        log.info("Tenant ID {} updated branding. New subdomain: {}", savedTenant.getId(), savedTenant.getSubdomain());
+
+        return mapTenantToBrandingDto(savedTenant);
+    }
+
+    private BrandingRequestDto mapTenantToBrandingDto(Tenant tenant) {
+        return BrandingRequestDto.builder()
+                .subdomain(tenant.getSubdomain())
+                .brandingLogoUrl(tenant.getBrandingLogoUrl())
+                .brandingPrimaryColor(tenant.getBrandingPrimaryColor())
+                .build();
+    }
+
+
+    // --- User Management Methods ---
+
+    /**
+     * CRITICAL FIX: Added @Transactional(readOnly = true) to resolve session/deadlock issues.
+     */
+    @Transactional(readOnly = true)
     public List<UserInfo> findAllUsers() {
-        log.info("Fetching all users for admin");
-        return userRepository.findAll().stream()
+        Long tenantId = getTenantIdFromContext(); // Gets ID safely inside transaction
+        log.info("Fetching all users for admin (tenant context: {})", tenantId);
+
+        // --- MANUAL FILTER CONTROL ---
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+
+        List<UserInfo> users = userRepository.findAll().stream()
                 .map(this::mapToUserInfo)
                 .collect(Collectors.toList());
+
+        session.disableFilter("tenantFilter"); // Always disable after use
+        return users;
     }
 
     /**
-     * Finds a single user by ID and maps to UserInfo DTO.
-     * @param id User ID.
-     * @return UserInfo object.
-     * @throws EntityNotFoundException if user not found.
+     * FIX: Added @Transactional(readOnly = true) for reliable filter application.
      */
+    @Transactional(readOnly = true)
     public UserInfo findUserById(Long id) {
-        log.info("Fetching user by ID: {}", id);
+        Long tenantId = getTenantIdFromContext();
+        log.info("Fetching user by ID: {} (tenant context: {})", id, tenantId);
+
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+
+        session.disableFilter("tenantFilter");
         return mapToUserInfo(user);
     }
 
-    /**
-     * Creates a new local user based on SignUpRequest.
-     * Enforces unique username/email and encodes password.
-     * @param request SignUpRequest DTO (requires password).
-     * @return UserInfo object of the created user.
-     * @throws ResourceAlreadyExistsException if username or email exists.
-     */
     @Transactional
     public UserInfo createUser(SignUpRequest request) {
-        log.info("Attempting to create user with username: {}", request.getUsername());
-        if (userRepository.existsByUsername(request.getUsername())) {
-            log.warn("Username already exists: {}", request.getUsername());
+        Long tenantId = getTenantIdFromContext();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
+
+        log.info("Attempting to create user with username: {} for tenant: {}", request.getUsername(), tenantId);
+
+        if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
+            log.warn("Username already exists in tenant {}: {}", tenantId, request.getUsername());
             throw new ResourceAlreadyExistsException("Username already exists");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            log.warn("Email already exists: {}", request.getEmail());
+        if (userRepository.existsByEmailAndTenantId(request.getEmail(), tenantId)) {
+            log.warn("Email already exists in tenant {}: {}", tenantId, request.getEmail());
             throw new ResourceAlreadyExistsException("Email already exists");
         }
 
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // Password encoding
+                .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .roles(StringUtils.hasText(request.getRoles()) ? request.getRoles() : "ROLE_USER") // Use provided roles or default
+                .roles(StringUtils.hasText(request.getRoles()) ? request.getRoles() : "ROLE_USER")
                 .enabled(true)
+                .tenant(tenant)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
-                .authProvider(User.AuthProvider.LOCAL) // Admin creates local users
+                .authProvider(User.AuthProvider.LOCAL)
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -87,40 +177,32 @@ public class AdminService {
         return mapToUserInfo(savedUser);
     }
 
-    /**
-     * Updates an existing user based on UserUpdateRequest.
-     * Password update is optional. Enforces unique username/email if changed.
-     * @param id User ID to update.
-     * @param request UserUpdateRequest DTO (password optional).
-     * @return UserInfo object of the updated user.
-     * @throws EntityNotFoundException if user not found.
-     * @throws ResourceAlreadyExistsException if new username or email exists.
-     */
     @Transactional
     public UserInfo updateUser(Long id, UserUpdateRequest request) {
-        log.info("Attempting to update user with ID: {}", id);
+        Long tenantId = getTenantIdFromContext();
+        log.info("Attempting to update user with ID: {} in tenant: {}", id, tenantId);
+
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        // Check for uniqueness only if username/email are being changed and are provided
+        session.disableFilter("tenantFilter");
+
         if (StringUtils.hasText(request.getUsername()) && !user.getUsername().equals(request.getUsername())) {
-            log.debug("Username change detected for user ID {}. Checking uniqueness.", id);
-            if (userRepository.existsByUsername(request.getUsername())) {
-                log.warn("Update failed: New username '{}' already exists.", request.getUsername());
+            if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
                 throw new ResourceAlreadyExistsException("Username already exists");
             }
             user.setUsername(request.getUsername());
         }
         if (StringUtils.hasText(request.getEmail()) && !user.getEmail().equals(request.getEmail())) {
-            log.debug("Email change detected for user ID {}. Checking uniqueness.", id);
-            if (userRepository.existsByEmail(request.getEmail())) {
-                log.warn("Update failed: New email '{}' already exists.", request.getEmail());
+            if (userRepository.existsByEmailAndTenantId(request.getEmail(), tenantId)) {
                 throw new ResourceAlreadyExistsException("Email already exists");
             }
             user.setEmail(request.getEmail());
         }
 
-        // Update other fields if they are present in the request
         if (StringUtils.hasText(request.getFirstName())) {
             user.setFirstName(request.getFirstName());
         }
@@ -128,51 +210,39 @@ public class AdminService {
             user.setLastName(request.getLastName());
         }
         if (StringUtils.hasText(request.getRoles())) {
-            // Consider adding validation for role format/values here
             log.debug("Updating roles for user ID {}: {}", id, request.getRoles());
             user.setRoles(request.getRoles());
         }
-
-        // Handle password update only if a non-blank password is provided in the request
         if (StringUtils.hasText(request.getPassword())) {
-            log.debug("Password change detected for user ID {}. Encoding new password.", id);
+            log.debug("Password change detected for user ID {}.", id);
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
-        // Add logic for other fields like 'enabled' if added to UserUpdateRequest DTO
-        // if (request.getEnabled() != null) {
-        //     user.setEnabled(request.getEnabled());
-        // }
 
         User updatedUser = userRepository.save(user);
         log.info("User updated successfully for ID: {}", updatedUser.getId());
         return mapToUserInfo(updatedUser);
     }
 
-    /**
-     * Deletes a user by ID.
-     * @param id User ID to delete.
-     * @throws EntityNotFoundException if user not found.
-     */
     @Transactional
     public void deleteUser(Long id) {
-        log.info("Attempting to delete user with ID: {}", id);
+        Long tenantId = getTenantIdFromContext();
+        log.info("Attempting to delete user with ID: {} in tenant: {}", id, tenantId);
+
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+
         if (!userRepository.existsById(id)) {
+            session.disableFilter("tenantFilter"); // Disable filter before throwing
             log.warn("Delete failed: User not found with ID: {}", id);
             throw new EntityNotFoundException("User not found with id: " + id);
         }
-        // Consider adding a check here to prevent an admin from deleting themselves
+
         userRepository.deleteById(id);
+        session.disableFilter("tenantFilter"); // Always disable after use
         log.info("User deleted successfully with ID: {}", id);
     }
 
-    /**
-     * Helper method to map a User entity to a UserInfo DTO.
-     * @param user The User entity.
-     * @return UserInfo DTO.
-     */
     private UserInfo mapToUserInfo(User user) {
-        // Log mapping process (optional, can be verbose)
-        // log.trace("Mapping User entity to UserInfo DTO for user ID: {}", user.getId());
         return UserInfo.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -180,7 +250,7 @@ public class AdminService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .authProvider(user.getAuthProvider().name())
-                .roles(user.getRoles()) // Includes roles in the DTO
+                .roles(user.getRoles())
                 .build();
     }
 }

@@ -4,20 +4,24 @@ import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.service.SsoConfigService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+// import org.springframework.security.crypto.password.PasswordEncoder; // No longer needed
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.util.StringUtils;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+// import org.springframework.web.bind.annotation.ResponseBody; // No longer needed
+
+// import java.net.URLEncoder; // No longer needed
+// import java.nio.charset.StandardCharsets; // No longer needed
 import java.util.Map;
-import java.util.Optional;
+// import java.util.Optional; // No longer needed
 
 @Controller
 @RequiredArgsConstructor
 public class WebController {
 
-    private final SsoConfigService ssoConfigService;
+    // SsoConfigService is no longer needed by /login endpoint
+    // private final SsoConfigService ssoConfigService;
 
     @GetMapping("/")
     public String home() {
@@ -26,21 +30,11 @@ public class WebController {
 
     @GetMapping("/login")
     public String loginPage(Model model) {
-        Optional<SsoProviderConfig> jwtConfigOpt = ssoConfigService.getConfigByProviderId("jwt_miniorange");
-
-        if (jwtConfigOpt.isPresent() && jwtConfigOpt.get().isEnabled()) {
-            SsoProviderConfig jwtConfig = jwtConfigOpt.get();
-            String redirectUri = jwtConfig.getJwtRedirectUri() != null ? jwtConfig.getJwtRedirectUri() : "";
-            String clientId = jwtConfig.getClientId() != null ? jwtConfig.getClientId() : "";
-            String ssoUrl = jwtConfig.getJwtSsoUrl() != null ? jwtConfig.getJwtSsoUrl() : "#";
-
-            String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
-            String fullJwtSsoUrl = ssoUrl + "?client_id=" + clientId + "&redirect_uri=" + encodedRedirectUri;
-
-            model.addAttribute("jwtSsoUrl", fullJwtSsoUrl);
-        } else {
-            model.addAttribute("jwtSsoUrl", "#");
-        }
+        // --- REMOVED ---
+        // All the logic for finding "jwt_miniorange" and building the URL
+        // is now handled by SsoConfigService and the frontend JavaScript.
+        // This controller method no longer needs to do anything.
+        // --- END REMOVED ---
 
         return "login";
     }
@@ -60,7 +54,11 @@ public class WebController {
         return "admin-dashboard";
     }
 
-    // This method displays the sso-test-result.html page
+    @GetMapping("/super-admin/dashboard")
+    public String superAdminDashboardPage() {
+        return "super-admin-dashboard";
+    }
+
     @GetMapping("/admin/sso-test-result")
     public String ssoTestResult(Model model, HttpSession session) {
         @SuppressWarnings("unchecked")
@@ -76,11 +74,10 @@ public class WebController {
             model.addAttribute("errorMessage", StringUtils.hasText(errorMessage) ? errorMessage : "No attributes were found in the session.");
         }
 
-        // Clear the session attributes so they aren't reused
         session.removeAttribute("sso_test_attributes");
         session.removeAttribute("sso_test_error");
         session.removeAttribute("sso_test_provider_id");
 
-        return "sso-test-result"; // Renders sso-test-result.html
+        return "sso-test-result";
     }
 }

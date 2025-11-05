@@ -1,46 +1,80 @@
 package com.example.ssoauth.controller;
 
+import com.example.ssoauth.config.TenantContext;
+import com.example.ssoauth.dto.EnabledProviderDto;
 import com.example.ssoauth.entity.SsoProviderConfig;
+import com.example.ssoauth.entity.Tenant;
+import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.service.SsoConfigService;
-import jakarta.servlet.http.HttpSession; // IMPORT
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // IMPORT
-import org.springframework.http.HttpStatus; // IMPORT
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable; // IMPORT
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI; // IMPORT
-import java.net.URLEncoder; // *** NEW IMPORT ***
-import java.nio.charset.StandardCharsets; // *** NEW IMPORT ***
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/sso") // Public base path
+@RequestMapping("/api/sso")
 @RequiredArgsConstructor
-@Slf4j // IMPORT
+@Slf4j
 public class PublicSsoController {
 
     private final SsoConfigService ssoConfigService;
+    private final TenantRepository tenantRepository;
 
-    // Endpoint for login.html to fetch enabled providers
     @GetMapping("/enabled-providers")
-    public ResponseEntity<List<String>> getEnabledProviders() {
-        List<String> providerIds = ssoConfigService.getEnabledProviderIds();
-        return ResponseEntity.ok(providerIds);
+    public ResponseEntity<List<EnabledProviderDto>> getEnabledProviders() {
+        // This method is now correct, as SsoConfigService handles resolving
+        // the String subdomain to a Long ID.
+        List<EnabledProviderDto> providerDtos = ssoConfigService.getEnabledProviders();
+        return ResponseEntity.ok(providerDtos);
     }
 
-    // *** --- UPDATED ENDPOINT TO START ATTRIBUTE TEST --- ***
+    @GetMapping("/public/branding")
+    public ResponseEntity<Map<String, String>> getTenantBranding() {
+        // --- FIX: Get String subdomain from context ---
+        String subdomain = TenantContext.getCurrentTenant();
+        if (subdomain == null) {
+            // No subdomain, return empty map
+            return ResponseEntity.ok(Map.of());
+        }
+
+        // Find the tenant by the String subdomain
+        Optional<Tenant> tenantOpt = tenantRepository.findBySubdomain(subdomain);
+        // --- END FIX ---
+
+        if (tenantOpt.isEmpty()) {
+            return ResponseEntity.ok(Map.of()); // No tenant found, return empty map
+        }
+
+        Tenant tenant = tenantOpt.get();
+        Map<String, String> branding = Map.ofEntries(
+                Map.entry("tenantName", tenant.getName() != null ? tenant.getName() : ""),
+                Map.entry("brandingLogoUrl", tenant.getBrandingLogoUrl() != null ? tenant.getBrandingLogoUrl() : ""),
+                Map.entry("brandingPrimaryColor", tenant.getBrandingPrimaryColor() != null ? tenant.getBrandingPrimaryColor() : "")
+        );
+        return ResponseEntity.ok(branding);
+    }
+
     @GetMapping("/test-attributes/{providerId}")
     public ResponseEntity<Void> testAttributes(@PathVariable String providerId, HttpSession session) {
+
         log.info("Initiating attribute test for provider: {}", providerId);
 
-        // 1. Set a flag in the session to indicate a test is in progress
         session.setAttribute("sso_test_provider_id", providerId);
 
-        // 2. Determine the correct redirect URL (OIDC vs SAML vs JWT)
+        // This method is now correct, as SsoConfigService handles resolving
+        // the String subdomain to a Long ID before finding the config.
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(providerId)
                 .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
 
@@ -52,12 +86,10 @@ public class PublicSsoController {
             case SAML:
                 redirectUrl = "/saml2/authenticate/" + providerId;
                 break;
-            // *** --- NEW CASE FOR JWT --- ***
             case JWT:
                 try {
                     String ssoUrl = config.getJwtSsoUrl() != null ? config.getJwtSsoUrl() : "#";
                     String clientId = config.getClientId() != null ? config.getClientId() : "";
-                    // Use the configured redirect URI for JWT
                     String redirectUri = config.getJwtRedirectUri() != null ? config.getJwtRedirectUri() : "";
                     String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
 
@@ -68,13 +100,11 @@ public class PublicSsoController {
                     return ResponseEntity.badRequest().build();
                 }
                 break;
-            // *** --- END NEW CASE --- ***
             default:
                 log.warn("Attribute test not supported for provider type: {}", config.getProviderType());
                 return ResponseEntity.badRequest().build();
         }
 
-        // 3. Send a 302 Redirect to the browser to start the SSO flow
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(redirectUrl))
                 .build();

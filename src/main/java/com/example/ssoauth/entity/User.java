@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
+// REMOVED: org.hibernate.annotations.FilterDef;
+// REMOVED: org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,20 +23,26 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "email"),
-        @UniqueConstraint(columnNames = "username")
+        @UniqueConstraint(columnNames = {"tenant_id", "email"}),
+        @UniqueConstraint(columnNames = {"tenant_id", "username"})
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+// REMOVED: The @FilterDef annotation
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId") // KEEP THIS
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id")
+    private Tenant tenant;
+
+    @Column(nullable = false, length = 50)
     private String username;
 
     @Column(nullable = false, unique = true, length = 100)
@@ -72,10 +81,9 @@ public class User {
     @Builder.Default
     private boolean credentialsNonExpired = true;
 
-    // Added roles field
     @Column(nullable = false)
     @Builder.Default
-    private String roles = "ROLE_USER"; // Default role
+    private String roles = "ROLE_USER";
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -88,33 +96,29 @@ public class User {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
-    // Helper method to get roles as Spring Security Authorities
-    @Transient // Mark this so JPA doesn't try to persist it
+    @Transient
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Arrays.stream(this.roles.split(","))
-                .map(String::trim) // Remove whitespace
-                .filter(role -> !role.isEmpty()) // Ensure no empty roles
+                .map(String::trim)
+                .filter(role -> !role.isEmpty())
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toSet());
     }
 
-    // Helper to add a role
     public void addRole(String role) {
         Set<String> currentRoles = new HashSet<>(Arrays.asList(this.roles.split(",")));
         currentRoles.add(role.trim());
         this.roles = String.join(",", currentRoles);
     }
 
-    // Helper to check if user has a role
     public boolean hasRole(String role) {
         return Arrays.asList(this.roles.split(",")).contains(role.trim());
     }
 
-    // *** UPDATED ENUM ***
     public enum AuthProvider {
         LOCAL,
-        OIDC, // Standard OIDC flow
-        SAML, // Standard SAML flow
-        SSO_JWT // Manual JWT Flow
+        OIDC,
+        SAML,
+        SSO_JWT
     }
 }

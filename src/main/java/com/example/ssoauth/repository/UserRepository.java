@@ -1,15 +1,16 @@
 package com.example.ssoauth.repository;
 
+import com.example.ssoauth.entity.Tenant; // NEW IMPORT
 import com.example.ssoauth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints; // NEW IMPORT
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.QueryHint; // NEW IMPORT
+import jakarta.persistence.QueryHint;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -17,33 +18,33 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    Optional<User> findByUsername(String username);
-
-    // !!! ORIGINAL findByEmail IS REMOVED/OVERRIDDEN BY THE ANNOTATED VERSION BELOW !!!
-    // Optional<User> findByEmail(String email);
-
-    Optional<User> findByUsernameOrEmail(String username, String email);
-
+    // --- NEW: Method for Super-Admin stats ---
     /**
-     * Finds user by email, explicitly bypassing the JPA cache to ensure fresh data from DB.
-     * This method now effectively replaces the standard findByEmail for this repository.
+     * Counts all users associated with a specific tenant.
      */
+    Long countByTenant(Tenant tenant);
+
+    // --- Tenant-Aware Methods (Corrected from previous steps) ---
+
+    Optional<User> findByTenantIdAndUsernameOrTenantIdAndEmail(Long tenantId1, String username, Long tenantId2, String email);
+
+    @Query("SELECT u FROM User u WHERE (u.username = :username OR u.email = :email) AND u.tenant IS NULL")
+    Optional<User> findByUsernameOrEmailAndTenantIsNull(@Param("username") String username, @Param("email") String email);
+
+    Boolean existsByUsernameAndTenantId(String username, Long tenantId);
+    Boolean existsByEmailAndTenantId(String email, Long tenantId);
+    Boolean existsByUsernameAndTenantIdIsNull(String username);
+    Boolean existsByEmailAndTenantIdIsNull(String email);
+    Optional<User> findByEmailAndTenantId(String email, Long tenantId);
+
+    // --- Original Methods (now auto-filtered by Hibernate) ---
+
     @QueryHints(@QueryHint(name = "jakarta.persistence.cache.retrieveMode", value = "BYPASS"))
-    Optional<User> findByEmail(String email); // !!! RENAMED to findByEmail !!!
-
-    // ... (rest of the interface remains the same)
-
-
-    Boolean existsByUsername(String username);
-
-    Boolean existsByEmail(String email);
+    Optional<User> findByEmail(String email);
 
     Optional<User> findByProviderId(String providerId);
-
     List<User> findByAuthProvider(User.AuthProvider authProvider);
-
     List<User> findByEnabledTrue();
-
     List<User> findByEnabledFalse();
 
     @Modifying
@@ -62,23 +63,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
     void updateAccountLockStatus(@Param("userId") Long userId, @Param("locked") Boolean locked);
 
     Long countByAuthProvider(User.AuthProvider authProvider);
-
     Long countByEnabledTrue();
-
     List<User> findByCreatedAtAfter(LocalDateTime date);
-
     List<User> findByLastLoginAfter(LocalDateTime date);
 
     @Transactional
     void deleteByUsername(String username);
-
     @Transactional
     void deleteByEmail(String email);
 
     List<User> findByUsernameContainingIgnoreCase(String username);
-
     List<User> findByEmailContainingIgnoreCase(String email);
-
     List<User> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(
             String firstName, String lastName);
 }
