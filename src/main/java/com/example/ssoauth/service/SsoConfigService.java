@@ -60,12 +60,12 @@ public class SsoConfigService {
         if (tenantId != null) {
             session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
         } else {
+            // This is critical for Super-Admin access
             session.disableFilter("tenantFilter");
         }
         return session;
     }
 
-    // ... (getAllConfigs, getAllConfigEntities, getConfigById, getConfigByProviderId are unchanged) ...
     @Transactional(readOnly = true)
     public List<SsoProviderConfigDto> getAllConfigs() {
         Long tenantId = getTenantIdFromContext();
@@ -119,17 +119,11 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContext();
         log.debug("Fetching enabled SSO provider DTOs (tenant: {})", tenantId);
 
-        // --- THIS IS THE FIX ---
-        // If we are on the main domain (tenantId is null), we are the Super Admin.
-        // We must not show any tenant SSO buttons.
         if (tenantId == null) {
             log.debug("On main domain, returning no SSO providers.");
-            return new ArrayList<>(); // Return an empty list
+            return new ArrayList<>();
         }
-        // --- END FIX ---
 
-        // If we are here, tenantId is not null, so we are on a subdomain.
-        // getFilteredSession() will correctly enable the filter.
         Session session = getFilteredSession();
         List<SsoProviderConfig> enabledConfigs = configRepository.findByEnabledTrue();
         session.disableFilter("tenantFilter");

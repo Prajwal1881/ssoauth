@@ -54,9 +54,6 @@ public class AdminService {
 
     // --- Branding Methods ---
 
-    /**
-     * FIX: Ensures transactional boundary for read operations.
-     */
     @Transactional(readOnly = true)
     public BrandingRequestDto getTenantBranding() {
         Long tenantId = getTenantIdFromContext();
@@ -103,11 +100,11 @@ public class AdminService {
     // --- User Management Methods ---
 
     /**
-     * CRITICAL FIX: Added @Transactional(readOnly = true) to resolve session/deadlock issues.
+     * CRITICAL FIX: Re-adding manual session filtering to guarantee isolation.
      */
     @Transactional(readOnly = true)
     public List<UserInfo> findAllUsers() {
-        Long tenantId = getTenantIdFromContext(); // Gets ID safely inside transaction
+        Long tenantId = getTenantIdFromContext();
         log.info("Fetching all users for admin (tenant context: {})", tenantId);
 
         // --- MANUAL FILTER CONTROL ---
@@ -123,7 +120,7 @@ public class AdminService {
     }
 
     /**
-     * FIX: Added @Transactional(readOnly = true) for reliable filter application.
+     * FIX: Re-adding manual filter logic.
      */
     @Transactional(readOnly = true)
     public UserInfo findUserById(Long id) {

@@ -62,8 +62,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.accountNonLocked = :locked WHERE u.id = :userId")
     void updateAccountLockStatus(@Param("userId") Long userId, @Param("locked") Boolean locked);
 
+    // --- FIX: Removed "Some(" and ")" wrapper ---
     Long countByAuthProvider(User.AuthProvider authProvider);
     Long countByEnabledTrue();
+    // --- End Fix ---
+
     List<User> findByCreatedAtAfter(LocalDateTime date);
     List<User> findByLastLoginAfter(LocalDateTime date);
 

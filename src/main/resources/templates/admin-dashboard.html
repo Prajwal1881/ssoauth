@@ -169,6 +169,7 @@
         <h2>SAML Configuration</h2>
         <div id="saml-error-message" class="error" style="display: none;"></div>
         <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
+            <input type="hidden" id="samlConfigId">
             <h4>General Settings</h4>
             <div class="toggle-switch">
                 <label for="samlEnable">Enable SAML Provider:</label>
@@ -194,6 +195,7 @@
         <h2>OAuth 2.0 / OpenID Connect Configuration</h2>
         <div id="oidc-error-message" class="error" style="display: none;"></div>
         <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
+            <input type="hidden" id="oidcConfigId">
             <h4>General Settings</h4>
             <div class="toggle-switch">
                 <label for="oidcEnable">Enable OIDC Provider:</label>
@@ -238,6 +240,7 @@
         <h2>Manual JWT Configuration</h2>
         <div id="jwt-error-message" class="error" style="display: none;"></div>
         <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT" data-provider-id="jwt_miniorange">
+            <input type="hidden" id="jwtConfigId">
             <h4>General Settings</h4>
             <div class="toggle-switch">
                 <label for="jwtEnable">Enable JWT Provider:</label>
@@ -299,16 +302,21 @@
     const errorMessageDiv = document.getElementById('error-message');
     const token = localStorage.getItem('accessToken');
     const modal = document.getElementById('userModal');
-    // ... (other user modal/SSO variables remain) ...
+    const modalTitle = document.getElementById('modalTitle');
+    const modalError = document.getElementById('modal-error');
+    const userForm = document.getElementById('userForm');
+    const userIdInput = document.getElementById('userId');
+
+    // --- SSO Form Variables ---
     const samlErrorDiv = document.getElementById('saml-error-message');
     const oidcErrorDiv = document.getElementById('oidc-error-message');
     const jwtErrorDiv = document.getElementById('jwt-error-message');
     const samlConfigForm = document.getElementById('samlConfigForm');
     const oidcConfigForm = document.getElementById('oidcConfigForm');
     const jwtConfigForm = document.getElementById('jwtConfigForm');
-    let configDataStore = {};
+    let configDataStore = {}; // Stores config state { 'providerId': { id: 1, ... } }
 
-    // --- NEW: Branding Variables ---
+    // --- Branding Variables ---
     const brandingForm = document.getElementById('brandingConfigForm');
     const brandingErrorDiv = document.getElementById('branding-error-message');
     const brandingSuccessDiv = document.getElementById('branding-success-message');
@@ -325,24 +333,26 @@
              return;
         }
         try {
-            const response = await fetch('/api/public/branding');
-            if (response.ok) {
-                const branding = await response.json();
-                if (branding.brandingLogoUrl) {
-                    const logoEl = document.getElementById('header-logo');
-                    logoEl.src = branding.brandingLogoUrl;
-                    logoEl.style.display = 'inline-block';
-                    document.getElementById('header-logo-text').style.display = 'none';
-                }
-                if (branding.tenantName) {
-                    document.getElementById('header-logo-text').textContent = `${branding.tenantName} Admin`;
-                }
-                if (branding.brandingPrimaryColor) {
-                    document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
-                }
-                // Initialize Subdomain Preview with current value
-                subdomainPreview.textContent = branding.subdomain || 'your-name';
+            const response = await fetch('/api/public/branding', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) throw new Error("Could not fetch branding");
+
+            const branding = await response.json();
+            if (branding.brandingLogoUrl) {
+                const logoEl = document.getElementById('header-logo');
+                logoEl.src = branding.brandingLogoUrl;
+                logoEl.style.display = 'inline-block';
+                document.getElementById('header-logo-text').style.display = 'none';
             }
+            if (branding.tenantName) {
+                document.getElementById('header-logo-text').textContent = `${branding.tenantName} Admin`;
+            }
+            if (branding.brandingPrimaryColor) {
+                document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+            }
+            subdomainPreview.textContent = branding.subdomain || 'your-name';
+
         } catch (error) {
             console.error('Error fetching branding:', error);
         }
@@ -350,16 +360,21 @@
 
     // --- Tab switching logic (Modified) ---
     function openTab(evt, tabName) {
+        clearSsoErrors('all');
+        clearBrandingMessages();
+        clearUserModalError();
+
         const tabcontent = document.getElementsByClassName("tab-content");
         for (let i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
         const tablinks = document.getElementsByClassName("tab-button");
         for (let i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
+
         const currentTab = document.getElementById(tabName);
         if (currentTab) currentTab.style.display = "block";
         if (evt && evt.currentTarget) evt.currentTarget.className += " active";
 
         if (tabName === 'userManagement') loadUsers();
-        else if (tabName === 'brandingConfig') loadBrandingSettings(); // NEW CALL
+        else if (tabName === 'brandingConfig') loadBrandingSettings();
         else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig') {
             loadSsoConfigurations();
         }
@@ -370,10 +385,7 @@
         clearBrandingMessages();
         try {
             const response = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
-            if (!response.ok) {
-                // Use the standard error handler to show API issues
-                return handleApiError(response, "load branding settings", false, brandingErrorDiv);
-            }
+            if (!response.ok) return handleApiError(response, "load branding settings", false, brandingErrorDiv);
 
             const branding = await response.json();
             brandingSubdomainInput.value = branding.subdomain || '';
@@ -387,7 +399,6 @@
         }
     }
 
-    // Live update the domain preview hint
     brandingSubdomainInput.addEventListener('input', (e) => {
         subdomainPreview.textContent = e.target.value.toLowerCase().trim().replaceAll(' ', '-') || 'your-name';
     });
@@ -395,9 +406,7 @@
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearBrandingMessages();
-
         const brandingData = {
-            // Note: The backend validator will clean this string up
             subdomain: brandingSubdomainInput.value,
             brandingLogoUrl: brandingLogoUrlInput.value,
             brandingPrimaryColor: brandingPrimaryColorInput.value
@@ -410,22 +419,17 @@
                 body: JSON.stringify(brandingData)
             });
 
-            if (!response.ok) {
-                // The standard error handler is perfect here for validation/uniqueness checks
-                return handleApiError(response, "update branding", false, brandingErrorDiv);
-            }
+            if (!response.ok) return handleApiError(response, "update branding", false, brandingErrorDiv);
 
             const updatedBranding = await response.json();
-            showBrandingSuccess(`Branding updated successfully! Your new login URL is now active: ${updatedBranding.subdomain}.localhost:8080/login`);
+            showBrandingSuccess(`Branding updated successfully! Your login URL is active at: ${updatedBranding.subdomain}.localhost:8080/login`);
 
-            // Re-apply new branding to the current page immediately
             document.documentElement.style.setProperty('--primary-orange', updatedBranding.brandingPrimaryColor || '#FF6600');
             if (updatedBranding.brandingLogoUrl) {
                  document.getElementById('header-logo').src = updatedBranding.brandingLogoUrl;
                  document.getElementById('header-logo').style.display = 'inline-block';
                  document.getElementById('header-logo-text').style.display = 'none';
             }
-
         } catch (error) {
             console.error('Save branding error:', error);
             showBrandingError(`Save failed: ${error.message}`);
@@ -439,25 +443,305 @@
         brandingSuccessDiv.style.display = 'none'; brandingSuccessDiv.textContent = '';
     }
 
-    // --- Utility/Error Functions (Unchanged) ---
-    // ... (All other User Management, SSO, and Helper functions remain unchanged) ...
+    // --- (START) NEWLY ADDED USER MANAGEMENT FUNCTIONS ---
 
     async function loadUsers() {
-        // ... (unchanged)
+        clearUserModalError();
+        userTableBody.innerHTML = '<tr><td colspan="8">Loading users...</td></tr>';
+        try {
+            const response = await fetch('/api/admin/users', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) {
+                return handleApiError(response, "load users", false, errorMessageDiv);
+            }
+            const users = await response.json();
+            renderUserTable(users);
+        } catch (error) {
+            console.error('Load users error:', error);
+            showUserError(`Failed to load users: ${error.message}`);
+        }
     }
-    // ... (rest of user management)
+
+    function renderUserTable(users) {
+        userTableBody.innerHTML = '';
+        if (!users || users.length === 0) {
+            userTableBody.innerHTML = '<tr><td colspan="8">No users found.</td></tr>';
+            return;
+        }
+        users.forEach(user => {
+            const row = userTableBody.insertRow();
+            row.insertCell().textContent = user.id;
+            row.insertCell().textContent = user.username;
+            row.insertCell().textContent = user.email;
+            row.insertCell().textContent = user.firstName || '';
+            row.insertCell().textContent = user.lastName || '';
+            row.insertCell().textContent = user.roles || 'ROLE_USER';
+            row.insertCell().textContent = user.authProvider;
+            row.insertCell().innerHTML = `
+                <button onclick="openEditModal(${user.id})" class="btn-edit">Edit</button>
+                <button onclick="deleteUser(${user.id})" class="btn-delete">Delete</button>
+            `;
+        });
+    }
+
+    function openCreateModal() {
+        clearUserModalError();
+        userForm.reset();
+        userIdInput.value = '';
+        modalTitle.textContent = 'Create New User';
+        document.getElementById('password').placeholder = "Password (required)";
+        modal.style.display = "block";
+    }
+
+    async function openEditModal(id) {
+        clearUserModalError();
+        userForm.reset();
+        try {
+            const response = await fetch(`/api/admin/users/${id}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) { return handleApiError(response, `fetch user ${id}`, false, errorMessageDiv); }
+            const user = await response.json();
+
+            userIdInput.value = user.id;
+            document.getElementById('username').value = user.username;
+            document.getElementById('email').value = user.email;
+            document.getElementById('firstName').value = user.firstName || '';
+            document.getElementById('lastName').value = user.lastName || '';
+            document.getElementById('roles').value = user.roles || '';
+            document.getElementById('password').placeholder = "Leave blank if no change";
+
+            modalTitle.textContent = 'Edit User: ' + user.username;
+            modal.style.display = "block";
+        } catch(error) {
+            console.error("Edit user error:", error);
+            showUserError(`Failed to load user: ${error.message}`);
+        }
+    }
+
+    async function deleteUser(id) {
+        if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) {
+            return;
+        }
+        clearUserModalError();
+        try {
+            const response = await fetch(`/api/admin/users/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) { return handleApiError(response, `delete user ${id}`, false, errorMessageDiv); }
+
+            loadUsers();
+        } catch (error) {
+            console.error("Delete user error:", error);
+            showUserError(`Failed to delete user: ${error.message}`);
+        }
+    }
+
+    function closeModal() {
+        modal.style.display = "none";
+    }
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    userForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearUserModalError();
+
+        const id = userIdInput.value;
+        const isUpdate = !!id;
+
+        const data = {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            firstName: document.getElementById('firstName').value,
+            lastName: document.getElementById('lastName').value,
+            roles: document.getElementById('roles').value
+        };
+
+        if (isUpdate && !data.password) {
+            delete data.password; // Don't send empty password on update
+        }
+
+        const url = isUpdate ? `/api/admin/users/${id}` : '/api/admin/users';
+        const method = isUpdate ? 'PUT' : 'POST';
+        const action = isUpdate ? 'update user' : 'create user';
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) { return handleApiError(response, action, true, modalError); }
+
+            closeModal();
+            loadUsers();
+        } catch (error) {
+            console.error(`${action} error:`, error);
+            showUserModalError(`Save failed: ${error.message}`);
+        }
+    });
+
+    // --- (END) NEWLY ADDED USER MANAGEMENT FUNCTIONS ---
+
+
+    // --- (START) NEWLY ADDED SSO CONFIG FUNCTIONS ---
 
     async function loadSsoConfigurations() {
-        // ... (unchanged)
-    }
-    // ... (rest of SSO functions)
+        try {
+            const response = await fetch('/api/admin/sso-config', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) return handleApiError(response, "load SSO configs", false, getErrorDivForType('all'));
 
+            const configs = await response.json();
+            configDataStore = {}; // Clear old data
+
+            configs.forEach(config => {
+                configDataStore[config.providerId] = config;
+                populateSsoForm(config);
+            });
+        } catch (error) {
+            console.error('Load SSO configs error:', error);
+            showSsoError(`Failed to load SSO configurations: ${error.message}`, 'all');
+        }
+    }
+
+    function populateSsoForm(config) {
+        const prefix = config.providerType.toLowerCase(); // 'saml', 'oidc', 'jwt'
+
+        // This relies on IDs matching the pattern: ${prefix}Enable, ${prefix}DisplayName, etc.
+        document.getElementById(`${prefix}ConfigId`).value = config.id || '';
+        document.getElementById(`${prefix}Enable`).checked = config.enabled;
+        document.getElementById(`${prefix}DisplayName`).value = config.displayName || '';
+
+        // --- Common ---
+        if (document.getElementById(`${prefix}ClientId`)) document.getElementById(`${prefix}ClientId`).value = config.clientId || '';
+        if (document.getElementById(`${prefix}ClientSecret`)) document.getElementById(`${prefix}ClientSecret`).value = ''; // Never populate secret
+        if (document.getElementById(`${prefix}IssuerUri`)) document.getElementById(`${prefix}IssuerUri`).value = config.issuerUri || '';
+
+        // --- OIDC ---
+        if (prefix === 'oidc') {
+            document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
+            document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
+            document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
+            document.getElementById('oidcTokenUri').value = config.tokenUri || '';
+            document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
+            document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
+        }
+        // --- SAML ---
+        else if (prefix === 'saml') {
+            document.getElementById('samlEntityId').value = config.samlEntityId || '';
+            document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
+            document.getElementById('samlCertificate').value = config.samlCertificate || '';
+        }
+        // --- JWT ---
+        else if (prefix === 'jwt') {
+            document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
+            document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
+            document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
+        }
+    }
+
+    [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const providerType = form.dataset.providerType;
+            const providerId = form.dataset.providerId;
+            const configId = configDataStore[providerId]?.id;
+            const prefix = providerType.toLowerCase();
+
+            clearSsoErrors(providerType);
+
+            // Create data payload from form
+            const data = {
+                id: configId,
+                providerId: providerId,
+                providerType: providerType,
+                enabled: document.getElementById(`${prefix}Enable`).checked,
+                displayName: document.getElementById(`${prefix}DisplayName`).value,
+
+                // Common
+                clientId: document.getElementById(`${prefix}ClientId`)?.value,
+                clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value,
+                issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value,
+
+                // OIDC
+                scopes: document.getElementById('oidcScopes')?.value,
+                userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value,
+                authorizationUri: document.getElementById('oidcAuthorizationUri')?.value,
+                tokenUri: document.getElementById('oidcTokenUri')?.value,
+                userInfoUri: document.getElementById('oidcUserInfoUri')?.value,
+                jwkSetUri: document.getElementById('oidcJwkSetUri')?.value,
+
+                // SAML
+                samlEntityId: document.getElementById('samlEntityId')?.value,
+                samlSsoUrl: document.getElementById('samlSsoUrl')?.value,
+                samlCertificate: document.getElementById('samlCertificate')?.value,
+
+                // JWT
+                jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value,
+                jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value,
+                jwtCertificate: document.getElementById('jwtCertificate')?.value,
+            };
+
+            // Don't send empty secret unless it's a create
+            if (configId && !data.clientSecret) {
+                delete data.clientSecret;
+            }
+
+            const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
+            const method = configId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    return handleApiError(response, `save ${providerType} config`, false, getErrorDivForType(providerType));
+                }
+
+                const updatedConfig = await response.json();
+                configDataStore[updatedConfig.providerId] = updatedConfig;
+                populateSsoForm(updatedConfig);
+                alert(`${providerType} configuration saved successfully!`);
+
+            } catch (error) {
+                console.error(`Save ${providerType} config error:`, error);
+                showSsoError(`Save failed: ${error.message}`, providerType);
+            }
+        });
+    });
+
+    function testAttributes(providerId) {
+        const config = configDataStore[providerId];
+        if (!config || !config.enabled) {
+            alert("Please save and enable the configuration before testing.");
+            return;
+        }
+        // The /api/sso/test-attributes/{providerId} endpoint will handle the redirect
+        window.open(`/api/sso/test-attributes/${providerId}`, 'ssoTestWindow', 'width=600,height=700');
+    }
+
+    // --- (END) NEWLY ADDED SSO CONFIG FUNCTIONS ---
+
+
+    // --- Utility/Error Functions ---
     function getErrorDivForType(providerType) {
         if (providerType === 'SAML') return samlErrorDiv;
         if (providerType === 'OIDC') return oidcErrorDiv;
         if (providerType === 'JWT') return jwtErrorDiv;
-        if (providerType === 'BRANDING') return brandingErrorDiv; // Corrected to use BRANDING
-        return errorMessageDiv;
+        if (providerType === 'BRANDING') return brandingErrorDiv;
+        return errorMessageDiv; // Default for 'all' or user management
     }
      function showSsoError(message, providerType = 'all') {
          const div = getErrorDivForType(providerType);
@@ -467,15 +751,19 @@
          if (providerType === 'all' || providerType === 'SAML') { samlErrorDiv.textContent = ''; samlErrorDiv.style.display = 'none'; }
          if (providerType === 'all' || providerType === 'OIDC') { oidcErrorDiv.textContent = ''; oidcErrorDiv.style.display = 'none'; }
          if (providerType === 'all' || providerType === 'JWT') { jwtErrorDiv.textContent = ''; jwtErrorDiv.style.display = 'none'; }
-         if (providerType === 'all' || providerType === 'BRANDING') { brandingErrorDiv.textContent = ''; brandingErrorDiv.style.display = 'none'; }
+     }
+     function showUserError(message) { errorMessageDiv.textContent = message; errorMessageDiv.style.display = 'block'; }
+     function showUserModalError(message) { modalError.textContent = message; modalError.style.display = 'block'; }
+     function clearUserModalError() {
+         errorMessageDiv.textContent = ''; errorMessageDiv.style.display = 'none';
+         modalError.textContent = ''; modalError.style.display = 'none';
      }
 
-    async function handleApiError(response, actionDescription, showInModal = false, targetErrorDiv = null) {
+     async function handleApiError(response, actionDescription, showInModal = false, targetErrorDiv = null) {
          let errorDisplayDiv = showInModal ? modalError : (targetErrorDiv || errorMessageDiv);
          let errorMessage = `Failed to ${actionDescription} (Status: ${response.status})`;
          try {
              const errorData = await response.json();
-             // This handles the uniqueness error via the GlobalExceptionHandler's ResourceAlreadyExistsException mapping
              if (response.status === 409) {
                  errorMessage = errorData.message || "Conflict: Resource already exists.";
              } else if (errorData.message) {
@@ -493,7 +781,7 @@
          else { console.error("Target error div not found for message:", errorMessage); }
      }
 
-    // ... (rest of password toggle and logout functions) ...
+    // --- Password Toggle & Logout ---
     function setupPasswordToggle(inputId, toggleId) {
         const passwordInput = document.getElementById(inputId);
         const toggleButton = document.getElementById(toggleId);
@@ -508,6 +796,7 @@
     }
     setupPasswordToggle('oidcClientSecret', 'toggleOidcSecret');
     setupPasswordToggle('jwtClientSecret', 'toggleJwtSecret');
+
     const logoutButton = document.getElementById('logout-button');
     if (logoutButton) {
         logoutButton.addEventListener('click', () => {
@@ -516,10 +805,12 @@
             window.location.href = '/login';
         });
     }
+
+    // --- Initial Page Load Check ---
     if (token) {
         document.getElementById("welcome").style.display = "block";
     } else {
-         setTimeout(() => { window.location.href = '/login'; }, 2000);
+         setTimeout(() => { window.location.href = '/login'; }, 1000);
     }
 </script>
 
