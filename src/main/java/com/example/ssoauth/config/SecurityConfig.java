@@ -23,6 +23,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter; // <-- NEW IMPORT
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -51,7 +52,7 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
-    private final TenantIdentificationFilter tenantIdentificationFilter; // NEW
+    private final TenantIdentificationFilter tenantIdentificationFilter;
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
@@ -70,7 +71,7 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/**",
                                 "/api/sso/enabled-providers",
-                                "/api/public/branding", // NEW public endpoint
+                                "/api/public/branding",
                                 "/api/sso/test-attributes/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
@@ -80,17 +81,17 @@ public class SecurityConfig {
                                 "/dashboard",
                                 "/admin/dashboard",
                                 "/admin/sso-test-result",
-                                "/super-admin/dashboard" // NEW Super Admin UI
+                                "/super-admin/dashboard"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/admin/**"
-                        ).hasRole("ADMIN") // This is now CUSTOMER ADMIN
+                        ).hasRole("ADMIN")
                         .requestMatchers(
                                 "/api/super-admin/**"
-                        ).hasRole("SUPER_ADMIN") // NEW Super Admin API
+                        ).hasRole("SUPER_ADMIN")
                         .requestMatchers(
                                 "/api/user/**"
-                        ).hasAnyRole("USER", "ADMIN", "SUPER_ADMIN") // Allow all roles to access /me
+                        ).hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -104,8 +105,11 @@ public class SecurityConfig {
                         .successHandler(samlLoginSuccessHandler)
                 )
                 .authenticationProvider(authenticationProvider())
-                // NEW: Add Tenant filter BEFORE JWT filter
-                .addFilterBefore(tenantIdentificationFilter, UsernamePasswordAuthenticationFilter.class)
+                // --- THIS IS THE FIX ---
+                // Move the Tenant filter to run *before* all other security filters,
+                // including the SAML and OIDC filters.
+                .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
+                // --- END FIX ---
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

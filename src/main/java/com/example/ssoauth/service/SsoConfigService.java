@@ -8,12 +8,9 @@ import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.repository.SsoProviderConfigRepository;
 import com.example.ssoauth.repository.TenantRepository;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Session;
+import lombok.extern.slf4j.Slf4j; // <-- FIX: ADDED IMPORT
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,14 +25,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
+@Slf4j // <-- FIX: ADDED ANNOTATION
 public class SsoConfigService {
 
     private final SsoProviderConfigRepository configRepository;
     private final TenantRepository tenantRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     /**
      * Helper to get the current tenant ID (Long) or return null if on main domain.
@@ -50,32 +44,18 @@ public class SsoConfigService {
                 .getId();
     }
 
-    /**
-     * Helper to enable the Hibernate filter using the correct Long ID.
-     */
-    private Session getFilteredSession() {
-        Session session = entityManager.unwrap(Session.class);
-        Long tenantId = getTenantIdFromContext();
-
-        if (tenantId != null) {
-            session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
-        } else {
-            // This is critical for Super-Admin access
-            session.disableFilter("tenantFilter");
-        }
-        return session;
-    }
-
     @Transactional(readOnly = true)
     public List<SsoProviderConfigDto> getAllConfigs() {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching all SSO provider configurations as DTOs (tenant: {})", tenantId);
 
-        Session session = getFilteredSession();
-        List<SsoProviderConfigDto> dtos = configRepository.findAll().stream()
+        if (tenantId == null) {
+            return new ArrayList<>(); // Super-admin doesn't manage configs this way
+        }
+
+        List<SsoProviderConfigDto> dtos = configRepository.findAll().stream() // Assuming AdminService filter is active
                 .map(this::mapEntityToDto)
                 .collect(Collectors.toList());
-        session.disableFilter("tenantFilter");
         return dtos;
     }
 
@@ -83,11 +63,11 @@ public class SsoConfigService {
     public List<SsoProviderConfig> getAllConfigEntities() {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching all SSO provider configuration ENTITIES (tenant: {})", tenantId);
-
-        Session session = getFilteredSession();
-        List<SsoProviderConfig> configs = configRepository.findAll();
-        session.disableFilter("tenantFilter");
-        return configs;
+        if (tenantId == null) {
+            return new ArrayList<>();
+        }
+        // This is only called by AdminService, which applies its own filter
+        return configRepository.findAll();
     }
 
     @Transactional(readOnly = true)
@@ -95,10 +75,8 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching SSO config by ID: {} (tenant: {})", id, tenantId);
 
-        Session session = getFilteredSession();
-        SsoProviderConfig config = configRepository.findById(id)
+        SsoProviderConfig config = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("SSO Config not found with ID: " + id));
-        session.disableFilter("tenantFilter");
         return mapEntityToDto(config);
     }
 
@@ -107,10 +85,10 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContext();
         log.debug("Fetching SSO config by provider ID: {} (tenant: {})", providerId, tenantId);
 
-        Session session = getFilteredSession();
-        Optional<SsoProviderConfig> configOpt = configRepository.findByProviderId(providerId);
-        session.disableFilter("tenantFilter");
-        return configOpt;
+        if (tenantId == null) {
+            return Optional.empty(); // No tenant, no config
+        }
+        return configRepository.findByProviderIdAndTenantId(providerId, tenantId);
     }
 
 
@@ -124,9 +102,7 @@ public class SsoConfigService {
             return new ArrayList<>();
         }
 
-        Session session = getFilteredSession();
-        List<SsoProviderConfig> enabledConfigs = configRepository.findByEnabledTrue();
-        session.disableFilter("tenantFilter");
+        List<SsoProviderConfig> enabledConfigs = configRepository.findByTenantIdAndEnabledTrue(tenantId);
 
         List<EnabledProviderDto> providerDtos = new ArrayList<>();
         for (SsoProviderConfig config : enabledConfigs) {
@@ -147,10 +123,8 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContext();
         log.info("Updating SSO config for ID: {} (tenant: {})", id, tenantId);
 
-        Session session = getFilteredSession();
-        SsoProviderConfig existingConfig = configRepository.findById(id)
+        SsoProviderConfig existingConfig = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("SSO Config not found with ID: " + id));
-        session.disableFilter("tenantFilter");
 
         if (!existingConfig.getProviderId().equals(dto.getProviderId()) ||
                 !existingConfig.getProviderType().equals(dto.getProviderType())) {
@@ -178,12 +152,9 @@ public class SsoConfigService {
 
         log.info("Creating new SSO config for provider ID: {} in tenant: {}", dto.getProviderId(), tenantId);
 
-        Session session = getFilteredSession();
-        if (configRepository.findByProviderId(dto.getProviderId()).isPresent()) {
-            session.disableFilter("tenantFilter");
+        if (configRepository.existsByProviderIdAndTenantId(dto.getProviderId(), tenantId)) {
             throw new IllegalArgumentException("Provider ID already exists in this tenant: " + dto.getProviderId());
         }
-        session.disableFilter("tenantFilter");
 
         SsoProviderConfig newConfig = new SsoProviderConfig();
         BeanUtils.copyProperties(dto, newConfig, "id", "createdAt", "updatedAt");
