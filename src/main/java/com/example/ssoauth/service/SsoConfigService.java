@@ -10,7 +10,7 @@ import com.example.ssoauth.repository.SsoProviderConfigRepository;
 import com.example.ssoauth.repository.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // <-- FIX: ADDED IMPORT
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // <-- FIX: ADDED ANNOTATION
+@Slf4j
 public class SsoConfigService {
 
     private final SsoProviderConfigRepository configRepository;
@@ -35,13 +35,8 @@ public class SsoConfigService {
      * Helper to get the current tenant ID (Long) or return null if on main domain.
      */
     private Long getTenantIdFromContext() {
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
-            return null; // On main domain
-        }
-        return tenantRepository.findBySubdomain(subdomain)
-                .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                .getId();
+        // --- FIX: Read Long ID directly from context. No DB lookup. ---
+        return TenantContext.getCurrentTenant();
     }
 
     @Transactional(readOnly = true)
@@ -53,7 +48,8 @@ public class SsoConfigService {
             return new ArrayList<>(); // Super-admin doesn't manage configs this way
         }
 
-        List<SsoProviderConfigDto> dtos = configRepository.findAll().stream() // Assuming AdminService filter is active
+        // The TenantFilterAspect will automatically filter this findAll() call
+        List<SsoProviderConfigDto> dtos = configRepository.findAll().stream()
                 .map(this::mapEntityToDto)
                 .collect(Collectors.toList());
         return dtos;
@@ -66,7 +62,7 @@ public class SsoConfigService {
         if (tenantId == null) {
             return new ArrayList<>();
         }
-        // This is only called by AdminService, which applies its own filter
+        // The TenantFilterAspect will automatically filter this findAll() call
         return configRepository.findAll();
     }
 
@@ -75,6 +71,11 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching SSO config by ID: {} (tenant: {})", id, tenantId);
 
+        if (tenantId == null) {
+            throw new EntityNotFoundException("SSO Config not found (no tenant): " + id);
+        }
+
+        // Use explicit tenantId query for clarity and security
         SsoProviderConfig config = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("SSO Config not found with ID: " + id));
         return mapEntityToDto(config);
@@ -122,6 +123,10 @@ public class SsoConfigService {
     public SsoProviderConfigDto updateConfig(Long id, SsoProviderConfigUpdateRequest dto) {
         Long tenantId = getTenantIdFromContext();
         log.info("Updating SSO config for ID: {} (tenant: {})", id, tenantId);
+
+        if (tenantId == null) {
+            throw new RuntimeException("Cannot update config without tenant context.");
+        }
 
         SsoProviderConfig existingConfig = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("SSO Config not found with ID: " + id));
@@ -193,6 +198,8 @@ public class SsoConfigService {
     private SsoProviderConfigDto mapEntityToDto(SsoProviderConfig entity) {
         SsoProviderConfigDto dto = new SsoProviderConfigDto();
         BeanUtils.copyProperties(entity, dto);
+        // Note: The 'clientSecret' field is NOT in the DTO, so it is not copied.
+        // If it were, we would explicitly set it to null here.
         return dto;
     }
 }

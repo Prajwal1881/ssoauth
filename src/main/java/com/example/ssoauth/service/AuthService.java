@@ -1,6 +1,5 @@
 package com.example.ssoauth.service;
 
-// ... (other imports are unchanged)
 import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.*;
 import com.example.ssoauth.entity.SsoProviderConfig;
@@ -24,14 +23,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +48,9 @@ public class AuthService {
     @Transactional
     public JwtAuthResponse signIn(SignInRequest signInRequest) {
 
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Read Long ID from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             // Main domain login.
             Optional<User> userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(
                     signInRequest.getUsernameOrEmail(), signInRequest.getUsernameOrEmail());
@@ -59,6 +60,7 @@ public class AuthService {
                 throw new BadCredentialsException("Please use your organization's login URL.");
             }
         }
+        // --- End Fix ---
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -71,11 +73,11 @@ public class AuthService {
 
         // --- FIX: Re-fetch user based on new context ---
         Optional<User> userOpt;
-        if (subdomain != null) {
-            Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                    .orElseThrow(() -> new RuntimeException("Invalid tenant after login: " + subdomain))
-                    .getId();
-            userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, username, tenantId, username);
+        // Read tenantId *again* as it's set by CustomUserDetailsService during authenticate()
+        Long authTenantId = TenantContext.getCurrentTenant();
+
+        if (authTenantId != null) {
+            userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(authTenantId, username, authTenantId, username);
         } else {
             userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(username, username);
         }
@@ -97,15 +99,13 @@ public class AuthService {
 
     @Transactional
     public JwtAuthResponse signUp(SignUpRequest signUpRequest) {
-        // --- FIX: Resolve tenantId from subdomain ---
-        String subdomain = TenantContext.getCurrentTenant();
+        // --- FIX: Resolve tenant from Long ID ---
+        Long tenantId = TenantContext.getCurrentTenant();
         Tenant tenant = null;
 
-        if (subdomain != null) {
-            Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                    .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                    .getId();
-            tenant = tenantRepository.findById(tenantId).get(); // We know it exists
+        if (tenantId != null) {
+            tenant = tenantRepository.findById(tenantId)
+                    .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + tenantId));
 
             if (userRepository.existsByUsernameAndTenantId(signUpRequest.getUsername(), tenantId)) {
                 throw new ResourceAlreadyExistsException("Username is already taken for this tenant!");
@@ -114,6 +114,7 @@ public class AuthService {
                 throw new ResourceAlreadyExistsException("Email is already in use for this tenant!");
             }
         } else {
+            // Super-admin signup (or main domain)
             if (userRepository.existsByUsernameAndTenantIdIsNull(signUpRequest.getUsername())) {
                 throw new ResourceAlreadyExistsException("Username is already taken!");
             }
@@ -160,31 +161,30 @@ public class AuthService {
 
     @Transactional
     public User processOidcLogin(OidcUser oidcUser) {
-        // --- FIX: Resolve tenantId from subdomain ---
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Resolve tenantId from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             throw new SSOAuthenticationException("OIDC login failed: No tenant context found.");
         }
-        Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                .getId();
         // --- End Fix ---
 
         String registrationId = (String) oidcUser.getAttributes().get("registrationId");
         if (registrationId == null) {
-            final Long finalTenantId = tenantId;
+            // SsoConfigService.getAllConfigEntities() will be filtered by the Aspect
             registrationId = ssoConfigService.getAllConfigEntities().stream()
-                    .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(finalTenantId) && c.getProviderType() == SsoProviderType.OIDC)
+                    .filter(c -> c.getProviderType() == SsoProviderType.OIDC && c.isEnabled())
                     .findFirst()
                     .map(SsoProviderConfig::getProviderId)
-                    .orElseThrow(() -> new SSOAuthenticationException("Could not determine OIDC registrationId"));
+                    .orElseThrow(() -> new SSOAuthenticationException("Could not determine OIDC registrationId or no OIDC provider enabled"));
         }
 
         final String finalRegistrationId = registrationId;
 
+        // SsoConfigService.getConfigByProviderId() is already tenant-aware
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
                 .orElseThrow(() -> new SSOAuthenticationException("No OIDC config found for: " + finalRegistrationId));
 
+        // This check is good redundancy
         if (!config.getTenant().getId().equals(tenantId)) {
             throw new SSOAuthenticationException("OIDC config mismatch: Provider does not belong to current tenant.");
         }
@@ -193,15 +193,16 @@ public class AuthService {
 
         log.info("--- OIDC ATTRIBUTE DUMP (START) ---");
         log.info("Provider: {}, Tenant: {}", config.getProviderId(), tenantId);
-        claims.forEach((key, value) -> log.info("  Claim: '{}', Value: '{}'", key, value.toString()));
+        claims.forEach((key, value) -> log.info("  Claim: '{}', Value: '{}'", key, value != null ? value.toString() : "null"));
         log.info("--- OIDC ATTRIBUTE DUMP (END) ---");
 
-        String username = findOidcAttribute(claims, "preferred_username", "username", "uid");
+        String username = findOidcAttribute(claims, config.getUserNameAttribute(), "preferred_username", "username", "uid", "sub");
         String email = findOidcAttribute(claims, "email", "mail", "userPrincipalName");
         String firstName = findOidcAttribute(claims, "given_name", "firstName", "fn");
         String lastName = findOidcAttribute(claims, "family_name", "lastName", "sn");
 
         if (email == null) email = oidcUser.getEmail(); // Fallback
+        if (username == null) username = email; // Fallback to email if username attribute is not found
 
         log.info("Processing OIDC Login for email: {}", email);
 
@@ -218,18 +219,16 @@ public class AuthService {
 
     @Transactional
     public User processSamlLogin(Saml2AuthenticatedPrincipal samlUser) {
-        // --- FIX: Resolve tenantId from subdomain ---
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Resolve tenantId from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             throw new SSOAuthenticationException("SAML login failed: No tenant context found.");
         }
-        Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                .getId();
         // --- End Fix ---
 
         String registrationId = samlUser.getRelyingPartyRegistrationId();
 
+        // SsoConfigService.getConfigByProviderId() is already tenant-aware
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
                 .orElseThrow(() -> new SSOAuthenticationException("No SAML config found for: " + registrationId));
 
@@ -242,16 +241,17 @@ public class AuthService {
         log.info("--- SAML ATTRIBUTE DUMP (START) ---");
         log.info("Provider: {}, Tenant: {}", config.getProviderId(), tenantId);
         attributes.forEach((key, value) -> log.info("  Attribute: '{}', Value: '{}'", key,
-                value.stream().map(Object::toString).collect(Collectors.joining(","))
+                value != null ? value.stream().map(Object::toString).collect(Collectors.joining(",")) : "null"
         ));
         log.info("--- SAML ATTRIBUTE DUMP (END) ---");
 
-        String username = findSamlAttribute(attributes, "username", "uid", "preferred_username");
-        String email = findSamlAttribute(attributes, "email", "mail", "userPrincipalName");
+        String username = findSamlAttribute(attributes, config.getUserNameAttribute(), "username", "uid", "preferred_username");
+        String email = findSamlAttribute(attributes, "email", "mail", "userPrincipalName", "NameID");
         String firstName = findSamlAttribute(attributes, "firstName", "givenName", "fn");
         String lastName = findSamlAttribute(attributes, "lastName", "sn");
 
-        if (email == null) email = samlUser.getName(); // Fallback
+        if (email == null) email = samlUser.getName(); // Fallback to NameID
+        if (username == null) username = email; // Fallback to email
 
         log.info("Processing SAML Login for email: {}", email);
 
@@ -260,16 +260,15 @@ public class AuthService {
                 email,
                 firstName,
                 lastName,
-                samlUser.getName(),
+                samlUser.getName(), // Use NameID as the provider-specific ID
                 User.AuthProvider.SAML,
                 registrationId
         );
     }
 
     private String findOidcAttribute(Map<String, Object> claims, String... keys) {
-        // ... (unchanged)
         for (String key : keys) {
-            if (claims.containsKey(key) && claims.get(key) != null) {
+            if (key != null && claims.containsKey(key) && claims.get(key) != null) {
                 return claims.get(key).toString();
             }
         }
@@ -277,9 +276,8 @@ public class AuthService {
     }
 
     private String findSamlAttribute(Map<String, List<Object>> attributes, String... keys) {
-        // ... (unchanged)
         for (String key : keys) {
-            if (attributes.containsKey(key) && attributes.get(key) != null && !attributes.get(key).isEmpty()) {
+            if (key != null && attributes.containsKey(key) && attributes.get(key) != null && !attributes.get(key).isEmpty()) {
                 Object value = attributes.get(key).get(0);
                 if (value != null) {
                     return value.toString();
@@ -291,14 +289,13 @@ public class AuthService {
 
     @Transactional
     public User processSsoLogin(String username, String email, String firstName, String lastName, String providerId, User.AuthProvider provider, String registrationId) {
-        // --- FIX: Resolve tenantId from subdomain ---
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Resolve tenantId from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             throw new SSOAuthenticationException("Cannot process SSO login without a tenant context.");
         }
-        Tenant tenant = tenantRepository.findBySubdomain(subdomain)
-                .orElseThrow(() -> new SSOAuthenticationException("Invalid tenant: " + subdomain));
-        Long tenantId = tenant.getId();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new SSOAuthenticationException("Invalid tenant: " + tenantId));
         // --- End Fix ---
 
         if (email == null || email.isEmpty()) {
@@ -307,6 +304,7 @@ public class AuthService {
         }
         log.info("Processing SSO login for email: {}, provider: {}, providerId: {}, tenant: {}", email, provider, providerId, tenantId);
 
+        // The AspectJ filter will scope findByProviderId and findByEmailAndTenantId
         User user = userRepository.findByProviderId(providerId)
                 .or(() -> {
                     log.warn("User not found by providerId {}. Attempting lookup by email: {} in tenant: {}", providerId, email, tenantId);
@@ -315,7 +313,10 @@ public class AuthService {
                 .map(existingUser -> {
                     log.info("Found existing user by email or providerId: {}. Updating details.", email);
                     existingUser.setAuthProvider(provider);
-                    existingUser.setProviderId(providerId);
+                    // Only update providerId if it's not already set, or if it matches
+                    if (!StringUtils.hasText(existingUser.getProviderId())) {
+                        existingUser.setProviderId(providerId);
+                    }
                     existingUser.setLastLogin(LocalDateTime.now());
                     if (!StringUtils.hasText(existingUser.getFirstName()) && StringUtils.hasText(firstName)) {
                         existingUser.setFirstName(firstName);
@@ -395,7 +396,8 @@ public class AuthService {
         while (userRepository.existsByUsernameAndTenantId(finalUsername, tenantId)) {
             finalUsername = baseUsername + "_" + counter++;
             if (finalUsername.length() > 50) {
-                finalUsername = baseUsername.substring(0, 40) + "_" + counter++;
+                // Handle very long base usernames + counter
+                finalUsername = baseUsername.substring(0, Math.min(baseUsername.length(), 40)) + "_" + counter;
             }
         }
         return finalUsername;

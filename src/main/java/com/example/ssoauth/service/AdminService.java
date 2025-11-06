@@ -10,12 +10,12 @@ import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.ResourceAlreadyExistsException;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.repository.UserRepository;
-import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManager; // REMOVED
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceContext; // REMOVED
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Session;
+import org.hibernate.Session; // REMOVED
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,22 +34,21 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final TenantRepository tenantRepository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    // REMOVED: EntityManager is no longer needed, Aspect handles filtering
+    // @PersistenceContext
+    // private EntityManager entityManager;
 
     /**
-     * Helper to get the current tenant ID (Long) from the subdomain (String) in the context.
+     * Helper to get the current tenant ID (Long) from the context.
      */
     private Long getTenantIdFromContext() {
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Read Long ID directly from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             // This case should only apply to Super Admins on the root domain
             throw new EntityNotFoundException("No tenant context found. Access denied.");
         }
-        // This database lookup runs safely *inside* the calling method's transaction
-        return tenantRepository.findBySubdomain(subdomain)
-                .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                .getId();
+        return tenantId;
     }
 
     // --- Branding Methods ---
@@ -100,40 +99,39 @@ public class AdminService {
     // --- User Management Methods ---
 
     /**
-     * CRITICAL FIX: Re-adding manual session filtering to guarantee isolation.
+     * FIX: Removed manual session filtering. The TenantFilterAspect now handles this.
      */
     @Transactional(readOnly = true)
     public List<UserInfo> findAllUsers() {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching all users for admin (tenant context: {})", tenantId);
 
-        // --- MANUAL FILTER CONTROL ---
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
+        // Session session = entityManager.unwrap(Session.class);
+        // session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
 
-        List<UserInfo> users = userRepository.findAll().stream()
+        List<UserInfo> users = userRepository.findAll().stream() // AspectJ will filter this
                 .map(this::mapToUserInfo)
                 .collect(Collectors.toList());
 
-        session.disableFilter("tenantFilter"); // Always disable after use
+        // session.disableFilter("tenantFilter"); // Always disable after use
         return users;
     }
 
     /**
-     * FIX: Re-adding manual filter logic.
+     * FIX: Removed manual filter logic.
      */
     @Transactional(readOnly = true)
     public UserInfo findUserById(Long id) {
         Long tenantId = getTenantIdFromContext();
         log.info("Fetching user by ID: {} (tenant context: {})", id, tenantId);
 
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
 
-        User user = userRepository.findById(id)
+        User user = userRepository.findById(id) // AspectJ will filter this
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        session.disableFilter("tenantFilter");
+        // session.disableFilter("tenantFilter");
         return mapToUserInfo(user);
     }
 
@@ -145,6 +143,7 @@ public class AdminService {
 
         log.info("Attempting to create user with username: {} for tenant: {}", request.getUsername(), tenantId);
 
+        // These explicit checks are still good practice
         if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
             log.warn("Username already exists in tenant {}: {}", tenantId, request.getUsername());
             throw new ResourceAlreadyExistsException("Username already exists");
@@ -179,14 +178,14 @@ public class AdminService {
         Long tenantId = getTenantIdFromContext();
         log.info("Attempting to update user with ID: {} in tenant: {}", id, tenantId);
 
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
 
-        User user = userRepository.findById(id)
+        User user = userRepository.findById(id) // AspectJ will filter this
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        session.disableFilter("tenantFilter");
+        // session.disableFilter("tenantFilter");
 
+        // Explicit tenant-scoped checks are still good
         if (StringUtils.hasText(request.getUsername()) && !user.getUsername().equals(request.getUsername())) {
             if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
                 throw new ResourceAlreadyExistsException("Username already exists");
@@ -225,17 +224,17 @@ public class AdminService {
         Long tenantId = getTenantIdFromContext();
         log.info("Attempting to delete user with ID: {} in tenant: {}", id, tenantId);
 
-        Session session = entityManager.unwrap(Session.class);
-        session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
+        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
 
+        // The Aspect will filter existsById, so this check is now tenant-safe
         if (!userRepository.existsById(id)) {
-            session.disableFilter("tenantFilter"); // Disable filter before throwing
+            // session.disableFilter("tenantFilter"); // No need to disable what wasn't manually enabled
             log.warn("Delete failed: User not found with ID: {}", id);
             throw new EntityNotFoundException("User not found with id: " + id);
         }
 
-        userRepository.deleteById(id);
-        session.disableFilter("tenantFilter"); // Always disable after use
+        userRepository.deleteById(id); // AspectJ will filter this
+        // session.disableFilter("tenantFilter");
         log.info("User deleted successfully with ID: {}", id);
     }
 

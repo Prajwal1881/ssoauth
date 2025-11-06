@@ -2,18 +2,18 @@ package com.example.ssoauth.service;
 
 import com.example.ssoauth.dto.ApiResponse;
 import com.example.ssoauth.dto.SsoProviderConfigUpdateRequest;
+import com.example.ssoauth.util.CertificateUtils; // NEW IMPORT
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+// REMOVED: Unused imports
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.cert.CertificateFactory;
+// REMOVED: Unused imports
 import java.time.Duration;
 
 @Service
@@ -105,8 +105,9 @@ public class SsoTestService {
 
     // Helper to test-parse a certificate
     private ApiResponse testCertificate(String certPem, String type) {
-        try (InputStream certStream = new ByteArrayInputStream(certPem.getBytes())) {
-            CertificateFactory.getInstance("X.509").generateCertificate(certStream);
+        try {
+            // --- FIX: Use new utility class ---
+            CertificateUtils.parseCertificate(certPem);
             return ApiResponse.builder().success(true).message(type + " certificate was parsed successfully.").build();
         } catch (Exception e) {
             log.error("Failed to parse certificate: {}", e.getMessage());

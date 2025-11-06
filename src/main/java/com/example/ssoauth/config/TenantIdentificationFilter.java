@@ -1,7 +1,7 @@
 package com.example.ssoauth.config;
 
-// REMOVED: import com.example.ssoauth.entity.Tenant;
-// REMOVED: import com.example.ssoauth.repository.TenantRepository;
+import com.example.ssoauth.entity.Tenant; // NEW IMPORT
+import com.example.ssoauth.repository.TenantRepository; // NEW IMPORT
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -15,7 +15,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-// REMOVED: import java.util.Optional;
+import java.util.Optional; // NEW IMPORT
 
 @Component
 @RequiredArgsConstructor
@@ -23,7 +23,8 @@ import java.io.IOException;
 @Order(1) // Runs BEFORE Spring Security
 public class TenantIdentificationFilter implements Filter {
 
-    // --- FIX: Removed TenantRepository ---
+    // --- FIX: Inject TenantRepository ---
+    private final TenantRepository tenantRepository;
 
     @Value("${app.base-domain}")
     private String baseDomain;
@@ -40,12 +41,21 @@ public class TenantIdentificationFilter implements Filter {
         if (host.endsWith("." + baseDomain)) {
             String subdomain = host.substring(0, host.indexOf("." + baseDomain));
 
-            // --- FIX: ONLY set the string, do not query the database ---
-            TenantContext.setCurrentTenant(subdomain);
-            log.debug("TenantContext set to subdomain: {}", subdomain);
+            // --- FIX: Perform DB lookup ONCE and store the Long ID ---
+            Optional<Tenant> tenantOpt = tenantRepository.findBySubdomain(subdomain);
+
+            if (tenantOpt.isPresent()) {
+                Long tenantId = tenantOpt.get().getId();
+                TenantContext.setCurrentTenant(tenantId);
+                log.debug("TenantContext set to tenantId: {}", tenantId);
+            } else {
+                log.warn("Invalid subdomain detected and ignored: {}", subdomain);
+                // TenantContext remains null
+            }
 
         } else {
             log.debug("No subdomain detected (host: {}), operating in root/super-admin context.", host);
+            // TenantContext remains null
         }
 
         try {

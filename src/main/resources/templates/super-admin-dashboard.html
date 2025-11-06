@@ -366,22 +366,29 @@
         if (type === 'all' || type === 'onboard') { onboardModalError.textContent = ''; onboardModalError.style.display = 'none'; }
     }
 
+     // --- UPDATED: More robust error handler ---
      async function handleApiError(response, actionDescription, showInModal = false, modalType = 'edit') {
          let targetErrorDiv = showInModal ? (modalType === 'edit' ? editModalError : onboardModalError) : errorMessageDiv;
          let errorMessage = `Failed to ${actionDescription} (Status: ${response.status})`;
          try {
              const errorData = await response.json();
-             if (errorData.errors) errorMessage = "Validation Failed: " + Object.values(errorData.errors).join('; ');
-             else errorMessage = errorData.message || errorMessage;
+             // Check for new validation error format
+             if (errorData.errors && typeof errorData.errors === 'object') {
+                 errorMessage = "Validation Failed: " + Object.values(errorData.errors).join('; ');
+             } else if (errorData.message) {
+                 errorMessage = errorData.message;
+             }
          } catch (e) { /* Ignore */ }
 
          console.error(`API Error during ${actionDescription}:`, errorMessage);
          if (response.status === 403) errorMessage = "Permission Denied. You must be a Super Admin.";
          else if (response.status === 401) errorMessage = "Session Expired. Please log in.";
+         else if (response.status === 409) errorMessage = "Conflict: Resource already exists.";
 
          targetErrorDiv.textContent = errorMessage;
          targetErrorDiv.style.display = 'block';
      }
+     // --- END UPDATE ---
 
     // --- Logout Functionality ---
     const logoutButton = document.getElementById('logout-button');

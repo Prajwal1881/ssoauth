@@ -3,9 +3,9 @@ package com.example.ssoauth.controller;
 import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.UserInfo;
 import com.example.ssoauth.entity.User;
-import com.example.ssoauth.repository.TenantRepository; // NEW IMPORT
+import com.example.ssoauth.repository.TenantRepository; // REMOVED
 import com.example.ssoauth.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException; // NEW IMPORT
+import jakarta.persistence.EntityNotFoundException; // REMOVED
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +24,7 @@ import java.util.Optional;
 public class UserController {
 
     private final UserRepository userRepository;
-    private final TenantRepository tenantRepository; // NEW IMPORT
+    // REMOVED: private final TenantRepository tenantRepository;
 
     @GetMapping("/me")
     public ResponseEntity<UserInfo> getCurrentUser(Authentication authentication) {
@@ -36,16 +36,13 @@ public class UserController {
         String username = authentication.getName();
         log.info("Fetching current user details for principal: {}", username);
 
-        // --- FIX: Get String subdomain and convert to Long ID ---
-        String subdomain = TenantContext.getCurrentTenant();
+        // --- FIX: Get Long tenantId from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
         Optional<User> userOpt;
 
-        if (subdomain != null) {
-            // 1. Find the tenant ID from the subdomain
-            Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                    .orElseThrow(() -> new EntityNotFoundException("Invalid tenant: " + subdomain))
-                    .getId();
-            // 2. Use the Long ID to find the user
+        if (tenantId != null) {
+            // This is a tenant-aware user
+            // 1. Use the Long ID to find the user
             userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, username, tenantId, username);
         } else {
             // This is a Super Admin

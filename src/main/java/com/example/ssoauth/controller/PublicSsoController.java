@@ -35,22 +35,22 @@ public class PublicSsoController {
     @GetMapping("/enabled-providers")
     public ResponseEntity<List<EnabledProviderDto>> getEnabledProviders() {
         // This method is now correct, as SsoConfigService handles resolving
-        // the String subdomain to a Long ID.
+        // the Long tenantId.
         List<EnabledProviderDto> providerDtos = ssoConfigService.getEnabledProviders();
         return ResponseEntity.ok(providerDtos);
     }
 
     @GetMapping("/public/branding")
     public ResponseEntity<Map<String, String>> getTenantBranding() {
-        // --- FIX: Get String subdomain from context ---
-        String subdomain = TenantContext.getCurrentTenant();
-        if (subdomain == null) {
+        // --- FIX: Get Long tenantId from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
             // No subdomain, return empty map
             return ResponseEntity.ok(Map.of());
         }
 
-        // Find the tenant by the String subdomain
-        Optional<Tenant> tenantOpt = tenantRepository.findBySubdomain(subdomain);
+        // Find the tenant by the Long ID
+        Optional<Tenant> tenantOpt = tenantRepository.findById(tenantId);
         // --- END FIX ---
 
         if (tenantOpt.isEmpty()) {
@@ -74,7 +74,7 @@ public class PublicSsoController {
         session.setAttribute("sso_test_provider_id", providerId);
 
         // This method is now correct, as SsoConfigService handles resolving
-        // the String subdomain to a Long ID before finding the config.
+        // the Long tenantId before finding the config.
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(providerId)
                 .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
 

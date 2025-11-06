@@ -1,70 +1,50 @@
 package com.example.ssoauth.service;
 
+import com.example.ssoauth.util.CertificateUtils; // NEW IMPORT
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import jakarta.annotation.PostConstruct;
+// REMOVED: jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
+// REMOVED: @Value
+// REMOVED: Resource imports
 import org.springframework.stereotype.Service;
 
-import java.io.InputStream;
+// REMOVED: java.io.InputStream;
 import java.security.PublicKey;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
+// REMOVED: Certificate imports
 
 @Service
 @Slf4j
 public class JwtValidatorService {
 
-    @Value("${miniorange.jwt.certificate.path}")
-    private String certificatePath;
-
-    @Value("${miniorange.jwt.client.id}")
-    private String expectedIssuer;
-
-    private final ResourceLoader resourceLoader;
-    private PublicKey publicKey;
-
-    public JwtValidatorService(ResourceLoader resourceLoader) {
-        this.resourceLoader = resourceLoader;
-    }
+    // REMOVED: All @Value properties
+    // REMOVED: ResourceLoader
+    // REMOVED: publicKey field
+    // REMOVED: Constructor
+    // REMOVED: init() method
 
     /**
-     * This method runs at startup to load the certificate
-     * from the file specified in application.properties.
-     */
-    @PostConstruct
-    public void init() {
-        try {
-            log.info("Loading JWT signing certificate from: {}", certificatePath);
-            Resource resource = resourceLoader.getResource(certificatePath);
-            InputStream inputStream = resource.getInputStream();
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            X509Certificate certificate = (X509Certificate) cf.generateCertificate(inputStream);
-            this.publicKey = certificate.getPublicKey();
-            log.info("Successfully loaded JWT signing certificate. Algorithm: {}", this.publicKey.getAlgorithm());
-        } catch (Exception e) {
-            log.error("Failed to load JWT signing certificate: {}", certificatePath, e);
-            throw new RuntimeException("Could not initialize JwtValidatorService: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Validates the JWT from miniOrange.
+     * Validates an external JWT using a dynamically provided certificate and expected issuer.
      * Throws an exception if the token is invalid.
      * Returns the claims if successful.
      */
-    public Claims validateAndParseToken(String token) {
-        if (this.publicKey == null) {
-            throw new IllegalStateException("JWT signing key is not available. Check certificate loading.");
+    public Claims validateAndParseToken(String token, String certificatePem, String expectedIssuer) {
+
+        // 1. Get Public Key from the PEM string
+        PublicKey publicKey;
+        try {
+            publicKey = CertificateUtils.getPublicKeyFromPem(certificatePem);
+            log.debug("Successfully parsed public key from PEM for issuer: {}", expectedIssuer);
+        } catch (Exception e) {
+            log.error("Failed to parse certificate PEM for issuer {}: {}", expectedIssuer, e.getMessage(), e);
+            throw new IllegalStateException("JWT signing key is not available. Check certificate configuration.");
         }
 
+        // 2. Validate the token using the dynamic key and issuer
         return Jwts.parserBuilder()
-                .setSigningKey(this.publicKey) // Use the public key from the .cer file
-                .requireIssuer(this.expectedIssuer) // Check the 'iss' claim
-                .setAllowedClockSkewSeconds(5) // !!! ADDED: Allows up to 5 seconds clock skew !!!
+                .setSigningKey(publicKey) // Use the public key from the .cer file
+                .requireIssuer(expectedIssuer) // Check the 'iss' claim
+                .setAllowedClockSkewSeconds(30) // Increased skew for safety
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

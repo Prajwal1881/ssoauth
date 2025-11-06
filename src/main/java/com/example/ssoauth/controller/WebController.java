@@ -1,27 +1,20 @@
 package com.example.ssoauth.controller;
 
-import com.example.ssoauth.entity.SsoProviderConfig;
-import com.example.ssoauth.service.SsoConfigService;
+// REMOVED: Unused imports
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-// import org.springframework.security.crypto.password.PasswordEncoder; // No longer needed
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.util.StringUtils;
-// import org.springframework.web.bind.annotation.ResponseBody; // No longer needed
 
-// import java.net.URLEncoder; // No longer needed
-// import java.nio.charset.StandardCharsets; // No longer needed
 import java.util.Map;
-// import java.util.Optional; // No longer needed
 
 @Controller
 @RequiredArgsConstructor
 public class WebController {
 
-    // SsoConfigService is no longer needed by /login endpoint
-    // private final SsoConfigService ssoConfigService;
+    // REMOVED: SsoConfigService
 
     @GetMapping("/")
     public String home() {
@@ -31,11 +24,9 @@ public class WebController {
     @GetMapping("/login")
     public String loginPage(Model model) {
         // --- REMOVED ---
-        // All the logic for finding "jwt_miniorange" and building the URL
-        // is now handled by SsoConfigService and the frontend JavaScript.
-        // This controller method no longer needs to do anything.
+        // All logic for finding "jwt_miniorange" is gone.
+        // The frontend JS /api/sso/enabled-providers handles this.
         // --- END REMOVED ---
-
         return "login";
     }
 

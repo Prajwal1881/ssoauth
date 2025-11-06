@@ -2,7 +2,7 @@ package com.example.ssoauth.security;
 
 import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.entity.User;
-import com.example.ssoauth.repository.TenantRepository; // NEW IMPORT
+import com.example.ssoauth.repository.TenantRepository; // Kept for Super Admin check
 import com.example.ssoauth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,26 +20,21 @@ import java.util.Optional;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
-    private final TenantRepository tenantRepository; // NEW IMPORT
+    private final TenantRepository tenantRepository; // Keep for the edge case logic
 
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
 
-        // --- FIX: Get subdomain string from context ---
-        String subdomain = TenantContext.getCurrentTenant();
+        // --- FIX: Get Long ID from context ---
+        Long tenantId = TenantContext.getCurrentTenant();
         Optional<User> userOpt;
 
-        if (subdomain != null) {
+        if (tenantId != null) {
             // This is a tenant-specific login (e.g., acme.localhost:8080)
-            log.debug("Loading user {} for subdomain: {}", usernameOrEmail, subdomain);
+            log.debug("Loading user {} for tenantId: {}", usernameOrEmail, tenantId);
 
-            // 1. Find tenant ID from subdomain
-            Long tenantId = tenantRepository.findBySubdomain(subdomain)
-                    .orElseThrow(() -> new UsernameNotFoundException("Invalid tenant: " + subdomain))
-                    .getId();
-
-            // 2. Find user by tenant ID
+            // 1. Find user by tenant ID
             userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, usernameOrEmail, tenantId, usernameOrEmail);
 
         } else {
@@ -52,6 +47,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 throw new UsernameNotFoundException("Please use your organization's login URL.");
             }
         }
+        // --- END FIX ---
 
         User user = userOpt.orElseThrow(() ->
                 new UsernameNotFoundException("User not found with username or email: " + usernameOrEmail));
@@ -69,6 +65,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Transactional
     public UserDetails loadUserById(Long id) {
+        // The TenantFilterAspect will ensure this findById is tenant-safe
+        // if called from a tenant-aware context (like AdminService).
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + id));
 

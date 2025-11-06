@@ -20,7 +20,7 @@ public class SsoProviderConfigDto {
     // Common
     private String issuerUri;
     private String clientId;
-    private String clientSecret;
+    // private String clientSecret; // <-- REMOVED: Do not send secret to frontend
     private String scopes;
 
     // OIDC
