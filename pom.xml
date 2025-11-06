@@ -116,7 +116,7 @@
         <repository>
             <id>shibboleth-releases</id>
             <name>Shibboleth Releases</name>
-            <url>https://build.shibboleth.net/maven/releases/org/opensaml/</url>
+            <url>https://build.shibboleth.net/maven/releases/</url>
         </repository>
     </repositories>
 
@@ -124,7 +124,7 @@
         <pluginRepository>
             <id>shibboleth-releases</id>
             <name>Shibboleth Releases</name>
-            <url>https://build.shibboleth.net/maven/releases/org/opensaml/</url>
+            <url>https://build.shibboleth.net/maven/releases/</url>
         </pluginRepository>
     </pluginRepositories>
 
