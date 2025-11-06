@@ -1,13 +1,14 @@
 package com.example.ssoauth.config;
 
-import com.example.ssoauth.entity.Tenant; // NEW IMPORT
-import com.example.ssoauth.repository.TenantRepository; // NEW IMPORT
+import com.example.ssoauth.entity.Tenant;
+import com.example.ssoauth.repository.TenantRepository;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,15 +16,18 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Optional; // NEW IMPORT
+import java.util.Optional;
 
+/**
+ * CRITICAL: This filter MUST run before Spring Security to ensure
+ * the tenant context is available during authentication.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@Order(1) // Runs BEFORE Spring Security
+@Order(1)
 public class TenantIdentificationFilter implements Filter {
 
-    // --- FIX: Inject TenantRepository ---
     private final TenantRepository tenantRepository;
 
     @Value("${app.base-domain}")
@@ -34,33 +38,50 @@ public class TenantIdentificationFilter implements Filter {
             throws IOException, ServletException {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
         String host = httpRequest.getServerName();
+        String requestUri = httpRequest.getRequestURI();
 
+        // Always clear context at the start
         TenantContext.clear();
 
-        if (host.endsWith("." + baseDomain)) {
-            String subdomain = host.substring(0, host.indexOf("." + baseDomain));
+        try {
+            if (host.endsWith("." + baseDomain)) {
+                // --- SUBDOMAIN DETECTED ---
+                String subdomain = host.substring(0, host.indexOf("." + baseDomain));
+                log.debug("Subdomain detected: '{}' from host: '{}'", subdomain, host);
 
-            // --- FIX: Perform DB lookup ONCE and store the Long ID ---
-            Optional<Tenant> tenantOpt = tenantRepository.findBySubdomain(subdomain);
+                // Lookup tenant by subdomain
+                Optional<Tenant> tenantOpt = tenantRepository.findBySubdomain(subdomain);
 
-            if (tenantOpt.isPresent()) {
-                Long tenantId = tenantOpt.get().getId();
-                TenantContext.setCurrentTenant(tenantId);
-                log.debug("TenantContext set to tenantId: {}", tenantId);
+                if (tenantOpt.isPresent()) {
+                    Long tenantId = tenantOpt.get().getId();
+                    TenantContext.setCurrentTenant(tenantId);
+                    log.info("✓ Tenant context set: subdomain='{}', tenantId={}, uri='{}'",
+                            subdomain, tenantId, requestUri);
+                } else {
+                    // CRITICAL: Invalid subdomain - return 404
+                    log.error("✗ INVALID SUBDOMAIN: '{}' does not exist in database", subdomain);
+                    httpResponse.sendError(HttpServletResponse.SC_NOT_FOUND,
+                            "Organization not found: " + subdomain);
+                    return; // Stop processing
+                }
+
             } else {
-                log.warn("Invalid subdomain detected and ignored: {}", subdomain);
-                // TenantContext remains null
+                // --- ROOT DOMAIN ACCESS ---
+                log.debug("Root domain access detected: host='{}', uri='{}'", host, requestUri);
+                // TenantContext remains null (for Super Admin access)
             }
 
-        } else {
-            log.debug("No subdomain detected (host: {}), operating in root/super-admin context.", host);
-            // TenantContext remains null
-        }
-
-        try {
+            // Proceed with the request
             chain.doFilter(request, response);
+
+        } catch (Exception e) {
+            log.error("CRITICAL: Tenant identification failed for host: {}", host, e);
+            httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Tenant identification failed");
         } finally {
+            // Always clean up
             TenantContext.clear();
         }
     }

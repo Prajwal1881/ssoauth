@@ -1,10 +1,12 @@
 package com.example.ssoauth.controller;
 
+import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.ApiResponse;
 import com.example.ssoauth.dto.SsoProviderConfigDto;
 import com.example.ssoauth.dto.SsoProviderConfigUpdateRequest;
+import com.example.ssoauth.repository.SsoProviderConfigRepository;
 import com.example.ssoauth.service.SsoConfigService;
-import com.example.ssoauth.service.SsoTestService; // We need this for the static test
+import com.example.ssoauth.service.SsoTestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,48 +15,63 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin/sso-config") // This path is for ADMINS ONLY
+@RequestMapping("/api/admin/sso-config")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class SsoConfigController {
 
     private final SsoConfigService ssoConfigService;
-    private final SsoTestService ssoTestService; // Keep this for the static test
+    private final SsoTestService ssoTestService;
+    private final SsoProviderConfigRepository configRepository; // For debug endpoint
 
-    // GET all configurations
+    // --- CRUD Endpoints ---
+
     @GetMapping
     public ResponseEntity<List<SsoProviderConfigDto>> getAllSsoConfigs() {
+        Long tenantId = TenantContext.getCurrentTenant();
+        log.info("API: GET /api/admin/sso-config - tenantId={}", tenantId);
         return ResponseEntity.ok(ssoConfigService.getAllConfigs());
     }
 
-    // GET a single configuration by ID
     @GetMapping("/{id}")
     public ResponseEntity<SsoProviderConfigDto> getSsoConfigById(@PathVariable Long id) {
+        Long tenantId = TenantContext.getCurrentTenant();
+        log.info("API: GET /api/admin/sso-config/{} - tenantId={}", id, tenantId);
         return ResponseEntity.ok(ssoConfigService.getConfigById(id));
     }
 
-    // UPDATE a configuration by ID
     @PutMapping("/{id}")
-    public ResponseEntity<SsoProviderConfigDto> updateSsoConfig(@PathVariable Long id,
-                                                                @Valid @RequestBody SsoProviderConfigUpdateRequest updateRequest) {
+    public ResponseEntity<SsoProviderConfigDto> updateSsoConfig(
+            @PathVariable Long id,
+            @Valid @RequestBody SsoProviderConfigUpdateRequest updateRequest) {
+        Long tenantId = TenantContext.getCurrentTenant();
+        log.info("API: PUT /api/admin/sso-config/{} - tenantId={}", id, tenantId);
         SsoProviderConfigDto updatedDto = ssoConfigService.updateConfig(id, updateRequest);
         return ResponseEntity.ok(updatedDto);
     }
 
-    // POST to create a new configuration
     @PostMapping
-    public ResponseEntity<SsoProviderConfigDto> createSsoConfig(@Valid @RequestBody SsoProviderConfigUpdateRequest createRequest) {
+    public ResponseEntity<SsoProviderConfigDto> createSsoConfig(
+            @Valid @RequestBody SsoProviderConfigUpdateRequest createRequest) {
+        Long tenantId = TenantContext.getCurrentTenant();
+        log.info("API: POST /api/admin/sso-config - tenantId={}, providerId='{}'",
+                tenantId, createRequest.getProviderId());
         SsoProviderConfigDto createdDto = ssoConfigService.createConfig(createRequest);
-        return ResponseEntity.status(201).body(createdDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdDto);
     }
 
-    // Endpoint for the static "Test Connection" button (we'll rename the button in the UI)
     @PostMapping("/test-connection")
-    public ResponseEntity<ApiResponse> testSsoConnection(@RequestBody SsoProviderConfigUpdateRequest testRequest) {
+    public ResponseEntity<ApiResponse> testSsoConnection(
+            @RequestBody SsoProviderConfigUpdateRequest testRequest) {
+        log.info("API: POST /api/admin/sso-config/test-connection - providerId='{}'",
+                testRequest.getProviderId());
         ApiResponse response = ssoTestService.testConnection(testRequest);
         if (!response.getSuccess()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -62,5 +79,48 @@ public class SsoConfigController {
         return ResponseEntity.ok(response);
     }
 
-    // The /test-attributes endpoint is now in PublicSsoController
+    // --- NEW: DEBUG ENDPOINT ---
+
+    /**
+     * DEBUG ENDPOINT: Returns tenant context and all SSO configs with their tenant IDs.
+     * Use this to troubleshoot tenant isolation issues.
+     *
+     * SECURITY: Only accessible to ADMINs, returns only configs for current tenant.
+     */
+    @GetMapping("/debug/tenant-info")
+    public ResponseEntity<Map<String, Object>> getDebugInfo() {
+        Long currentTenantId = TenantContext.getCurrentTenant();
+
+        Map<String, Object> debugInfo = new HashMap<>();
+        debugInfo.put("currentTenantId", currentTenantId);
+        debugInfo.put("timestamp", System.currentTimeMillis());
+
+        // Get all configs using the debug query
+        List<Object[]> allConfigs = configRepository.findAllWithTenantInfo();
+        List<Map<String, Object>> configList = allConfigs.stream()
+                .map(row -> {
+                    Map<String, Object> config = new HashMap<>();
+                    config.put("id", row[0]);
+                    config.put("providerId", row[1]);
+                    config.put("providerType", row[2]);
+                    config.put("tenantId", row[3]);
+                    config.put("subdomain", row[4]);
+                    config.put("visibleToMe", currentTenantId != null && currentTenantId.equals(row[3]));
+                    return config;
+                })
+                .collect(Collectors.toList());
+
+        debugInfo.put("allConfigsInDatabase", configList);
+
+        // Get configs visible through service layer
+        List<SsoProviderConfigDto> myConfigs = ssoConfigService.getAllConfigs();
+        debugInfo.put("myVisibleConfigs", myConfigs.stream()
+                .map(c -> Map.of("id", c.getId(), "providerId", c.getProviderId()))
+                .collect(Collectors.toList()));
+
+        log.info("DEBUG: Tenant {} sees {} total configs, {} visible to them",
+                currentTenantId, configList.size(), myConfigs.size());
+
+        return ResponseEntity.ok(debugInfo);
+    }
 }

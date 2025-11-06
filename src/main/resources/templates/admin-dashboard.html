@@ -829,6 +829,279 @@
     } else {
          setTimeout(() => { window.location.href = '/login'; }, 1000);
     }
+
+            // ========================================
+        // PHASE 2 CRITICAL FIXES
+        // ========================================
+
+        // --- FIX 1: Improved Error Handling with Retry Logic ---
+        async function loadSsoConfigurations() {
+            const maxRetries = 3;
+            let attempt = 0;
+
+            while (attempt < maxRetries) {
+                try {
+                    console.log(`[SSO Config] Loading attempt ${attempt + 1}/${maxRetries}...`);
+
+                    const response = await fetch('/api/admin/sso-config', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`[SSO Config] Load failed (${response.status}):`, errorText);
+
+                        if (response.status === 401 || response.status === 403) {
+                            // Auth error - don't retry
+                            showSsoError('Session expired or access denied. Please refresh the page.', 'all');
+                            return;
+                        }
+
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+
+                    const configs = await response.json();
+                    console.log(`[SSO Config] Loaded ${configs.length} configs:`, configs);
+
+                    configDataStore = {}; // Clear old data
+
+                    configs.forEach(config => {
+                        console.log(`[SSO Config] Processing config:`, {
+                            id: config.id,
+                            providerId: config.providerId,
+                            type: config.providerType,
+                            enabled: config.enabled
+                        });
+
+                        configDataStore[config.providerId] = config;
+                        populateSsoForm(config);
+                    });
+
+                    console.log('[SSO Config] Load completed successfully');
+                    return; // Success - exit retry loop
+
+                } catch (error) {
+                    attempt++;
+                    console.error(`[SSO Config] Load attempt ${attempt} failed:`, error);
+
+                    if (attempt >= maxRetries) {
+                        showSsoError(`Failed to load SSO configurations after ${maxRetries} attempts: ${error.message}`, 'all');
+                        return;
+                    }
+
+                    // Wait before retry (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+        }
+
+        // --- FIX 2: Enhanced Form Submission with Better Validation ---
+        [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
+            // Remove old listener first to prevent duplicates
+            const oldForm = form.cloneNode(true);
+            form.parentNode.replaceChild(oldForm, form);
+
+            // Get references again after replacement
+            const actualForm = document.getElementById(form.id);
+
+            actualForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const providerType = actualForm.dataset.providerType;
+                const providerId = actualForm.dataset.providerId;
+                const prefix = providerType.toLowerCase();
+
+                console.log(`[${providerType}] Form submission started:`, { providerType, providerId });
+                clearSsoErrors(providerType);
+
+                // Get stored config
+                const storedConfig = configDataStore[providerId];
+                const configId = storedConfig?.id;
+
+                console.log(`[${providerType}] Stored config:`, storedConfig);
+                console.log(`[${providerType}] Config ID: ${configId}`);
+
+                // Build data payload
+                const data = {
+                    providerId: providerId,
+                    providerType: providerType,
+                    enabled: document.getElementById(`${prefix}Enable`).checked,
+                    displayName: document.getElementById(`${prefix}DisplayName`).value,
+
+                    // Common fields
+                    clientId: document.getElementById(`${prefix}ClientId`)?.value || null,
+                    clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value || null,
+                    issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value || null,
+
+                    // OIDC fields
+                    scopes: document.getElementById('oidcScopes')?.value || null,
+                    userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value || null,
+                    authorizationUri: document.getElementById('oidcAuthorizationUri')?.value || null,
+                    tokenUri: document.getElementById('oidcTokenUri')?.value || null,
+                    userInfoUri: document.getElementById('oidcUserInfoUri')?.value || null,
+                    jwkSetUri: document.getElementById('oidcJwkSetUri')?.value || null,
+
+                    // SAML fields
+                    samlEntityId: document.getElementById('samlEntityId')?.value || null,
+                    samlSsoUrl: document.getElementById('samlSsoUrl')?.value || null,
+                    samlCertificate: document.getElementById('samlCertificate')?.value || null,
+
+                    // JWT fields
+                    jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value || null,
+                    jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value || null,
+                    jwtCertificate: document.getElementById('jwtCertificate')?.value || null,
+                };
+
+                // Don't send empty secret on update
+                if (configId && !data.clientSecret) {
+                    delete data.clientSecret;
+                }
+
+                // Determine endpoint and method
+                const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
+                const method = configId ? 'PUT' : 'POST';
+                const action = configId ? 'update' : 'create';
+
+                console.log(`[${providerType}] Sending ${method} request to ${url}`, data);
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        let errorMessage = `Failed to ${action} ${providerType} config (${response.status})`;
+
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            if (errorData.message) {
+                                errorMessage = errorData.message;
+                            }
+                        } catch (e) {
+                            errorMessage += `: ${errorText}`;
+                        }
+
+                        console.error(`[${providerType}] ${action.toUpperCase()} FAILED:`, errorMessage);
+                        showSsoError(errorMessage, providerType);
+                        return;
+                    }
+
+                    const updatedConfig = await response.json();
+                    console.log(`[${providerType}] ${action.toUpperCase()} SUCCESS:`, updatedConfig);
+
+                    // Update stored config
+                    configDataStore[updatedConfig.providerId] = updatedConfig;
+                    populateSsoForm(updatedConfig);
+
+                    alert(`✓ ${providerType} configuration ${action}d successfully!`);
+
+                } catch (error) {
+                    console.error(`[${providerType}] ${action.toUpperCase()} ERROR:`, error);
+                    showSsoError(`Failed to ${action}: ${error.message}`, providerType);
+                }
+            });
+        });
+
+        // --- FIX 3: Add Debug Button (Add to HTML) ---
+        /*
+        Add this button to each SSO config form, after the "Test Connection" button:
+
+        <button type="button" class="btn-test" style="background-color: #6c757d;"
+                onclick="showDebugInfo()">
+            Debug Info
+        </button>
+        */
+
+        async function showDebugInfo() {
+            try {
+                const response = await fetch('/api/admin/sso-config/debug/tenant-info', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (!response.ok) {
+                    alert('Debug endpoint failed: ' + response.status);
+                    return;
+                }
+
+                const debug = await response.json();
+
+                let message = `=== TENANT DEBUG INFO ===\n\n`;
+                message += `Current Tenant ID: ${debug.currentTenantId}\n`;
+                message += `Timestamp: ${new Date(debug.timestamp).toLocaleString()}\n\n`;
+                message += `=== MY VISIBLE CONFIGS ===\n`;
+                debug.myVisibleConfigs.forEach(c => {
+                    message += `- ID: ${c.id}, Provider: ${c.providerId}\n`;
+                });
+                message += `\n=== ALL CONFIGS IN DATABASE ===\n`;
+                debug.allConfigsInDatabase.forEach(c => {
+                    message += `- ID: ${c.id}, Provider: ${c.providerId}, Type: ${c.providerType}\n`;
+                    message += `  Tenant: ${c.tenantId} (${c.subdomain}), Visible: ${c.visibleToMe}\n`;
+                });
+
+                console.log(message);
+                alert(message);
+
+            } catch (error) {
+                console.error('Debug info failed:', error);
+                alert('Failed to fetch debug info: ' + error.message);
+            }
+        }
+
+        // --- FIX 4: Enhanced populateSsoForm with Validation ---
+        function populateSsoForm(config) {
+            const prefix = config.providerType.toLowerCase();
+
+            console.log(`[populateSsoForm] Processing ${prefix}:`, config);
+
+            // Validate required elements exist
+            const configIdEl = document.getElementById(`${prefix}ConfigId`);
+            const enableEl = document.getElementById(`${prefix}Enable`);
+            const displayNameEl = document.getElementById(`${prefix}DisplayName`);
+
+            if (!configIdEl || !enableEl || !displayNameEl) {
+                console.error(`[populateSsoForm] Missing form elements for ${prefix}`);
+                return;
+            }
+
+            // Set values
+            configIdEl.value = config.id || '';
+            enableEl.checked = config.enabled;
+            displayNameEl.value = config.displayName || '';
+
+            // Common fields
+            const clientIdEl = document.getElementById(`${prefix}ClientId`);
+            const issuerUriEl = document.getElementById(`${prefix}IssuerUri`);
+            if (clientIdEl) clientIdEl.value = config.clientId || '';
+            if (issuerUriEl) issuerUriEl.value = config.issuerUri || '';
+
+            // Type-specific fields
+            if (prefix === 'oidc') {
+                document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
+                document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
+                document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
+                document.getElementById('oidcTokenUri').value = config.tokenUri || '';
+                document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
+                document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
+            } else if (prefix === 'saml') {
+                document.getElementById('samlEntityId').value = config.samlEntityId || '';
+                document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
+                document.getElementById('samlCertificate').value = config.samlCertificate || '';
+            } else if (prefix === 'jwt') {
+                document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
+                document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
+                document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
+            }
+
+            console.log(`[populateSsoForm] ✓ Populated ${prefix} form`);
+        }
+
+        console.log('[Admin Dashboard] Phase 2 fixes applied ✓');
+
 </script>
 
 </body>

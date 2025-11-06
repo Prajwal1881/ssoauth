@@ -2,6 +2,8 @@ package com.example.ssoauth.repository;
 
 import com.example.ssoauth.entity.SsoProviderConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,36 +12,52 @@ import java.util.Optional;
 @Repository
 public interface SsoProviderConfigRepository extends JpaRepository<SsoProviderConfig, Long> {
 
-    // --- NEW: Method for Super-Admin stats ---
-    /**
-     * Finds all enabled SSO providers for a specific tenant ID.
-     * This query is now explicit.
-     */
-    List<SsoProviderConfig> findByTenantIdAndEnabledTrue(Long tenantId);
-
-    // --- FIX: Make all queries tenant-aware ---
+    // --- PRIMARY TENANT-AWARE QUERIES (Use these for all tenant-scoped operations) ---
 
     /**
-     * Finds a provider config by its ID, scoped to the current tenant.
-     * The @Filter should catch this, but we will also make an explicit one.
+     * CRITICAL: Find config by ID and tenant ID (prevents cross-tenant access).
      */
-    Optional<SsoProviderConfig> findByIdAndTenantId(Long id, Long tenantId);
+    @Query("SELECT s FROM SsoProviderConfig s WHERE s.id = :id AND s.tenant.id = :tenantId")
+    Optional<SsoProviderConfig> findByIdAndTenantId(@Param("id") Long id, @Param("tenantId") Long tenantId);
 
     /**
-     * Finds a provider config by its string providerId, scoped to the current tenant.
-     * THIS IS THE KEY FIX.
+     * CRITICAL: Find config by provider ID and tenant ID.
      */
-    Optional<SsoProviderConfig> findByProviderIdAndTenantId(String providerId, Long tenantId);
+    @Query("SELECT s FROM SsoProviderConfig s WHERE s.providerId = :providerId AND s.tenant.id = :tenantId")
+    Optional<SsoProviderConfig> findByProviderIdAndTenantId(@Param("providerId") String providerId, @Param("tenantId") Long tenantId);
 
     /**
-     * Checks for existence, scoped to the current tenant.
+     * Find all enabled providers for a specific tenant.
      */
-    boolean existsByProviderIdAndTenantId(String providerId, Long tenantId);
+    @Query("SELECT s FROM SsoProviderConfig s WHERE s.tenant.id = :tenantId AND s.enabled = true")
+    List<SsoProviderConfig> findByTenantIdAndEnabledTrue(@Param("tenantId") Long tenantId);
 
+    /**
+     * Check if provider ID exists within a specific tenant.
+     */
+    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM SsoProviderConfig s WHERE s.providerId = :providerId AND s.tenant.id = :tenantId")
+    boolean existsByProviderIdAndTenantId(@Param("providerId") String providerId, @Param("tenantId") Long tenantId);
 
-    // --- Original Methods (now auto-filtered by Hibernate, e.g., for findAll()) ---
-    // We keep these for the AdminService's manual filter logic.
+    // --- DEBUG QUERY (Use for troubleshooting) ---
+
+    /**
+     * DEBUG: Get all configs with tenant info (for troubleshooting only).
+     * DO NOT use this in production code paths.
+     */
+    @Query("SELECT s.id, s.providerId, s.providerType, s.tenant.id, s.tenant.subdomain FROM SsoProviderConfig s")
+    List<Object[]> findAllWithTenantInfo();
+
+    // --- LEGACY QUERIES (These rely on Hibernate filter - avoid if possible) ---
+
+    /**
+     * CAUTION: This query relies on Hibernate filter being enabled.
+     * Prefer explicit tenant-aware queries above.
+     */
     List<SsoProviderConfig> findByEnabledTrue();
-    Optional<SsoProviderConfig> findByProviderId(String providerId);
 
+    /**
+     * CAUTION: This query relies on Hibernate filter being enabled.
+     * Prefer findByProviderIdAndTenantId() instead.
+     */
+    Optional<SsoProviderConfig> findByProviderId(String providerId);
 }

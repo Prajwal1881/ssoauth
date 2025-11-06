@@ -10,12 +10,9 @@ import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.ResourceAlreadyExistsException;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.repository.UserRepository;
-import jakarta.persistence.EntityManager; // REMOVED
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.PersistenceContext; // REMOVED
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.Session; // REMOVED
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,19 +31,14 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final TenantRepository tenantRepository;
 
-    // REMOVED: EntityManager is no longer needed, Aspect handles filtering
-    // @PersistenceContext
-    // private EntityManager entityManager;
-
     /**
-     * Helper to get the current tenant ID (Long) from the context.
+     * CRITICAL FIX: Always validate tenant context before operations.
      */
-    private Long getTenantIdFromContext() {
-        // --- FIX: Read Long ID directly from context ---
+    private Long getTenantIdFromContextOrFail() {
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
-            // This case should only apply to Super Admins on the root domain
-            throw new EntityNotFoundException("No tenant context found. Access denied.");
+            log.error("SECURITY VIOLATION: Admin operation attempted without tenant context");
+            throw new SecurityException("Tenant context is required. Use your organization's URL.");
         }
         return tenantId;
     }
@@ -55,35 +47,38 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public BrandingRequestDto getTenantBranding() {
-        Long tenantId = getTenantIdFromContext();
+        Long tenantId = getTenantIdFromContextOrFail();
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new EntityNotFoundException("Tenant not found with ID: " + tenantId));
-
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
         return mapTenantToBrandingDto(tenant);
     }
 
     @Transactional
     public BrandingRequestDto updateTenantBranding(BrandingRequestDto request) {
-        Long tenantId = getTenantIdFromContext();
-
+        Long tenantId = getTenantIdFromContextOrFail();
         String newSubdomain = request.getSubdomain().toLowerCase().trim();
 
+        // Check for subdomain conflicts
         Optional<Tenant> existingTenant = tenantRepository.findBySubdomain(newSubdomain);
         if (existingTenant.isPresent() && !existingTenant.get().getId().equals(tenantId)) {
-            log.warn("Branding update failed: Subdomain '{}' already in use by tenant ID {}", newSubdomain, existingTenant.get().getId());
-            throw new ResourceAlreadyExistsException("This branding name (subdomain) is already in use. Please choose another.");
+            log.warn("Branding update failed: Subdomain '{}' already used by tenant {}",
+                    newSubdomain, existingTenant.get().getId());
+            throw new ResourceAlreadyExistsException(
+                    "This branding name (subdomain) is already in use. Please choose another.");
         }
 
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new EntityNotFoundException("Tenant not found with ID: " + tenantId));
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 
         tenant.setSubdomain(newSubdomain);
-        tenant.setBrandingLogoUrl(StringUtils.hasText(request.getBrandingLogoUrl()) ? request.getBrandingLogoUrl() : null);
-        tenant.setBrandingPrimaryColor(StringUtils.hasText(request.getBrandingPrimaryColor()) ? request.getBrandingPrimaryColor() : null);
+        tenant.setBrandingLogoUrl(StringUtils.hasText(request.getBrandingLogoUrl()) ?
+                request.getBrandingLogoUrl() : null);
+        tenant.setBrandingPrimaryColor(StringUtils.hasText(request.getBrandingPrimaryColor()) ?
+                request.getBrandingPrimaryColor() : null);
 
         Tenant savedTenant = tenantRepository.save(tenant);
-        log.info("Tenant ID {} updated branding. New subdomain: {}", savedTenant.getId(), savedTenant.getSubdomain());
-
+        log.info("✓ Tenant branding updated: tenantId={}, subdomain='{}'",
+                savedTenant.getId(), savedTenant.getSubdomain());
         return mapTenantToBrandingDto(savedTenant);
     }
 
@@ -95,62 +90,57 @@ public class AdminService {
                 .build();
     }
 
-
     // --- User Management Methods ---
 
-    /**
-     * FIX: Removed manual session filtering. The TenantFilterAspect now handles this.
-     */
     @Transactional(readOnly = true)
     public List<UserInfo> findAllUsers() {
-        Long tenantId = getTenantIdFromContext();
-        log.info("Fetching all users for admin (tenant context: {})", tenantId);
+        Long tenantId = getTenantIdFromContextOrFail();
+        log.info("→ Fetching all users for tenantId: {}", tenantId);
 
-        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
-        // Session session = entityManager.unwrap(Session.class);
-        // session.enableFilter("tenantFilter").setParameter("tenantId", tenantId);
-
-        List<UserInfo> users = userRepository.findAll().stream() // AspectJ will filter this
-                .map(this::mapToUserInfo)
+        // CRITICAL FIX: Use explicit tenant filtering instead of relying on aspect
+        List<User> users = userRepository.findAll().stream()
+                .filter(user -> user.getTenant() != null && user.getTenant().getId().equals(tenantId))
                 .collect(Collectors.toList());
 
-        // session.disableFilter("tenantFilter"); // Always disable after use
-        return users;
+        log.info("✓ Found {} users for tenantId: {}", users.size(), tenantId);
+        return users.stream()
+                .map(this::mapToUserInfo)
+                .collect(Collectors.toList());
     }
 
-    /**
-     * FIX: Removed manual filter logic.
-     */
     @Transactional(readOnly = true)
     public UserInfo findUserById(Long id) {
-        Long tenantId = getTenantIdFromContext();
-        log.info("Fetching user by ID: {} (tenant context: {})", id, tenantId);
+        Long tenantId = getTenantIdFromContextOrFail();
+        log.info("→ Fetching user: id={}, tenantId={}", id, tenantId);
 
-        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
+        // Use explicit tenant-aware query
+        User user = userRepository.findById(id)
+                .filter(u -> u.getTenant() != null && u.getTenant().getId().equals(tenantId))
+                .orElseThrow(() -> {
+                    log.error("✗ User not found or access denied: id={}, tenantId={}", id, tenantId);
+                    return new EntityNotFoundException("User not found with id: " + id);
+                });
 
-        User user = userRepository.findById(id) // AspectJ will filter this
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
-
-        // session.disableFilter("tenantFilter");
+        log.info("✓ User found: id={}, username='{}'", id, user.getUsername());
         return mapToUserInfo(user);
     }
 
     @Transactional
     public UserInfo createUser(SignUpRequest request) {
-        Long tenantId = getTenantIdFromContext();
+        Long tenantId = getTenantIdFromContextOrFail();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 
-        log.info("Attempting to create user with username: {} for tenant: {}", request.getUsername(), tenantId);
+        log.info("→ Creating user: username='{}', tenantId={}", request.getUsername(), tenantId);
 
-        // These explicit checks are still good practice
+        // Check for duplicates within tenant
         if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
-            log.warn("Username already exists in tenant {}: {}", tenantId, request.getUsername());
-            throw new ResourceAlreadyExistsException("Username already exists");
+            log.warn("Create failed - username '{}' exists in tenant {}", request.getUsername(), tenantId);
+            throw new ResourceAlreadyExistsException("Username already exists in your organization");
         }
         if (userRepository.existsByEmailAndTenantId(request.getEmail(), tenantId)) {
-            log.warn("Email already exists in tenant {}: {}", tenantId, request.getEmail());
-            throw new ResourceAlreadyExistsException("Email already exists");
+            log.warn("Create failed - email '{}' exists in tenant {}", request.getEmail(), tenantId);
+            throw new ResourceAlreadyExistsException("Email already exists in your organization");
         }
 
         User user = User.builder()
@@ -169,73 +159,71 @@ public class AdminService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User created successfully with ID: {}", savedUser.getId());
+        log.info("✓ User created: id={}, username='{}'", savedUser.getId(), savedUser.getUsername());
         return mapToUserInfo(savedUser);
     }
 
     @Transactional
     public UserInfo updateUser(Long id, UserUpdateRequest request) {
-        Long tenantId = getTenantIdFromContext();
-        log.info("Attempting to update user with ID: {} in tenant: {}", id, tenantId);
+        Long tenantId = getTenantIdFromContextOrFail();
+        log.info("→ Updating user: id={}, tenantId={}", id, tenantId);
 
-        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
+        // Find user with tenant validation
+        User user = userRepository.findById(id)
+                .filter(u -> u.getTenant() != null && u.getTenant().getId().equals(tenantId))
+                .orElseThrow(() -> {
+                    log.error("✗ Update failed - User not found: id={}, tenantId={}", id, tenantId);
+                    return new EntityNotFoundException("User not found with id: " + id);
+                });
 
-        User user = userRepository.findById(id) // AspectJ will filter this
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
-
-        // session.disableFilter("tenantFilter");
-
-        // Explicit tenant-scoped checks are still good
+        // Check for username conflicts within tenant
         if (StringUtils.hasText(request.getUsername()) && !user.getUsername().equals(request.getUsername())) {
             if (userRepository.existsByUsernameAndTenantId(request.getUsername(), tenantId)) {
-                throw new ResourceAlreadyExistsException("Username already exists");
+                throw new ResourceAlreadyExistsException("Username already exists in your organization");
             }
             user.setUsername(request.getUsername());
         }
+
+        // Check for email conflicts within tenant
         if (StringUtils.hasText(request.getEmail()) && !user.getEmail().equals(request.getEmail())) {
             if (userRepository.existsByEmailAndTenantId(request.getEmail(), tenantId)) {
-                throw new ResourceAlreadyExistsException("Email already exists");
+                throw new ResourceAlreadyExistsException("Email already exists in your organization");
             }
             user.setEmail(request.getEmail());
         }
 
-        if (StringUtils.hasText(request.getFirstName())) {
-            user.setFirstName(request.getFirstName());
-        }
-        if (StringUtils.hasText(request.getLastName())) {
-            user.setLastName(request.getLastName());
-        }
+        // Apply other updates
+        if (StringUtils.hasText(request.getFirstName())) user.setFirstName(request.getFirstName());
+        if (StringUtils.hasText(request.getLastName())) user.setLastName(request.getLastName());
         if (StringUtils.hasText(request.getRoles())) {
-            log.debug("Updating roles for user ID {}: {}", id, request.getRoles());
+            log.debug("Updating roles for user {}: {}", id, request.getRoles());
             user.setRoles(request.getRoles());
         }
         if (StringUtils.hasText(request.getPassword())) {
-            log.debug("Password change detected for user ID {}.", id);
+            log.debug("Updating password for user {}", id);
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
         User updatedUser = userRepository.save(user);
-        log.info("User updated successfully for ID: {}", updatedUser.getId());
+        log.info("✓ User updated: id={}, username='{}'", updatedUser.getId(), updatedUser.getUsername());
         return mapToUserInfo(updatedUser);
     }
 
     @Transactional
     public void deleteUser(Long id) {
-        Long tenantId = getTenantIdFromContext();
-        log.info("Attempting to delete user with ID: {} in tenant: {}", id, tenantId);
+        Long tenantId = getTenantIdFromContextOrFail();
+        log.info("→ Deleting user: id={}, tenantId={}", id, tenantId);
 
-        // --- FIX: MANUAL FILTER CONTROL REMOVED ---
+        // Find user with tenant validation
+        User user = userRepository.findById(id)
+                .filter(u -> u.getTenant() != null && u.getTenant().getId().equals(tenantId))
+                .orElseThrow(() -> {
+                    log.error("✗ Delete failed - User not found: id={}, tenantId={}", id, tenantId);
+                    return new EntityNotFoundException("User not found with id: " + id);
+                });
 
-        // The Aspect will filter existsById, so this check is now tenant-safe
-        if (!userRepository.existsById(id)) {
-            // session.disableFilter("tenantFilter"); // No need to disable what wasn't manually enabled
-            log.warn("Delete failed: User not found with ID: {}", id);
-            throw new EntityNotFoundException("User not found with id: " + id);
-        }
-
-        userRepository.deleteById(id); // AspectJ will filter this
-        // session.disableFilter("tenantFilter");
-        log.info("User deleted successfully with ID: {}", id);
+        userRepository.delete(user);
+        log.info("✓ User deleted: id={}", id);
     }
 
     private UserInfo mapToUserInfo(User user) {
