@@ -21,8 +21,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+// NEW IMPORTS
 import org.springframework.security.kerberos.authentication.KerberosServiceAuthenticationProvider;
 import org.springframework.security.kerberos.web.authentication.SpnegoAuthenticationProcessingFilter;
+// END NEW IMPORTS
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -56,21 +58,30 @@ public class SecurityConfig {
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
     private final TenantIdentificationFilter tenantIdentificationFilter;
-    private final DynamicKerberosConfig dynamicKerberosConfig; // NEW
+    private final DynamicKerberosConfig dynamicKerberosConfig;
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
                                                           AuthenticationSuccessHandler oidcLoginSuccessHandler,
                                                           AuthenticationSuccessHandler samlLoginSuccessHandler,
-                                                          AuthenticationSuccessHandler kerberosSuccessHandler // NEW
+                                                          AuthenticationSuccessHandler kerberosSuccessHandler
     ) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // ========================================
+                // MODIFIED: KERBEROS/SPNEGO CONFIGURATION
+                // ========================================
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                        // Add SpnegoEntryPoint to challenge the browser for a ticket
+                        // It will fall back to JwtAuthenticationEntryPoint for /api/** requests
+                        .authenticationEntryPoint(dynamicKerberosConfig.createSpnegoEntryPoint())
+                )
+                // --- END MODIFICATION ---
 
                 .authorizeHttpRequests(auth -> auth
+                        // ... (all your existing .requestMatchers)
                         .requestMatchers(
                                 "/", "/login", "/signup", "/error",
                                 "/css/**", "/js/**", "/images/**",
@@ -109,14 +120,21 @@ public class SecurityConfig {
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
                         .successHandler(samlLoginSuccessHandler)
                 )
+
                 // ========================================
-                // NEW: KERBEROS/SPNEGO CONFIGURATION
+                // MODIFIED: KERBEROS/SPNEGO CONFIGURATION
                 // ========================================
                 .addFilterBefore(
-                        createKerberosFilterIfEnabled(kerberosSuccessHandler),
+                        // This filter is now added UNCONDITIONALLY
+                        dynamicKerberosConfig.createSpnegoFilter(
+                                tenantAwareAuthenticationManager(), // Use the new tenant-aware manager
+                                kerberosSuccessHandler
+                        ),
                         UsernamePasswordAuthenticationFilter.class
                 )
-                .authenticationProvider(authenticationProvider())
+                // --- END MODIFICATION ---
+
+                .authenticationProvider(authenticationProvider()) // Your local password provider
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -124,49 +142,67 @@ public class SecurityConfig {
     }
 
     /**
-     * NEW: Creates SPNEGO filter only if Kerberos is enabled for current tenant
-     */
-    private SpnegoAuthenticationProcessingFilter createKerberosFilterIfEnabled(
-            AuthenticationSuccessHandler successHandler) {
-
-        try {
-            if (dynamicKerberosConfig.isKerberosEnabled()) {
-                log.info("Kerberos is enabled - creating SPNEGO filter");
-
-                // Create authentication manager with Kerberos provider
-                AuthenticationManager kerberosAuthManager = kerberosAuthenticationManager();
-
-                return dynamicKerberosConfig.createSpnegoFilter(kerberosAuthManager, successHandler);
-            }
-        } catch (Exception e) {
-            log.error("Failed to create Kerberos filter: {}", e.getMessage());
-        }
-
-        // Return no-op filter if Kerberos not enabled
-        return new SpnegoAuthenticationProcessingFilter() {{
-            setAuthenticationManager(authentication -> authentication);
-        }};
-    }
-
-    /**
-     * NEW: Kerberos-specific authentication manager
+     * NEW: Creates a tenant-aware AuthenticationManager.
+     * This manager will first try Kerberos (if enabled for the tenant)
+     * and then fall back to local passwords (DaoAuthenticationProvider).
      */
     @Bean
-    public AuthenticationManager kerberosAuthenticationManager() throws Exception {
-        KerberosServiceAuthenticationProvider kerberosProvider =
-                dynamicKerberosConfig.createKerberosProvider();
+    public AuthenticationManager tenantAwareAuthenticationManager() {
+        // This is a lambda implementation of the AuthenticationManager interface
+        return authentication -> {
+            // 1. Check for tenant-specific Kerberos provider (per-request)
+            // This is safe because TenantContext is set by TenantIdentificationFilter
+            KerberosServiceAuthenticationProvider kerberosProvider =
+                    dynamicKerberosConfig.createKerberosProvider();
 
-        if (kerberosProvider != null) {
-            return authentication -> kerberosProvider.authenticate(authentication);
-        }
+            if (kerberosProvider != null) {
+                try {
+                    // Try to authenticate with Kerberos
+                    log.debug("Attempting authentication with tenant-specific Kerberos provider...");
+                    return kerberosProvider.authenticate(authentication);
+                } catch (Exception e) {
+                    // This is expected if the token is not a Kerberos token (e.g., it's a password login)
+                    log.debug("Kerberos provider failed (likely not a Kerberos token), falling back to DAO: {}", e.getMessage());
+                }
+            }
 
-        // Fallback - return authentication as-is
-        return authentication -> authentication;
+            // 2. Fallback to local password (DAO) authentication
+            log.debug("No Kerberos provider found or Kerberos failed, attempting with DAO provider.");
+            return authenticationProvider().authenticate(authentication);
+        };
     }
 
     /**
-     * NEW: Kerberos login success handler
+     * MODIFIED: This bean is now used as the fallback provider
+     * for local username/password authentication.
      */
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    /**
+     * MODIFIED: This bean now exposes the new tenant-aware manager
+     * to the Spring context for use in your /api/auth/signin endpoint.
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        // Return the composite, tenant-aware manager
+        return tenantAwareAuthenticationManager();
+    }
+
+    // --- REMOVED ---
+    // The old createKerberosFilterIfEnabled and kerberosAuthenticationManager beans
+    // are no longer needed as they are replaced by the logic above.
+
+    // ========================================
+    // SUCCESS HANDLERS & OTHER BEANS
+    // (No changes below this line)
+    // ========================================
+
     @Bean
     public AuthenticationSuccessHandler kerberosSuccessHandler(
             AuthService authService,
@@ -185,8 +221,13 @@ public class SecurityConfig {
                 log.info("Kerberos login is an attribute test for: {}", testProviderId);
                 Map<String, String> attributes = new HashMap<>();
                 attributes.put("principal", kerberosPrincipal);
-                attributes.put("realm", kerberosPrincipal.split("@")[1]);
-                attributes.put("username", kerberosPrincipal.split("@")[0]);
+
+                if (kerberosPrincipal.contains("@")) {
+                    attributes.put("realm", kerberosPrincipal.split("@")[1]);
+                    attributes.put("username", kerberosPrincipal.split("@")[0]);
+                } else {
+                    attributes.put("username", kerberosPrincipal);
+                }
 
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
@@ -209,8 +250,6 @@ public class SecurityConfig {
             response.sendRedirect(redirectUrl);
         };
     }
-
-    // ... (rest of the handlers remain unchanged)
 
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
@@ -293,19 +332,6 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
     }
 
     @Bean

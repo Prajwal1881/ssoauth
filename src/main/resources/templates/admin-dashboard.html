@@ -147,7 +147,6 @@
         <li><button class="tab-button" onclick="openTab(event, 'samlConfig')">SAML Config</button></li>
         <li><button class="tab-button" onclick="openTab(event, 'oidcConfig')">OIDC Config</button></li>
         <li><button class="tab-button" onclick="openTab(event, 'jwtConfig')">JWT Config</button></li>
-        <!-- NEW: Kerberos Tab -->
         <li><button class="tab-button" onclick="openTab(event, 'kerberosConfig')">Kerberos Config</button></li>
     </ul>
 
@@ -174,7 +173,7 @@
             <div>
                 <label for="brandingSubdomain">Branding Name (Subdomain):</label>
                 <input type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required>
-                <p class="form-hint">Your unique login URL: <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code></p>
+                <p class="form-hint">Your unique login URL: Code <span id="subdomain-preview">your-name</span>.prajwal.cfd/login</p>
             </div>
             <div>
                 <label for="brandingLogoUrl">Logo URL (Optional):</label>
@@ -223,6 +222,9 @@
             <button type="submit" class="btn-save">Save SAML Config</button>
             <button type="button" class="btn-test" onclick="testAttributes('saml_miniorange')">
                 Test Connection
+            </button>
+            <button type="button" class="btn-test" style="background-color: #6c757d;" onclick="showDebugInfo()">
+                Debug Info
             </button>
         </form>
 
@@ -278,6 +280,9 @@
             <button type="button" class="btn-test" onclick="testAttributes('oidc_miniorange')">
                 Test Connection
             </button>
+            <button type="button" class="btn-test" style="background-color: #6c757d;" onclick="showDebugInfo()">
+                Debug Info
+            </button>
         </form>
 
         <h4>Your OIDC Redirect URI</h4>
@@ -322,6 +327,9 @@
             <button type="submit" class="btn-save">Save JWT Config</button>
             <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">
                 Test Connection
+            </button>
+            <button type="button" class="btn-test" style="background-color: #6c757d;" onclick="showDebugInfo()">
+                Debug Info
             </button>
         </form>
 
@@ -383,6 +391,9 @@
             <button type="submit" class="btn-save">Save Kerberos Config</button>
             <button type="button" class="btn-test" onclick="testKerberosConnection()">
                 Test Connection
+            </button>
+            <button type="button" class="btn-test" style="background-color: #6c757d;" onclick="showDebugInfo()">
+                Debug Info
             </button>
         </form>
 
@@ -447,12 +458,12 @@
     const samlErrorDiv = document.getElementById('saml-error-message');
     const oidcErrorDiv = document.getElementById('oidc-error-message');
     const jwtErrorDiv = document.getElementById('jwt-error-message');
+    const kerberosErrorDiv = document.getElementById('kerberos-error-message');
     const samlConfigForm = document.getElementById('samlConfigForm');
     const oidcConfigForm = document.getElementById('oidcConfigForm');
     const jwtConfigForm = document.getElementById('jwtConfigForm');
-    let configDataStore = {}; // Stores config state { 'providerId': { id: 1, ... } }
-    const kerberosErrorDiv = document.getElementById('kerberos-error-message');
     const kerberosConfigForm = document.getElementById('kerberosConfigForm');
+    let configDataStore = {}; // Stores config state { 'providerId': { id: 1, ... } }
 
     // --- Branding Variables ---
     const brandingForm = document.getElementById('brandingConfigForm');
@@ -489,8 +500,6 @@
             if (branding.brandingPrimaryColor) {
                 document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
             }
-            // Note: Branding API doesn't return subdomain, so we'll load that in openTab()
-
         } catch (error) {
             console.error('Error fetching branding:', error);
         }
@@ -514,30 +523,26 @@
         if (tabName === 'userManagement') loadUsers();
         else if (tabName === 'brandingConfig') loadBrandingSettings();
         else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig' || tabName === 'kerberosConfig') {
-        loadSsoConfigurations();
-        updateDynamicSubdomainUrls(brandingSubdomainInput.value);
-    }
+            loadSsoConfigurations();
+            updateDynamicSubdomainUrls(brandingSubdomainInput.value || 'your-subdomain'); // Pass current value
+        }
     }
 
-    // --- NEW: Branding Functions ---
+    // --- Branding Functions ---
 
-    // --- NEW HELPER FUNCTION ---
     // Updates all dynamic subdomain spans across all tabs
     function updateDynamicSubdomainUrls(subdomain) {
         const cleanSubdomain = subdomain.toLowerCase().trim().replaceAll(' ', '-') || 'your-subdomain';
 
-        // Update Branding tab preview
         if (subdomainPreview) {
             subdomainPreview.textContent = cleanSubdomain;
         }
 
-        // Update all SSO tab previews
         const allSpans = document.querySelectorAll('.dynamic-subdomain');
         allSpans.forEach(span => {
             span.textContent = cleanSubdomain;
         });
     }
-    // --- END NEW FUNCTION ---
 
     async function loadBrandingSettings() {
         clearBrandingMessages();
@@ -550,9 +555,7 @@
             brandingLogoUrlInput.value = branding.brandingLogoUrl || '';
             brandingPrimaryColorInput.value = branding.brandingPrimaryColor || '';
 
-            // --- MODIFIED: Use new helper function ---
             updateDynamicSubdomainUrls(branding.subdomain);
-            // --- END MODIFICATION ---
 
         } catch (error) {
             console.error('Load branding error:', error);
@@ -560,11 +563,9 @@
         }
     }
 
-    // --- MODIFIED: Use new helper function ---
     brandingSubdomainInput.addEventListener('input', (e) => {
         updateDynamicSubdomainUrls(e.target.value);
     });
-    // --- END MODIFICATION ---
 
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -654,10 +655,8 @@
         userIdInput.value = '';
         modalTitle.textContent = 'Create New User';
         document.getElementById('password').placeholder = "Password (required)";
-        // --- FIX: Reset password toggle ---
         document.getElementById('password').setAttribute('type', 'password');
         document.getElementById('toggleUserPassword').textContent = 'Show';
-        // --- END FIX ---
         modal.style.display = "block";
     }
 
@@ -678,10 +677,8 @@
             document.getElementById('lastName').value = user.lastName || '';
             document.getElementById('roles').value = user.roles || '';
             document.getElementById('password').placeholder = "Leave blank if no change";
-            // --- FIX: Reset password toggle ---
             document.getElementById('password').setAttribute('type', 'password');
             document.getElementById('toggleUserPassword').textContent = 'Show';
-            // --- END FIX ---
 
             modalTitle.textContent = 'Edit User: ' + user.username;
             modal.style.display = "block";
@@ -764,41 +761,99 @@
 
     // --- (START) SSO CONFIG FUNCTIONS ---
 
+    // Helper function to read a file as a Base64 string
+    function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // result contains "data:application/octet-stream;base64,BASE64_STRING"
+                // We just want the part after the comma
+                const base64String = reader.result.split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(file);
+        });
+    }
+
     async function loadSsoConfigurations() {
-        try {
-            const response = await fetch('/api/admin/sso-config', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) return handleApiError(response, "load SSO configs", false, getErrorDivForType('all'));
+        const maxRetries = 3;
+        let attempt = 0;
 
-            const configs = await response.json();
-            configDataStore = {}; // Clear old data
+        while (attempt < maxRetries) {
+            try {
+                console.log(`[SSO Config] Loading attempt ${attempt + 1}/${maxRetries}...`);
 
-            configs.forEach(config => {
-                configDataStore[config.providerId] = config;
-                populateSsoForm(config);
-            });
-        } catch (error) {
-            console.error('Load SSO configs error:', error);
-            showSsoError(`Failed to load SSO configurations: ${error.message}`, 'all');
+                const response = await fetch('/api/admin/sso-config', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`[SSO Config] Load failed (${response.status}):`, errorText);
+
+                    if (response.status === 401 || response.status === 403) {
+                        showSsoError('Session expired or access denied. Please refresh the page.', 'all');
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const configs = await response.json();
+                console.log(`[SSO Config] Loaded ${configs.length} configs:`, configs);
+
+                configDataStore = {}; // Clear old data
+
+                configs.forEach(config => {
+                    console.log(`[SSO Config] Processing config:`, {
+                        id: config.id,
+                        providerId: config.providerId,
+                        type: config.providerType,
+                        enabled: config.enabled
+                    });
+                    configDataStore[config.providerId] = config;
+                    populateSsoForm(config);
+                });
+
+                console.log('[SSO Config] Load completed successfully');
+                return; // Success - exit retry loop
+
+            } catch (error) {
+                attempt++;
+                console.error(`[SSO Config] Load attempt ${attempt} failed:`, error);
+                if (attempt >= maxRetries) {
+                    showSsoError(`Failed to load SSO configurations after ${maxRetries} attempts: ${error.message}`, 'all');
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
     }
 
     function populateSsoForm(config) {
-        const prefix = config.providerType.toLowerCase(); // 'saml', 'oidc', 'jwt'
+        const prefix = config.providerType.toLowerCase();
+        console.log(`[populateSsoForm] Processing ${prefix}:`, config);
 
-        // This relies on IDs matching the pattern: ${prefix}Enable, ${prefix}DisplayName, etc.
-        document.getElementById(`${prefix}ConfigId`).value = config.id || '';
-        document.getElementById(`${prefix}Enable`).checked = config.enabled;
-        document.getElementById(`${prefix}DisplayName`).value = config.displayName || '';
+        const configIdEl = document.getElementById(`${prefix}ConfigId`);
+        const enableEl = document.getElementById(`${prefix}Enable`);
+        const displayNameEl = document.getElementById(`${prefix}DisplayName`);
 
-        // --- Common ---
-        if (document.getElementById(`${prefix}ClientId`)) document.getElementById(`${prefix}ClientId`).value = config.clientId || '';
-        // NOTE: We no longer receive clientSecret, so the field will just be a placeholder
-        if (document.getElementById(`${prefix}ClientSecret`)) document.getElementById(`${prefix}ClientSecret`).value = '';
-        if (document.getElementById(`${prefix}IssuerUri`)) document.getElementById(`${prefix}IssuerUri`).value = config.issuerUri || '';
+        if (!configIdEl || !enableEl || !displayNameEl) {
+            console.error(`[populateSsoForm] Missing form elements for ${prefix}`);
+            return;
+        }
 
-        // --- OIDC ---
+        configIdEl.value = config.id || '';
+        enableEl.checked = config.enabled;
+        displayNameEl.value = config.displayName || '';
+
+        // Common fields
+        const clientIdEl = document.getElementById(`${prefix}ClientId`);
+        const issuerUriEl = document.getElementById(`${prefix}IssuerUri`);
+        if (clientIdEl) clientIdEl.value = config.clientId || '';
+        if (issuerUriEl) issuerUriEl.value = config.issuerUri || '';
+
+        // Type-specific fields
         if (prefix === 'oidc') {
             document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
             document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
@@ -806,93 +861,168 @@
             document.getElementById('oidcTokenUri').value = config.tokenUri || '';
             document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
             document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
-        }
-        // --- SAML ---
-        else if (prefix === 'saml') {
+            document.getElementById('oidcClientSecret').value = ''; // Always clear secret field
+        } else if (prefix === 'saml') {
             document.getElementById('samlEntityId').value = config.samlEntityId || '';
             document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
             document.getElementById('samlCertificate').value = config.samlCertificate || '';
-        }
-        // --- JWT ---
-        else if (prefix === 'jwt') {
+        } else if (prefix === 'jwt') {
             document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
             document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
             document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
+            document.getElementById('jwtClientSecret').value = ''; // Always clear secret field
+        } else if (prefix === 'kerberos') {
+            document.getElementById('kerberosServicePrincipal').value = config.kerberosServicePrincipal || '';
+            document.getElementById('kerberosRealm').value = config.kerberosRealm || '';
+            document.getElementById('kerberosKdcServer').value = config.kerberosKdcServer || '';
+            document.getElementById('kerberosUserNameAttribute').value = config.kerberosUserNameAttribute || 'username';
+
+            // Show keytab status
+            const keytabStatus = document.getElementById('keytab-status');
+            if (config.kerberosKeytabBase64 && config.kerberosKeytabBase64.length > 0) {
+                keytabStatus.textContent = '✓ Keytab file is currently on server';
+                keytabStatus.style.color = 'var(--success-color)';
+            } else {
+                keytabStatus.textContent = '⚠ No keytab file uploaded';
+                keytabStatus.style.color = 'var(--error-color)';
+            }
+            // Clear the file input
+            document.getElementById('kerberosKeytabFile').value = '';
         }
     }
 
-    [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
-        form.addEventListener('submit', async (event) => {
+    // --- **FIXED EVENT LISTENER BLOCK** ---
+    // This block replaces the two old, conflicting blocks.
+    // 1. Corrected 'samlConfigFom' typo.
+    // 2. Added 'kerberosConfigForm' to the array.
+    // 3. Added logic to handle the 'kerberosKeytabFile' upload.
+    [samlConfigForm, oidcConfigForm, jwtConfigForm, kerberosConfigForm].forEach(form => {
+        // We must use a new, clean listener attachment
+        const actualForm = document.getElementById(form.id);
+
+        actualForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            const providerType = form.dataset.providerType;
-            const providerId = form.dataset.providerId;
-            const configId = configDataStore[providerId]?.id;
+            const providerType = actualForm.dataset.providerType;
+            const providerId = actualForm.dataset.providerId;
             const prefix = providerType.toLowerCase();
 
+            console.log(`[${providerType}] Form submission started:`, { providerType, providerId });
             clearSsoErrors(providerType);
 
-            // Create data payload from form
+            const storedConfig = configDataStore[providerId];
+            const configId = storedConfig?.id;
+
+            // Build data payload
             const data = {
-                id: configId,
                 providerId: providerId,
                 providerType: providerType,
                 enabled: document.getElementById(`${prefix}Enable`).checked,
                 displayName: document.getElementById(`${prefix}DisplayName`).value,
 
-                // Common
-                clientId: document.getElementById(`${prefix}ClientId`)?.value,
-                clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value,
-                issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value,
+                // Common fields
+                clientId: document.getElementById(`${prefix}ClientId`)?.value || null,
+                clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value || null,
+                issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value || null,
 
-                // OIDC
-                scopes: document.getElementById('oidcScopes')?.value,
-                userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value,
-                authorizationUri: document.getElementById('oidcAuthorizationUri')?.value,
-                tokenUri: document.getElementById('oidcTokenUri')?.value,
-                userInfoUri: document.getElementById('oidcUserInfoUri')?.value,
-                jwkSetUri: document.getElementById('oidcJwkSetUri')?.value,
+                // OIDC fields
+                scopes: document.getElementById('oidcScopes')?.value || null,
+                userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value || null,
+                authorizationUri: document.getElementById('oidcAuthorizationUri')?.value || null,
+                tokenUri: document.getElementById('oidcTokenUri')?.value || null,
+                userInfoUri: document.getElementById('oidcUserInfoUri')?.value || null,
+                jwkSetUri: document.getElementById('oidcJwkSetUri')?.value || null,
 
-                // SAML
-                samlEntityId: document.getElementById('samlEntityId')?.value,
-                samlSsoUrl: document.getElementById('samlSsoUrl')?.value,
-                samlCertificate: document.getElementById('samlCertificate')?.value,
+                // SAML fields
+                samlEntityId: document.getElementById('samlEntityId')?.value || null,
+                samlSsoUrl: document.getElementById('samlSsoUrl')?.value || null,
+                samlCertificate: document.getElementById('samlCertificate')?.value || null,
 
-                // JWT
-                jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value,
-                jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value,
-                jwtCertificate: document.getElementById('jwtCertificate')?.value,
+                // JWT fields
+                jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value || null,
+                jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value || null,
+                jwtCertificate: document.getElementById('jwtCertificate')?.value || null,
+
+                // Kerberos fields
+                kerberosServicePrincipal: document.getElementById('kerberosServicePrincipal')?.value || null,
+                kerberosRealm: document.getElementById('kerberosRealm')?.value || null,
+                kerberosKdcServer: document.getElementById('kerberosKdcServer')?.value || null,
+                kerberosUserNameAttribute: document.getElementById('kerberosUserNameAttribute')?.value || null,
+                kerberosKeytabBase64: null // Start as null, will be populated if file is added
             };
 
-            // Don't send empty secret unless it's a create
+            // Don't send empty secret on update
             if (configId && !data.clientSecret) {
                 delete data.clientSecret;
             }
 
+            // Determine endpoint and method
             const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
             const method = configId ? 'PUT' : 'POST';
+            const action = configId ? 'update' : 'create';
+
+            // Handle Kerberos keytab file upload
+            if (providerType === 'KERBEROS') {
+                const keytabFileInput = document.getElementById('kerberosKeytabFile');
+                const keytabFile = keytabFileInput.files[0];
+
+                if (keytabFile) {
+                    try {
+                        console.log(`[KERBEROS] Reading keytab file...`);
+                        data.kerberosKeytabBase64 = await readFileAsBase64(keytabFile);
+                        console.log(`[KERBEROS] Keytab file read successfully.`);
+                    } catch (e) {
+                        console.error("[KERBEROS] Error reading keytab file:", e);
+                        showSsoError(`Failed to read keytab file: ${e.message}`, providerType);
+                        return; // Stop submission
+                    }
+                }
+                // If no file is selected, kerberosKeytabBase64 remains null.
+                // The backend SsoProviderConfigUpdateRequest DTO must handle this
+                // (i.e., not update the keytab if the field is null on an existing config).
+            }
+
+            console.log(`[${providerType}] Sending ${method} request to ${url}`);
 
             try {
                 const response = await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
                     body: JSON.stringify(data)
                 });
 
                 if (!response.ok) {
-                    return handleApiError(response, `save ${providerType} config`, false, getErrorDivForType(providerType));
+                    const errorText = await response.text();
+                    let errorMessage = `Failed to ${action} ${providerType} config (${response.status})`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        if (errorData.message) errorMessage = errorData.message;
+                    } catch (e) { errorMessage += `: ${errorText}`; }
+
+                    console.error(`[${providerType}] ${action.toUpperCase()} FAILED:`, errorMessage);
+                    showSsoError(errorMessage, providerType);
+                    return;
                 }
 
                 const updatedConfig = await response.json();
+                console.log(`[${providerType}] ${action.toUpperCase()} SUCCESS:`, updatedConfig);
+
+                // Update stored config
                 configDataStore[updatedConfig.providerId] = updatedConfig;
-                populateSsoForm(updatedConfig);
-                alert(`${providerType} configuration saved successfully!`);
+                populateSsoForm(updatedConfig); // Re-populate form with saved data
+
+                alert(`✓ ${providerType} configuration ${action}d successfully!`);
 
             } catch (error) {
-                console.error(`Save ${providerType} config error:`, error);
-                showSsoError(`Save failed: ${error.message}`, providerType);
+                console.error(`[${providerType}] ${action.toUpperCase()} ERROR:`, error);
+                showSsoError(`Failed to ${action}: ${error.message}`, providerType);
             }
         });
     });
+    // --- **END FIXED LISTENER BLOCK** ---
+
 
     function testAttributes(providerId) {
         const config = configDataStore[providerId];
@@ -900,8 +1030,43 @@
             alert("Please save and enable the configuration before testing.");
             return;
         }
-        // The /api/sso/test-attributes/{providerId} endpoint will handle the redirect
         window.open(`/api/sso/test-attributes/${providerId}`, 'ssoTestWindow', 'width=600,height=700');
+    }
+
+    function testKerberosConnection() {
+        const config = configDataStore['kerberos_ad'];
+        if (!config || !config.enabled) {
+            alert("Please save and enable the Kerberos configuration before testing.");
+            return;
+        }
+        alert("Kerberos testing is performed by logging in from a domain-joined machine. Navigate to your login page from a client machine that is part of the Active Directory domain to test the connection.");
+    }
+
+    async function showDebugInfo() {
+        try {
+            const response = await fetch('/api/admin/sso-config/debug/tenant-info', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!response.ok) { alert('Debug endpoint failed: ' + response.status); return; }
+            const debug = await response.json();
+            let message = `=== TENANT DEBUG INFO ===\n\n`;
+            message += `Current Tenant ID: ${debug.currentTenantId}\n`;
+            message += `Timestamp: ${new Date(debug.timestamp).toLocaleString()}\n\n`;
+            message += `=== MY VISIBLE CONFIGS ===\n`;
+            debug.myVisibleConfigs.forEach(c => {
+                message += `- ID: ${c.id}, Provider: ${c.providerId}\n`;
+            });
+            message += `\n=== ALL CONFIGS IN DATABASE ===\n`;
+            debug.allConfigsInDatabase.forEach(c => {
+                message += `- ID: ${c.id}, Provider: ${c.providerId}, Type: ${c.providerType}\n`;
+                message += `  Tenant: ${c.tenantId} (${c.subdomain}), Visible: ${c.visibleToMe}\n`;
+            });
+            console.log(message);
+A;
+        } catch (error) {
+            console.error('Debug info failed:', error);
+            alert('Failed to fetch debug info: ' + error.message);
+        }
     }
 
     // --- (END) SSO CONFIG FUNCTIONS ---
@@ -912,6 +1077,7 @@
         if (providerType === 'SAML') return samlErrorDiv;
         if (providerType === 'OIDC') return oidcErrorDiv;
         if (providerType === 'JWT') return jwtErrorDiv;
+        if (providerType === 'KERBEROS') return kerberosErrorDiv;
         if (providerType === 'BRANDING') return brandingErrorDiv;
         return errorMessageDiv; // Default for 'all' or user management
     }
@@ -923,6 +1089,7 @@
          if (providerType === 'all' || providerType === 'SAML') { samlErrorDiv.textContent = ''; samlErrorDiv.style.display = 'none'; }
          if (providerType === 'all' || providerType === 'OIDC') { oidcErrorDiv.textContent = ''; oidcErrorDiv.style.display = 'none'; }
          if (providerType === 'all' || providerType === 'JWT') { jwtErrorDiv.textContent = ''; jwtErrorDiv.style.display = 'none'; }
+         if (providerType === 'all' || providerType === 'KERBEROS') { kerberosErrorDiv.textContent = ''; kerberosErrorDiv.style.display = 'none'; }
      }
      function showUserError(message) { errorMessageDiv.textContent = message; errorMessageDiv.style.display = 'block'; }
      function showUserModalError(message) { modalError.textContent = message; modalError.style.display = 'block'; }
@@ -968,7 +1135,7 @@
     }
     setupPasswordToggle('oidcClientSecret', 'toggleOidcSecret');
     setupPasswordToggle('jwtClientSecret', 'toggleJwtSecret');
-    setupPasswordToggle('password', 'toggleUserPassword'); // <-- NEWLY ADDED
+    setupPasswordToggle('password', 'toggleUserPassword');
 
     const logoutButton = document.getElementById('logout-button');
     if (logoutButton) {
@@ -985,291 +1152,6 @@
     } else {
          setTimeout(() => { window.location.href = '/login'; }, 1000);
     }
-
-            // ========================================
-        // PHASE 2 CRITICAL FIXES
-        // ========================================
-
-        // --- FIX 1: Improved Error Handling with Retry Logic ---
-        async function loadSsoConfigurations() {
-            const maxRetries = 3;
-            let attempt = 0;
-
-            while (attempt < maxRetries) {
-                try {
-                    console.log(`[SSO Config] Loading attempt ${attempt + 1}/${maxRetries}...`);
-
-                    const response = await fetch('/api/admin/sso-config', {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`[SSO Config] Load failed (${response.status}):`, errorText);
-
-                        if (response.status === 401 || response.status === 403) {
-                            // Auth error - don't retry
-                            showSsoError('Session expired or access denied. Please refresh the page.', 'all');
-                            return;
-                        }
-
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
-                    }
-
-                    const configs = await response.json();
-                    console.log(`[SSO Config] Loaded ${configs.length} configs:`, configs);
-
-                    configDataStore = {}; // Clear old data
-
-                    configs.forEach(config => {
-                        console.log(`[SSO Config] Processing config:`, {
-                            id: config.id,
-                            providerId: config.providerId,
-                            type: config.providerType,
-                            enabled: config.enabled
-                        });
-
-                        configDataStore[config.providerId] = config;
-                        populateSsoForm(config);
-                    });
-
-                    console.log('[SSO Config] Load completed successfully');
-                    return; // Success - exit retry loop
-
-                } catch (error) {
-                    attempt++;
-                    console.error(`[SSO Config] Load attempt ${attempt} failed:`, error);
-
-                    if (attempt >= maxRetries) {
-                        showSsoError(`Failed to load SSO configurations after ${maxRetries} attempts: ${error.message}`, 'all');
-                        return;
-                    }
-
-                    // Wait before retry (exponential backoff)
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-                }
-            }
-        }
-
-        // --- FIX 2: Enhanced Form Submission with Better Validation ---
-        [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
-            // Remove old listener first to prevent duplicates
-            const oldForm = form.cloneNode(true);
-            form.parentNode.replaceChild(oldForm, form);
-
-            // Get references again after replacement
-            const actualForm = document.getElementById(form.id);
-
-            actualForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                const providerType = actualForm.dataset.providerType;
-                const providerId = actualForm.dataset.providerId;
-                const prefix = providerType.toLowerCase();
-
-                console.log(`[${providerType}] Form submission started:`, { providerType, providerId });
-                clearSsoErrors(providerType);
-
-                // Get stored config
-                const storedConfig = configDataStore[providerId];
-                const configId = storedConfig?.id;
-
-                console.log(`[${providerType}] Stored config:`, storedConfig);
-                console.log(`[${providerType}] Config ID: ${configId}`);
-
-                // Build data payload
-                const data = {
-                    providerId: providerId,
-                    providerType: providerType,
-                    enabled: document.getElementById(`${prefix}Enable`).checked,
-                    displayName: document.getElementById(`${prefix}DisplayName`).value,
-
-                    // Common fields
-                    clientId: document.getElementById(`${prefix}ClientId`)?.value || null,
-                    clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value || null,
-                    issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value || null,
-
-                    // OIDC fields
-                    scopes: document.getElementById('oidcScopes')?.value || null,
-                    userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value || null,
-                    authorizationUri: document.getElementById('oidcAuthorizationUri')?.value || null,
-                    tokenUri: document.getElementById('oidcTokenUri')?.value || null,
-                    userInfoUri: document.getElementById('oidcUserInfoUri')?.value || null,
-                    jwkSetUri: document.getElementById('oidcJwkSetUri')?.value || null,
-
-                    // SAML fields
-                    samlEntityId: document.getElementById('samlEntityId')?.value || null,
-                    samlSsoUrl: document.getElementById('samlSsoUrl')?.value || null,
-                    samlCertificate: document.getElementById('samlCertificate')?.value || null,
-
-                    // JWT fields
-                    jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value || null,
-                    jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value || null,
-                    jwtCertificate: document.getElementById('jwtCertificate')?.value || null,
-                };
-
-                // Don't send empty secret on update
-                if (configId && !data.clientSecret) {
-                    delete data.clientSecret;
-                }
-
-                // Determine endpoint and method
-                const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
-                const method = configId ? 'PUT' : 'POST';
-                const action = configId ? 'update' : 'create';
-
-                console.log(`[${providerType}] Sending ${method} request to ${url}`, data);
-
-                try {
-                    const response = await fetch(url, {
-                        method: method,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        let errorMessage = `Failed to ${action} ${providerType} config (${response.status})`;
-
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            if (errorData.message) {
-                                errorMessage = errorData.message;
-                            }
-                        } catch (e) {
-                            errorMessage += `: ${errorText}`;
-                        }
-
-                        console.error(`[${providerType}] ${action.toUpperCase()} FAILED:`, errorMessage);
-                        showSsoError(errorMessage, providerType);
-                        return;
-                    }
-
-                    const updatedConfig = await response.json();
-                    console.log(`[${providerType}] ${action.toUpperCase()} SUCCESS:`, updatedConfig);
-
-                    // Update stored config
-                    configDataStore[updatedConfig.providerId] = updatedConfig;
-                    populateSsoForm(updatedConfig);
-
-                    alert(`✓ ${providerType} configuration ${action}d successfully!`);
-
-                } catch (error) {
-                    console.error(`[${providerType}] ${action.toUpperCase()} ERROR:`, error);
-                    showSsoError(`Failed to ${action}: ${error.message}`, providerType);
-                }
-            });
-        });
-
-        // --- FIX 3: Add Debug Button (Add to HTML) ---
-        /*
-        Add this button to each SSO config form, after the "Test Connection" button:
-
-        <button type="button" class="btn-test" style="background-color: #6c757d;"
-                onclick="showDebugInfo()">
-            Debug Info
-        </button>
-        */
-
-        async function showDebugInfo() {
-            try {
-                const response = await fetch('/api/admin/sso-config/debug/tenant-info', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-
-                if (!response.ok) {
-                    alert('Debug endpoint failed: ' + response.status);
-                    return;
-                }
-
-                const debug = await response.json();
-
-                let message = `=== TENANT DEBUG INFO ===\n\n`;
-                message += `Current Tenant ID: ${debug.currentTenantId}\n`;
-                message += `Timestamp: ${new Date(debug.timestamp).toLocaleString()}\n\n`;
-                message += `=== MY VISIBLE CONFIGS ===\n`;
-                debug.myVisibleConfigs.forEach(c => {
-                    message += `- ID: ${c.id}, Provider: ${c.providerId}\n`;
-                });
-                message += `\n=== ALL CONFIGS IN DATABASE ===\n`;
-                debug.allConfigsInDatabase.forEach(c => {
-                    message += `- ID: ${c.id}, Provider: ${c.providerId}, Type: ${c.providerType}\n`;
-                    message += `  Tenant: ${c.tenantId} (${c.subdomain}), Visible: ${c.visibleToMe}\n`;
-                });
-
-                console.log(message);
-                alert(message);
-
-            } catch (error) {
-                console.error('Debug info failed:', error);
-                alert('Failed to fetch debug info: ' + error.message);
-            }
-        }
-
-        // --- FIX 4: Enhanced populateSsoForm with Validation ---
-        function populateSsoForm(config) {
-            const prefix = config.providerType.toLowerCase();
-
-            console.log(`[populateSsoForm] Processing ${prefix}:`, config);
-
-            // Validate required elements exist
-            const configIdEl = document.getElementById(`${prefix}ConfigId`);
-            const enableEl = document.getElementById(`${prefix}Enable`);
-            const displayNameEl = document.getElementById(`${prefix}DisplayName`);
-
-            if (!configIdEl || !enableEl || !displayNameEl) {
-                console.error(`[populateSsoForm] Missing form elements for ${prefix}`);
-                return;
-            }
-
-            // Set values
-            configIdEl.value = config.id || '';
-            enableEl.checked = config.enabled;
-            displayNameEl.value = config.displayName || '';
-
-            // Common fields
-            const clientIdEl = document.getElementById(`${prefix}ClientId`);
-            const issuerUriEl = document.getElementById(`${prefix}IssuerUri`);
-            if (clientIdEl) clientIdEl.value = config.clientId || '';
-            if (issuerUriEl) issuerUriEl.value = config.issuerUri || '';
-
-            // Type-specific fields
-            if (prefix === 'oidc') {
-                document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
-                document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
-                document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
-                document.getElementById('oidcTokenUri').value = config.tokenUri || '';
-                document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
-                document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
-            } else if (prefix === 'saml') {
-                document.getElementById('samlEntityId').value = config.samlEntityId || '';
-                document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
-                document.getElementById('samlCertificate').value = config.samlCertificate || '';
-            } else if (prefix === 'jwt') {
-                document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
-                document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
-                document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
-            } else if (prefix === 'kerberos') {
-                document.getElementById('kerberosServicePrincipal').value = config.kerberosServicePrincipal || '';
-                document.getElementById('kerberosRealm').value = config.kerberosRealm || '';
-                document.getElementById('kerberosKdcServer').value = config.kerberosKdcServer || '';
-                document.getElementById('kerberosUserNameAttribute').value = config.kerberosUserNameAttribute || 'username';
-
-                // Show keytab status
-                const keytabStatus = document.getElementById('keytab-status');
-                if (config.kerberosKeytabBase64 && config.kerberosKeytabBase64.length > 0) {
-                    keytabStatus.textContent = '✓ Keytab file uploaded';
-                    keytabStatus.style.color = '#28a745';
-                } else {
-                    keytabStatus.textContent = '⚠ No keytab file uploaded';
-                    keytabStatus.style.color = '#dc3545';
-                }
-            }
-
-        console.log('[Admin Dashboard] Phase 2 fixes applied ✓');
-
 </script>
 
 </body>

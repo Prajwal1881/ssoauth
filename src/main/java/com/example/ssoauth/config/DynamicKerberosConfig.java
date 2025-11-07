@@ -6,19 +6,19 @@ import com.example.ssoauth.service.SsoConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource; // NEW IMPORT
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.kerberos.authentication.KerberosServiceAuthenticationProvider;
 import org.springframework.security.kerberos.authentication.sun.SunJaasKerberosTicketValidator;
 import org.springframework.security.kerberos.web.authentication.SpnegoAuthenticationProcessingFilter;
 import org.springframework.security.kerberos.web.authentication.SpnegoEntryPoint;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.core.userdetails.UserDetailsService; // NEW IMPORT
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
+import java.util.Base64; // NEW IMPORT
 import java.util.Optional;
+// REMOVED File, Path, and Files imports
 
 /**
  * Dynamically creates Kerberos/SPNEGO authentication components
@@ -30,6 +30,8 @@ import java.util.Optional;
 public class DynamicKerberosConfig {
 
     private final SsoConfigService ssoConfigService;
+    // NEW: Inject UserDetailsService to link user accounts after Kerberos validation
+    private final UserDetailsService userDetailsService;
 
     /**
      * Creates a SPNEGO authentication filter for the current tenant
@@ -42,13 +44,14 @@ public class DynamicKerberosConfig {
         SpnegoAuthenticationProcessingFilter filter = new SpnegoAuthenticationProcessingFilter();
         filter.setAuthenticationManager(authManager);
         filter.setSuccessHandler(successHandler);
-
+        // We no longer check isKerberosEnabled() here, the AuthManager will do it
         return filter;
     }
 
     /**
-     * Creates a Kerberos authentication provider for the current tenant.
-     * Returns null if no enabled Kerberos config exists.
+     * Creates a Kerberos authentication provider for the CURRENT tenant.
+     * This is now called PER-REQUEST by the tenant-aware AuthenticationManager.
+     * Returns null if no enabled Kerberos config exists for the current tenant.
      */
     public KerberosServiceAuthenticationProvider createKerberosProvider() {
         try {
@@ -70,28 +73,31 @@ public class DynamicKerberosConfig {
             }
 
             SsoProviderConfig config = kerberosConfigOpt.get();
+            if (config.getKerberosKeytabBase64() == null || config.getKerberosKeytabBase64().isEmpty()) {
+                log.error("Kerberos config for tenant {} is missing keytab data.", tenantId);
+                return null;
+            }
+
             log.info("Creating Kerberos provider for tenant {} with SPN: {}",
                     tenantId, config.getKerberosServicePrincipal());
 
-            // Create temporary keytab file from Base64 data
-            File keytabFile = createTempKeytab(config.getKerberosKeytabBase64());
+            // --- IMPROVEMENT: Load Keytab from Base64 directly into memory ---
+            byte[] keytabBytes = Base64.getDecoder().decode(config.getKerberosKeytabBase64());
+            Resource keytabResource = new ByteArrayResource(keytabBytes);
 
             // Create ticket validator
             SunJaasKerberosTicketValidator ticketValidator = new SunJaasKerberosTicketValidator();
             ticketValidator.setServicePrincipal(config.getKerberosServicePrincipal());
-            ticketValidator.setKeyTabLocation(new ByteArrayResource(Files.readAllBytes(keytabFile.toPath())));
+            ticketValidator.setKeyTabLocation(keytabResource); // Use the in-memory resource
             ticketValidator.setDebug(true); // Enable for troubleshooting
-            ticketValidator.afterPropertiesSet();
+            ticketValidator.afterPropertiesSet(); // Initialize the validator
 
             // Create authentication provider
             KerberosServiceAuthenticationProvider provider = new KerberosServiceAuthenticationProvider();
             provider.setTicketValidator(ticketValidator);
-            provider.setUserDetailsService(username -> {
-                // This is called after Kerberos validation succeeds
-                // You can load additional user details here
-                log.info("Kerberos authentication succeeded for: {}", username);
-                return null; // Will be handled by success handler
-            });
+
+            // CRITICAL: Link to UserDetailsService to load user roles/details
+            provider.setUserDetailsService(userDetailsService);
 
             return provider;
 
@@ -105,11 +111,13 @@ public class DynamicKerberosConfig {
      * Creates SPNEGO entry point for 401 challenges
      */
     public SpnegoEntryPoint createSpnegoEntryPoint() {
+        // Fallback to /login if SPNEGO fails
         return new SpnegoEntryPoint("/login");
     }
 
     /**
      * Extracts username from Kerberos principal based on config
+     * (This is a helper for AuthService, can be removed if AuthService handles it)
      */
     public String extractUsername(String principal, SsoProviderConfig config) {
         if (principal == null) return null;
@@ -130,30 +138,11 @@ public class DynamicKerberosConfig {
         }
     }
 
-    /**
-     * Creates a temporary keytab file from Base64 data
-     */
-    private File createTempKeytab(String base64Keytab) throws Exception {
-        byte[] keytabBytes = Base64.getDecoder().decode(base64Keytab);
-
-        // Create temp file
-        Path tempPath = Files.createTempFile("kerberos-", ".keytab");
-        Files.write(tempPath, keytabBytes);
-
-        File keytabFile = tempPath.toFile();
-        keytabFile.deleteOnExit(); // Clean up on app shutdown
-
-        // Set restrictive permissions (Unix-like systems only)
-        keytabFile.setReadable(false, false);
-        keytabFile.setReadable(true, true);
-        keytabFile.setWritable(false, false);
-
-        log.info("Created temporary keytab file: {}", tempPath);
-        return keytabFile;
-    }
+    // --- REMOVED: createTempKeytab method is no longer needed ---
 
     /**
      * Checks if Kerberos is enabled for the current tenant
+     * (Still useful for other checks, but not for filter creation)
      */
     public boolean isKerberosEnabled() {
         Long tenantId = TenantContext.getCurrentTenant();
