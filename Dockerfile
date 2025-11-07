@@ -43,4 +43,4 @@ COPY --from=build /workspace/target/sso-auth-system-1.0.0.jar .
 EXPOSE 8080
 
 # The command to run your application when the container starts
-ENTRYPOINT ["java", "-jar", "sso-auth-system-1.0.0.jar"]
+ENTRYPOINT ["java", "-Djava.security.krb5.conf=/etc/krb5.conf", "-jar", "sso-auth-system-1.0.0.jar"]
