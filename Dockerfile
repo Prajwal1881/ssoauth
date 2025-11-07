@@ -31,6 +31,9 @@ FROM eclipse-temurin:17-jre-jammy
 # Set the working directory for the app
 WORKDIR /app
 
+# NEW: Copy the krb5.conf file from the build context into the final image
+COPY src/main/resources/krb5.conf /etc/krb5.conf
+
 # Copy the executable .jar file from the 'build' stage
 # The JAR name comes from the <artifactId> and <version> in your pom.xml
 COPY --from=build /workspace/target/sso-auth-system-1.0.0.jar .
