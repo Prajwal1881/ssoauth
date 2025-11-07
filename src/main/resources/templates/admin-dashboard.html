@@ -90,6 +90,40 @@
 
         .form-hint { font-size: 0.85em; color: #6c757d; margin-top: -10px; margin-bottom: 15px; }
         .form-hint code { background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; }
+
+        /* --- NEW STYLES FOR URL DISPLAY --- */
+        .url-display-box {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+            margin-bottom: 25px; /* Space it out */
+        }
+        .url-display-box label {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .url-display-box code {
+            display: block; /* Make it take its own line */
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #333;
+            word-break: break-all; /* Handle long URLs */
+            margin-bottom: 10px; /* Space between URLs */
+        }
+        .url-display-box code:last-child {
+            margin-bottom: 0;
+        }
+        .dynamic-subdomain {
+            color: var(--primary-orange);
+            font-weight: bold;
+        }
+        /* --- END NEW STYLES --- */
     </style>
 </head>
 <body>
@@ -138,7 +172,7 @@
             <div>
                 <label for="brandingSubdomain">Branding Name (Subdomain):</label>
                 <input type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required>
-                <p class="form-hint">Your unique login URL: <code>https://<span id="subdomain-preview">your-name</span>.localhost:8080/login</code></p>
+                <p class="form-hint">Your unique login URL: <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code></p>
             </div>
             <div>
                 <label for="brandingLogoUrl">Logo URL (Optional):</label>
@@ -189,6 +223,15 @@
                 Test Connection
             </button>
         </form>
+
+        <h4>Your Service Provider (SP) URLs</h4>
+        <p class="form-hint">Provide these URLs to your Identity Provider (IdP) to complete the setup.</p>
+        <div class="url-display-box">
+            <label>SP Entity ID (Issuer / Audience URI):</label>
+            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
+            <label>ACS URL (Reply URL):</label>
+            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
+        </div>
     </div>
 
     <div id="oidcConfig" class="tab-content">
@@ -234,6 +277,13 @@
                 Test Connection
             </button>
         </form>
+
+        <h4>Your OIDC Redirect URI</h4>
+        <p class="form-hint">Provide this URL to your Identity Provider (IdP) as the Redirect or Callback URL.</p>
+        <div class="url-display-box">
+            <label>Redirect URI:</label>
+            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
+        </div>
     </div>
 
     <div id="jwtConfig" class="tab-content">
@@ -262,7 +312,7 @@
                 </div>
             </div>
             <label for="jwtRedirectUri">Redirect URI (Callback URL):</label>
-            <input type="url" id="jwtRedirectUri" placeholder="e.g., http://localhost:8080/login/jwt/callback">
+            <input type="url" id="jwtRedirectUri" placeholder="e.g., https://your-subdomain.prajwal.cfd/login/jwt/callback">
             <label for="jwtIssuerUri">Expected Issuer (iss claim):</label>
             <input type="text" id="jwtIssuerUri" placeholder="e.g., Your Client ID or Issuer URL">
             <label for="jwtCertificate">Certificate Content (PEM format):</label>
@@ -272,6 +322,13 @@
                 Test Connection
             </button>
         </form>
+
+        <h4>Your JWT Callback URL</h4>
+        <p class="form-hint">Provide this URL to your IdP and enter the <strong>exact same value</strong> in the "Redirect URI" field above.</p>
+        <div class="url-display-box">
+            <label>Callback URL:</label>
+            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
+        </div>
     </div>
 
 
@@ -384,10 +441,31 @@
         else if (tabName === 'brandingConfig') loadBrandingSettings();
         else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig') {
             loadSsoConfigurations();
+            // --- NEW: Ensure dynamic URLs are populated when tabbing ---
+            updateDynamicSubdomainUrls(brandingSubdomainInput.value);
         }
     }
 
     // --- NEW: Branding Functions ---
+
+    // --- NEW HELPER FUNCTION ---
+    // Updates all dynamic subdomain spans across all tabs
+    function updateDynamicSubdomainUrls(subdomain) {
+        const cleanSubdomain = subdomain.toLowerCase().trim().replaceAll(' ', '-') || 'your-subdomain';
+
+        // Update Branding tab preview
+        if (subdomainPreview) {
+            subdomainPreview.textContent = cleanSubdomain;
+        }
+
+        // Update all SSO tab previews
+        const allSpans = document.querySelectorAll('.dynamic-subdomain');
+        allSpans.forEach(span => {
+            span.textContent = cleanSubdomain;
+        });
+    }
+    // --- END NEW FUNCTION ---
+
     async function loadBrandingSettings() {
         clearBrandingMessages();
         try {
@@ -398,7 +476,10 @@
             brandingSubdomainInput.value = branding.subdomain || '';
             brandingLogoUrlInput.value = branding.brandingLogoUrl || '';
             brandingPrimaryColorInput.value = branding.brandingPrimaryColor || '';
-            subdomainPreview.textContent = branding.subdomain || 'your-name';
+
+            // --- MODIFIED: Use new helper function ---
+            updateDynamicSubdomainUrls(branding.subdomain);
+            // --- END MODIFICATION ---
 
         } catch (error) {
             console.error('Load branding error:', error);
@@ -406,9 +487,11 @@
         }
     }
 
+    // --- MODIFIED: Use new helper function ---
     brandingSubdomainInput.addEventListener('input', (e) => {
-        subdomainPreview.textContent = e.target.value.toLowerCase().trim().replaceAll(' ', '-') || 'your-name';
+        updateDynamicSubdomainUrls(e.target.value);
     });
+    // --- END MODIFICATION ---
 
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -429,7 +512,7 @@
             if (!response.ok) return handleApiError(response, "update branding", false, brandingErrorDiv);
 
             const updatedBranding = await response.json();
-            showBrandingSuccess(`Branding updated successfully! Your login URL is active at: ${updatedBranding.subdomain}.localhost:8080/login`);
+            showBrandingSuccess(`Branding updated successfully! Your login URL is active at: https://${updatedBranding.subdomain}.prajwal.cfd/login`);
 
             document.documentElement.style.setProperty('--primary-orange', updatedBranding.brandingPrimaryColor || '#FF6600');
             if (updatedBranding.brandingLogoUrl) {
