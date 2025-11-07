@@ -20,7 +20,6 @@ public class SsoProviderConfigDto {
     // Common
     private String issuerUri;
     private String clientId;
-    // private String clientSecret; // <-- REMOVED: Do not send secret to frontend
     private String scopes;
 
     // OIDC
@@ -40,6 +39,12 @@ public class SsoProviderConfigDto {
     private String samlEntityId;
     private String samlCertificate;
 
-    // --- Attribute Mapping Fields ---
-    // (We are removing all 'attribute...' fields)
+    // ========================================
+    // NEW: KERBEROS FIELDS
+    // ========================================
+    private String kerberosServicePrincipal;
+    private String kerberosKeytabBase64;
+    private String kerberosRealm;
+    private String kerberosKdcServer;
+    private String kerberosUserNameAttribute;
 }

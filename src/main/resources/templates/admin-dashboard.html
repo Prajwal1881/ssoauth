@@ -147,6 +147,8 @@
         <li><button class="tab-button" onclick="openTab(event, 'samlConfig')">SAML Config</button></li>
         <li><button class="tab-button" onclick="openTab(event, 'oidcConfig')">OIDC Config</button></li>
         <li><button class="tab-button" onclick="openTab(event, 'jwtConfig')">JWT Config</button></li>
+        <!-- NEW: Kerberos Tab -->
+        <li><button class="tab-button" onclick="openTab(event, 'kerberosConfig')">Kerberos Config</button></li>
     </ul>
 
     <div id="welcome" class="tab-content active">
@@ -331,6 +333,76 @@
         </div>
     </div>
 
+    <div id="kerberosConfig" class="tab-content">
+        <h2>Kerberos / SPNEGO Configuration</h2>
+        <p>Configure Windows Active Directory integrated authentication using Kerberos/SPNEGO protocol.</p>
+        <div id="kerberos-error-message" class="error" style="display: none;"></div>
+
+        <form id="kerberosConfigForm" class="sso-form" data-provider-type="KERBEROS" data-provider-id="kerberos_ad">
+            <input type="hidden" id="kerberosConfigId">
+
+            <h4>General Settings</h4>
+            <div class="toggle-switch">
+                <label for="kerberosEnable">Enable Kerberos Provider:</label>
+                <label class="switch"><input type="checkbox" id="kerberosEnable"><span class="slider"></span></label>
+            </div>
+            <label for="kerberosDisplayName">Display Name:</label>
+            <input type="text" id="kerberosDisplayName" placeholder="e.g., Windows Login">
+
+            <h4>Active Directory Configuration</h4>
+            <label for="kerberosServicePrincipal">Service Principal Name (SPN):</label>
+            <input type="text" id="kerberosServicePrincipal" placeholder="HTTP/yourapp.yourdomain.com@YOURDOMAIN.COM" required>
+            <p class="form-hint">
+                Register this SPN in AD using: <code>setspn -A HTTP/yourapp.yourdomain.com serviceAccount</code>
+            </p>
+
+            <label for="kerberosRealm">Kerberos Realm (Domain):</label>
+            <input type="text" id="kerberosRealm" placeholder="YOURDOMAIN.COM" required>
+            <p class="form-hint">Must match your Active Directory domain (uppercase).</p>
+
+            <label for="kerberosKdcServer">KDC Server (Domain Controller):</label>
+            <input type="text" id="kerberosKdcServer" placeholder="dc.yourdomain.com" required>
+            <p class="form-hint">Hostname or IP of your Active Directory Domain Controller.</p>
+
+            <label for="kerberosKeytabFile">Keytab File:</label>
+            <input type="file" id="kerberosKeytabFile" accept=".keytab">
+            <p class="form-hint">
+                Generate keytab using: <code>ktpass -out app.keytab -princ HTTP/yourapp.yourdomain.com@YOURDOMAIN.COM -mapUser serviceAccount -pass * -ptype KRB5_NT_PRINCIPAL</code>
+            </p>
+            <div id="keytab-status" style="margin-top: 10px; color: #666; font-size: 0.9em;"></div>
+
+            <h4>User Mapping</h4>
+            <label for="kerberosUserNameAttribute">Username Extraction Method:</label>
+            <select id="kerberosUserNameAttribute">
+                <option value="username">Username only (user@DOMAIN → user)</option>
+                <option value="email">Full principal as email (user@DOMAIN)</option>
+                <option value="upn">User Principal Name (UPN)</option>
+            </select>
+            <p class="form-hint">How to extract the username from the Kerberos principal.</p>
+
+            <button type="submit" class="btn-save">Save Kerberos Config</button>
+            <button type="button" class="btn-test" onclick="testKerberosConnection()">
+                Test Connection
+            </button>
+        </form>
+
+        <h4>Integration Instructions</h4>
+        <div class="url-display-box">
+            <label>Step 1: Register SPN in Active Directory</label>
+            <code>setspn -A HTTP/<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd serviceAccount</code>
+
+            <label>Step 2: Generate Keytab</label>
+            <code>ktpass -out app.keytab -princ HTTP/<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd@YOURDOMAIN.COM -mapUser serviceAccount -pass * -ptype KRB5_NT_PRINCIPAL</code>
+
+            <label>Step 3: Configure Browser (Chrome/Edge)</label>
+            <code>Add https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd to: chrome://policy → AuthServerWhitelist</code>
+
+            <label>Step 4: Test Access</label>
+            <p style="margin-top: 10px;">Users should automatically authenticate when accessing your subdomain from a domain-joined Windows machine.</p>
+        </div>
+    </div>
+
+
 
 </div>
 
@@ -379,6 +451,8 @@
     const oidcConfigForm = document.getElementById('oidcConfigForm');
     const jwtConfigForm = document.getElementById('jwtConfigForm');
     let configDataStore = {}; // Stores config state { 'providerId': { id: 1, ... } }
+    const kerberosErrorDiv = document.getElementById('kerberos-error-message');
+    const kerberosConfigForm = document.getElementById('kerberosConfigForm');
 
     // --- Branding Variables ---
     const brandingForm = document.getElementById('brandingConfigForm');
@@ -439,11 +513,10 @@
 
         if (tabName === 'userManagement') loadUsers();
         else if (tabName === 'brandingConfig') loadBrandingSettings();
-        else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig') {
-            loadSsoConfigurations();
-            // --- NEW: Ensure dynamic URLs are populated when tabbing ---
-            updateDynamicSubdomainUrls(brandingSubdomainInput.value);
-        }
+        else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig' || tabName === 'kerberosConfig') {
+        loadSsoConfigurations();
+        updateDynamicSubdomainUrls(brandingSubdomainInput.value);
+    }
     }
 
     // --- NEW: Branding Functions ---
@@ -1178,10 +1251,22 @@
                 document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
                 document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
                 document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
-            }
+            } else if (prefix === 'kerberos') {
+                document.getElementById('kerberosServicePrincipal').value = config.kerberosServicePrincipal || '';
+                document.getElementById('kerberosRealm').value = config.kerberosRealm || '';
+                document.getElementById('kerberosKdcServer').value = config.kerberosKdcServer || '';
+                document.getElementById('kerberosUserNameAttribute').value = config.kerberosUserNameAttribute || 'username';
 
-            console.log(`[populateSsoForm] ✓ Populated ${prefix} form`);
-        }
+                // Show keytab status
+                const keytabStatus = document.getElementById('keytab-status');
+                if (config.kerberosKeytabBase64 && config.kerberosKeytabBase64.length > 0) {
+                    keytabStatus.textContent = '✓ Keytab file uploaded';
+                    keytabStatus.style.color = '#28a745';
+                } else {
+                    keytabStatus.textContent = '⚠ No keytab file uploaded';
+                    keytabStatus.style.color = '#dc3545';
+                }
+            }
 
         console.log('[Admin Dashboard] Phase 2 fixes applied ✓');
 

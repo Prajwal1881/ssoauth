@@ -13,11 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sso_provider_configs", uniqueConstraints = {
-        // --- FIX ---
-        // Changed "provider_id" to "providerId" to match the
-        // entity's property name, which is also the database column name.
         @UniqueConstraint(columnNames = {"tenant_id", "providerId"})
-        // --- End Fix ---
 })
 @Data
 @NoArgsConstructor
@@ -35,7 +31,7 @@ public class SsoProviderConfig {
     private Tenant tenant;
 
     @Column(nullable = false, length = 100)
-    private String providerId; // This property maps to the "providerId" column
+    private String providerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -95,6 +91,45 @@ public class SsoProviderConfig {
 
     @Column(columnDefinition = "TEXT")
     private String samlCertificate;
+
+    // ========================================
+    // NEW: KERBEROS SPECIFIC FIELDS
+    // ========================================
+
+    /**
+     * Kerberos Service Principal Name (SPN)
+     * Example: HTTP/yourapp.yourdomain.com@YOURDOMAIN.COM
+     */
+    @Column(length = 255)
+    private String kerberosServicePrincipal;
+
+    /**
+     * Keytab file content (Base64 encoded)
+     * The keytab contains the service principal's credentials
+     */
+    @Column(columnDefinition = "TEXT")
+    private String kerberosKeytabBase64;
+
+    /**
+     * Kerberos Realm (Active Directory Domain)
+     * Example: YOURDOMAIN.COM
+     */
+    @Column(length = 100)
+    private String kerberosRealm;
+
+    /**
+     * KDC (Key Distribution Center) Server Address
+     * Example: dc.yourdomain.com
+     */
+    @Column(length = 255)
+    private String kerberosKdcServer;
+
+    /**
+     * User attribute to extract from Kerberos principal
+     * Options: "username" (extract before @), "email" (full principal), "upn"
+     */
+    @Column(length = 50)
+    private String kerberosUserNameAttribute;
 
     // --- Timestamps ---
     @CreationTimestamp

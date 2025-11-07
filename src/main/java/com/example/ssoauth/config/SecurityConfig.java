@@ -21,9 +21,12 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.kerberos.authentication.KerberosServiceAuthenticationProvider;
+import org.springframework.security.kerberos.web.authentication.SpnegoAuthenticationProcessingFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.context.SecurityContextHolderFilter; // <-- NEW IMPORT
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,7 +34,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -53,11 +56,13 @@ public class SecurityConfig {
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
     private final TenantIdentificationFilter tenantIdentificationFilter;
+    private final DynamicKerberosConfig dynamicKerberosConfig; // NEW
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
                                                           AuthenticationSuccessHandler oidcLoginSuccessHandler,
-                                                          AuthenticationSuccessHandler samlLoginSuccessHandler
+                                                          AuthenticationSuccessHandler samlLoginSuccessHandler,
+                                                          AuthenticationSuccessHandler kerberosSuccessHandler // NEW
     ) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -104,49 +109,96 @@ public class SecurityConfig {
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
                         .successHandler(samlLoginSuccessHandler)
                 )
+                // ========================================
+                // NEW: KERBEROS/SPNEGO CONFIGURATION
+                // ========================================
+                .addFilterBefore(
+                        createKerberosFilterIfEnabled(kerberosSuccessHandler),
+                        UsernamePasswordAuthenticationFilter.class
+                )
                 .authenticationProvider(authenticationProvider())
-                // --- THIS IS THE FIX ---
-                // Move the Tenant filter to run *before* all other security filters,
-                // including the SAML and OIDC filters.
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
-                // --- END FIX ---
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     /**
-     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
+     * NEW: Creates SPNEGO filter only if Kerberos is enabled for current tenant
+     */
+    private SpnegoAuthenticationProcessingFilter createKerberosFilterIfEnabled(
+            AuthenticationSuccessHandler successHandler) {
+
+        try {
+            if (dynamicKerberosConfig.isKerberosEnabled()) {
+                log.info("Kerberos is enabled - creating SPNEGO filter");
+
+                // Create authentication manager with Kerberos provider
+                AuthenticationManager kerberosAuthManager = kerberosAuthenticationManager();
+
+                return dynamicKerberosConfig.createSpnegoFilter(kerberosAuthManager, successHandler);
+            }
+        } catch (Exception e) {
+            log.error("Failed to create Kerberos filter: {}", e.getMessage());
+        }
+
+        // Return no-op filter if Kerberos not enabled
+        return new SpnegoAuthenticationProcessingFilter() {{
+            setAuthenticationManager(authentication -> authentication);
+        }};
+    }
+
+    /**
+     * NEW: Kerberos-specific authentication manager
      */
     @Bean
-    public AuthenticationSuccessHandler oidcLoginSuccessHandler(
+    public AuthenticationManager kerberosAuthenticationManager() throws Exception {
+        KerberosServiceAuthenticationProvider kerberosProvider =
+                dynamicKerberosConfig.createKerberosProvider();
+
+        if (kerberosProvider != null) {
+            return authentication -> kerberosProvider.authenticate(authentication);
+        }
+
+        // Fallback - return authentication as-is
+        return authentication -> authentication;
+    }
+
+    /**
+     * NEW: Kerberos login success handler
+     */
+    @Bean
+    public AuthenticationSuccessHandler kerberosSuccessHandler(
             AuthService authService,
             JwtTokenProvider jwtTokenProvider
     ) {
         return (request, response, authentication) -> {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
-            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+
+            // Extract Kerberos principal (format: user@REALM)
+            String kerberosPrincipal = authentication.getName();
+            log.info("Kerberos authentication successful for: {}", kerberosPrincipal);
 
             // Check if this is an attribute test
             if (testProviderId != null) {
-                log.info("OIDC login is an attribute test for: {}", testProviderId);
+                log.info("Kerberos login is an attribute test for: {}", testProviderId);
                 Map<String, String> attributes = new HashMap<>();
-                oidcUser.getClaims().forEach((key, value) -> {
-                    attributes.put(key, value.toString());
-                });
+                attributes.put("principal", kerberosPrincipal);
+                attributes.put("realm", kerberosPrincipal.split("@")[1]);
+                attributes.put("username", kerberosPrincipal.split("@")[0]);
 
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
-                return; // Stop processing
+                return;
             }
 
             // --- Normal Login Flow ---
-            User appUser = authService.processOidcLogin(oidcUser);
+            User appUser = authService.processKerberosLogin(kerberosPrincipal);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // NEW: Redirect based on role
-            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            // Redirect based on role
+            String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
             } else if (appUser.hasRole("ROLE_ADMIN")) {
@@ -158,9 +210,45 @@ public class SecurityConfig {
         };
     }
 
-    /**
-     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
-     */
+    // ... (rest of the handlers remain unchanged)
+
+    @Bean
+    public AuthenticationSuccessHandler oidcLoginSuccessHandler(
+            AuthService authService,
+            JwtTokenProvider jwtTokenProvider
+    ) {
+        return (request, response, authentication) -> {
+            HttpSession session = request.getSession();
+            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
+            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+
+            if (testProviderId != null) {
+                log.info("OIDC login is an attribute test for: {}", testProviderId);
+                Map<String, String> attributes = new HashMap<>();
+                oidcUser.getClaims().forEach((key, value) -> {
+                    attributes.put(key, value.toString());
+                });
+
+                session.setAttribute("sso_test_attributes", attributes);
+                response.sendRedirect("/admin/sso-test-result");
+                return;
+            }
+
+            User appUser = authService.processOidcLogin(oidcUser);
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
+
+            String targetUrl = "/dashboard";
+            if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
+                targetUrl = "/super-admin/dashboard";
+            } else if (appUser.hasRole("ROLE_ADMIN")) {
+                targetUrl = "/admin/dashboard";
+            }
+
+            String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+            response.sendRedirect(redirectUrl);
+        };
+    }
+
     @Bean
     public AuthenticationSuccessHandler samlLoginSuccessHandler(
             AuthService authService,
@@ -171,11 +259,10 @@ public class SecurityConfig {
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
             Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
 
-            // Check if this is an attribute test
             if (testProviderId != null && testProviderId.equals(samlUser.getRelyingPartyRegistrationId())) {
                 log.info("SAML login is an attribute test for: {}", testProviderId);
                 Map<String, String> attributes = new HashMap<>();
-                attributes.put("NameID", samlUser.getName()); // Add NameID
+                attributes.put("NameID", samlUser.getName());
                 samlUser.getAttributes().forEach((key, value) -> {
                     String aValue = value.stream()
                             .map(Object::toString)
@@ -185,15 +272,13 @@ public class SecurityConfig {
 
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
-                return; // Stop processing
+                return;
             }
 
-            // --- Normal Login Flow ---
             User appUser = authService.processSamlLogin(samlUser);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // NEW: Redirect based on role
-            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
             } else if (appUser.hasRole("ROLE_ADMIN")) {

@@ -402,4 +402,100 @@ public class AuthService {
         }
         return finalUsername;
     }
+
+    // Add this method to your existing AuthService.java
+
+    /**
+     * NEW: Process Kerberos/SPNEGO authentication
+     *
+     * @param kerberosPrincipal The authenticated Kerberos principal (format: user@REALM)
+     * @return The application User entity
+     */
+    @Transactional
+    public User processKerberosLogin(String kerberosPrincipal) {
+        // Get tenant context
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
+            throw new SSOAuthenticationException("Kerberos login failed: No tenant context found.");
+        }
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new SSOAuthenticationException("Invalid tenant: " + tenantId));
+
+        // Find Kerberos config
+        SsoProviderConfig config = ssoConfigService.getAllConfigEntities().stream()
+                .filter(c -> c.getProviderType() == SsoProviderType.KERBEROS && c.isEnabled())
+                .findFirst()
+                .orElseThrow(() -> new SSOAuthenticationException("No enabled Kerberos config found"));
+
+        log.info("Processing Kerberos login for principal: {} in tenant: {}", kerberosPrincipal, tenantId);
+
+        // Extract username based on configuration
+        String username = extractKerberosUsername(kerberosPrincipal, config);
+        String email = kerberosPrincipal.toLowerCase(); // Use full principal as email
+
+        log.info("Extracted username: {}, email: {}", username, email);
+
+        // Find or create user
+        User user = userRepository.findByProviderId(kerberosPrincipal)
+                .or(() -> userRepository.findByEmailAndTenantId(email, tenantId))
+                .map(existingUser -> {
+                    log.info("Found existing user: {}", existingUser.getUsername());
+                    existingUser.setAuthProvider(User.AuthProvider.KERBEROS);
+                    if (!StringUtils.hasText(existingUser.getProviderId())) {
+                        existingUser.setProviderId(kerberosPrincipal);
+                    }
+                    existingUser.setLastLogin(LocalDateTime.now());
+                    return userRepository.save(existingUser);
+                })
+                .orElseGet(() -> {
+                    log.info("Creating new Kerberos user for: {}", username);
+
+                    // Ensure unique username
+                    String finalUsername = username;
+                    if (userRepository.existsByUsernameAndTenantId(username, tenantId)) {
+                        finalUsername = generateUniqueUsername(email, tenantId);
+                    }
+
+                    User newUser = User.builder()
+                            .username(finalUsername)
+                            .email(email)
+                            .password(passwordEncoder.encode(generateRandomPassword()))
+                            .authProvider(User.AuthProvider.KERBEROS)
+                            .providerId(kerberosPrincipal)
+                            .tenant(tenant)
+                            .roles("ROLE_USER")
+                            .enabled(true)
+                            .accountNonExpired(true)
+                            .accountNonLocked(true)
+                            .credentialsNonExpired(true)
+                            .build();
+                    newUser.setLastLogin(LocalDateTime.now());
+                    return userRepository.save(newUser);
+                });
+
+        return user;
+    }
+
+    /**
+     * Helper: Extract username from Kerberos principal based on config
+     */
+    private String extractKerberosUsername(String principal, SsoProviderConfig config) {
+        if (principal == null) return null;
+
+        String attributeType = config.getKerberosUserNameAttribute();
+        if (attributeType == null) attributeType = "username";
+
+        switch (attributeType.toLowerCase()) {
+            case "email":
+            case "upn":
+                // Return full principal as email (user@REALM)
+                return principal.toLowerCase();
+
+            case "username":
+            default:
+                // Extract username before @ symbol
+                String[] parts = principal.split("@");
+                return parts[0];
+        }
+    }
 }
