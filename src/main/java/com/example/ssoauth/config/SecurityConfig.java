@@ -80,6 +80,7 @@ public class SecurityConfig {
                         // FIX: Removed dashboard URLs from permitAll()
                         .requestMatchers(
                                 "/", "/login", "/signup", "/error",
+                                "/favicon.ico", // <-- UPDATED: ADDED THIS LINE
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/**",
                                 "/api/sso/enabled-providers",
