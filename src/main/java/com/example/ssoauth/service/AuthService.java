@@ -38,56 +38,31 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AuthService {
 
-    private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SsoConfigService ssoConfigService;
     private final TenantRepository tenantRepository;
 
+    /**
+     * REPLACED: This method replaces the old signIn.
+     * It's called by AuthController *after* authentication succeeds.
+     */
     @Transactional
-    public JwtAuthResponse signIn(SignInRequest signInRequest) {
-
-        // --- FIX: Read Long ID from context ---
-        Long tenantId = TenantContext.getCurrentTenant();
-        if (tenantId == null) {
-            // Main domain login.
-            Optional<User> userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(
-                    signInRequest.getUsernameOrEmail(), signInRequest.getUsernameOrEmail());
-
-            if (userOpt.isPresent() && !userOpt.get().hasRole("ROLE_SUPER_ADMIN")) {
-                log.warn("Tenant user {} attempted login from main domain. Denied.", signInRequest.getUsernameOrEmail());
-                throw new BadCredentialsException("Please use your organization's login URL.");
-            }
-        }
-        // --- End Fix ---
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        signInRequest.getUsernameOrEmail(),
-                        signInRequest.getPassword()
-                )
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+    public JwtAuthResponse generateTokensForAuthenticatedUser(Authentication authentication) {
         String username = authentication.getName();
 
-        // --- FIX: Re-fetch user based on new context ---
-        Optional<User> userOpt;
-        // Read tenantId *again* as it's set by CustomUserDetailsService during authenticate()
-        Long authTenantId = TenantContext.getCurrentTenant();
-
-        if (authTenantId != null) {
-            userOpt = userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(authTenantId, username, authTenantId, username);
-        } else {
-            userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(username, username);
+        // Re-fetch user to ensure we have the latest data
+        User user = findUserByUsername(username);
+        if (user == null) {
+            // This should theoretically never happen if authentication succeeded
+            throw new RuntimeException("User not found after authentication: " + username);
         }
-
-        User user = userOpt.orElseThrow(() -> new RuntimeException("User not found after authentication: " + username));
-        // --- End Fix ---
 
         userRepository.updateLastLogin(user.getId(), LocalDateTime.now());
         String accessToken = jwtTokenProvider.generateToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(username);
+
         return JwtAuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -97,8 +72,12 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * MODIFIED: This method now only creates the user and returns the entity.
+     * The controller is responsible for authenticating and generating tokens.
+     */
     @Transactional
-    public JwtAuthResponse signUp(SignUpRequest signUpRequest) {
+    public User signUp(SignUpRequest signUpRequest) {
         // --- FIX: Resolve tenant from Long ID ---
         Long tenantId = TenantContext.getCurrentTenant();
         Tenant tenant = null;
@@ -138,24 +117,9 @@ public class AuthService {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .build();
-        User savedUser = userRepository.save(user);
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        signUpRequest.getUsername(),
-                        signUpRequest.getPassword()
-                )
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String accessToken = jwtTokenProvider.generateToken(authentication);
-        String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getUsername());
-        return JwtAuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(jwtTokenProvider.getJwtExpirationMs())
-                .userInfo(mapToUserInfo(savedUser))
-                .build();
+        // Save and return the created user
+        return userRepository.save(user);
     }
 
 
@@ -396,20 +360,42 @@ public class AuthService {
         while (userRepository.existsByUsernameAndTenantId(finalUsername, tenantId)) {
             finalUsername = baseUsername + "_" + counter++;
             if (finalUsername.length() > 50) {
-                // Handle very long base usernames + counter
                 finalUsername = baseUsername.substring(0, Math.min(baseUsername.length(), 40)) + "_" + counter;
             }
         }
         return finalUsername;
     }
 
-    // Add this method to your existing AuthService.java
+    // ====================================================================
+    // --- NEW AND UPDATED METHODS FOR KERBEROS ---
+    // ====================================================================
 
     /**
-     * NEW: Process Kerberos/SPNEGO authentication
-     *
-     * @param kerberosPrincipal The authenticated Kerberos principal (format: user@REALM)
-     * @return The application User entity
+     * Finds a user by username.
+     * This is called by the Kerberos Success Handler and local sign-in
+     */
+    @Transactional(readOnly = true)
+    public User findUserByUsername(String username) {
+        Long tenantId = TenantContext.getCurrentTenant();
+        log.debug("Finding user '{}' in tenant {}", username, tenantId);
+
+        // --- FIX: Always search lowercase ---
+        String lowercaseUsername = username.toLowerCase();
+
+        if (tenantId != null) {
+            return userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, lowercaseUsername, tenantId, lowercaseUsername)
+                    .orElse(null);
+        } else {
+            // Super-admin (no tenant)
+            return userRepository.findByUsernameOrEmailAndTenantIsNull(lowercaseUsername, lowercaseUsername)
+                    .orElse(null);
+        }
+    }
+
+
+    /**
+     * Process Kerberos/SPNEGO authentication (JIT Provisioning)
+     * This is called by the Kerberos Authentication Provider.
      */
     @Transactional
     public User processKerberosLogin(String kerberosPrincipal) {
@@ -429,14 +415,21 @@ public class AuthService {
 
         log.info("Processing Kerberos login for principal: {} in tenant: {}", kerberosPrincipal, tenantId);
 
-        // Extract username based on configuration
-        String username = extractKerberosUsername(kerberosPrincipal, config);
-        String email = kerberosPrincipal.toLowerCase(); // Use full principal as email
+        // ====================================================================
+        // --- THIS IS THE FIX ---
+        // ====================================================================
 
-        log.info("Extracted username: {}, email: {}", username, email);
+        // Use the full principal ('svc-ssoauth@KERBEROS.LAB') as the unique username AND the email.
+        // This matches what the rest of the application (JwtAuthenticationFilter) expects.
+        // We MUST use lowercase to match the database queries.
+        String username = kerberosPrincipal.toLowerCase();
+        String email = kerberosPrincipal.toLowerCase();
+
+        log.info("Using full principal (lowercase) as username: {}", username);
 
         // Find or create user
         User user = userRepository.findByProviderId(kerberosPrincipal)
+                // Search by email, which is now the same as the full principal (and lowercase)
                 .or(() -> userRepository.findByEmailAndTenantId(email, tenantId))
                 .map(existingUser -> {
                     log.info("Found existing user: {}", existingUser.getUsername());
@@ -452,13 +445,20 @@ public class AuthService {
 
                     // Ensure unique username
                     String finalUsername = username;
+
                     if (userRepository.existsByUsernameAndTenantId(username, tenantId)) {
-                        finalUsername = generateUniqueUsername(email, tenantId);
+                        log.warn("Username (principal) '{}' already exists. This should not happen. Using existing.", finalUsername);
+                        // This path shouldn't be hit, but if it is, we'll re-query
+
+                        // --- FIX from your compile error ---
+                        return userRepository.findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, finalUsername, tenantId, finalUsername)
+                                // --- END FIX ---
+                                .orElseThrow(() -> new SSOAuthenticationException("Failed to find or create user."));
                     }
 
                     User newUser = User.builder()
-                            .username(finalUsername)
-                            .email(email)
+                            .username(finalUsername) // e.g., 'firstaduser@kerberos.lab'
+                            .email(email)           // e.g., 'firstaduser@kerberos.lab'
                             .password(passwordEncoder.encode(generateRandomPassword()))
                             .authProvider(User.AuthProvider.KERBEROS)
                             .providerId(kerberosPrincipal)
@@ -477,9 +477,10 @@ public class AuthService {
     }
 
     /**
+     * MODIFIED: Changed from 'private' to 'public'
      * Helper: Extract username from Kerberos principal based on config
      */
-    private String extractKerberosUsername(String principal, SsoProviderConfig config) {
+    public String extractKerberosUsername(String principal, SsoProviderConfig config) {
         if (principal == null) return null;
 
         String attributeType = config.getKerberosUserNameAttribute();
@@ -495,7 +496,7 @@ public class AuthService {
             default:
                 // Extract username before @ symbol
                 String[] parts = principal.split("@");
-                return parts[0];
+                return parts[0].toLowerCase(); // Also force lowercase
         }
     }
 }

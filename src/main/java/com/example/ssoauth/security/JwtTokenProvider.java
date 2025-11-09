@@ -31,7 +31,11 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Authentication authentication) {
-        String username = authentication.getName();
+        // --- THIS IS THE FIX ---
+        // Ensure the username stored in the token is always lowercase
+        String username = authentication.getName().toLowerCase();
+        // --- END FIX ---
+
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -47,8 +51,13 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
+        // --- THIS IS THE FIX ---
+        // Ensure the username stored in the token is always lowercase
+        String lowercaseUsername = username.toLowerCase();
+        // --- END FIX ---
+
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(lowercaseUsername)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -59,8 +68,12 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + refreshExpirationMs);
 
+        // --- THIS IS THE FIX ---
+        String lowercaseUsername = username.toLowerCase();
+        // --- END FIX ---
+
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(lowercaseUsername)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -74,6 +87,7 @@ public class JwtTokenProvider {
                 .parseClaimsJws(token)
                 .getBody();
 
+        // This will now return the lowercase username
         return claims.getSubject();
     }
 

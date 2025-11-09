@@ -6,6 +6,7 @@ import com.example.ssoauth.security.JwtTokenProvider;
 import com.example.ssoauth.service.AuthService;
 import com.example.ssoauth.entity.User;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -18,13 +19,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-// NEW IMPORTS
+import org.springframework.security.kerberos.authentication.KerberosServiceRequestToken;
 import org.springframework.security.kerberos.authentication.KerberosServiceAuthenticationProvider;
 import org.springframework.security.kerberos.web.authentication.SpnegoAuthenticationProcessingFilter;
-// END NEW IMPORTS
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -69,19 +71,13 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // ========================================
-                // MODIFIED: KERBEROS/SPNEGO CONFIGURATION
-                // ========================================
                 .exceptionHandling(exception -> exception
-                        // Add SpnegoEntryPoint to challenge the browser for a ticket
-                        // It will fall back to JwtAuthenticationEntryPoint for /api/** requests
                         .authenticationEntryPoint(dynamicKerberosConfig.createSpnegoEntryPoint())
+                        .defaultAuthenticationEntryPointFor(jwtAuthenticationEntryPoint,
+                                request -> request.getRequestURI().startsWith("/api/"))
                 )
-                // --- END MODIFICATION ---
-
                 .authorizeHttpRequests(auth -> auth
-                        // ... (all your existing .requestMatchers)
+                        // FIX: Removed dashboard URLs from permitAll()
                         .requestMatchers(
                                 "/", "/login", "/signup", "/error",
                                 "/css/**", "/js/**", "/images/**",
@@ -94,10 +90,7 @@ public class SecurityConfig {
                                 "/login/jwt/callback",
                                 "/saml2/**",
                                 "/login/saml2/**",
-                                "/dashboard",
-                                "/admin/dashboard",
-                                "/admin/sso-test-result",
-                                "/super-admin/dashboard"
+                                "/admin/sso-test-result"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/admin/**"
@@ -108,6 +101,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/user/**"
                         ).hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
+                        // All other requests (like /dashboard) are now protected
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -120,64 +114,55 @@ public class SecurityConfig {
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
                         .successHandler(samlLoginSuccessHandler)
                 )
+                .authenticationProvider(daoAuthenticationProvider()) // Your local password provider
+                .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
 
-                // ========================================
-                // MODIFIED: KERBEROS/SPNEGO CONFIGURATION
-                // ========================================
-                .addFilterBefore(
-                        // This filter is now added UNCONDITIONALLY
+                // Correct Filter Order
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(
                         dynamicKerberosConfig.createSpnegoFilter(
-                                tenantAwareAuthenticationManager(), // Use the new tenant-aware manager
+                                tenantAwareAuthenticationManager(),
                                 kerberosSuccessHandler
                         ),
-                        UsernamePasswordAuthenticationFilter.class
-                )
-                // --- END MODIFICATION ---
-
-                .authenticationProvider(authenticationProvider()) // Your local password provider
-                .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        JwtAuthenticationFilter.class
+                );
 
         return http.build();
     }
 
     /**
-     * NEW: Creates a tenant-aware AuthenticationManager.
-     * This manager will first try Kerberos (if enabled for the tenant)
-     * and then fall back to local passwords (DaoAuthenticationProvider).
+     * This manager correctly routes Kerberos tokens to the Kerberos provider
+     * and all other tokens (like UsernamePasswordAuthenticationToken) to the DAO provider.
      */
     @Bean
     public AuthenticationManager tenantAwareAuthenticationManager() {
-        // This is a lambda implementation of the AuthenticationManager interface
         return authentication -> {
-            // 1. Check for tenant-specific Kerberos provider (per-request)
-            // This is safe because TenantContext is set by TenantIdentificationFilter
-            KerberosServiceAuthenticationProvider kerberosProvider =
-                    dynamicKerberosConfig.createKerberosProvider();
 
-            if (kerberosProvider != null) {
-                try {
-                    // Try to authenticate with Kerberos
-                    log.debug("Attempting authentication with tenant-specific Kerberos provider...");
+            // Check if the token is a Kerberos token
+            if (authentication instanceof KerberosServiceRequestToken) {
+                log.debug("Received KerberosServiceRequestToken, attempting Kerberos authentication...");
+                KerberosServiceAuthenticationProvider kerberosProvider =
+                        dynamicKerberosConfig.createKerberosProvider();
+
+                if (kerberosProvider != null) {
                     return kerberosProvider.authenticate(authentication);
-                } catch (Exception e) {
-                    // This is expected if the token is not a Kerberos token (e.g., it's a password login)
-                    log.debug("Kerberos provider failed (likely not a Kerberos token), falling back to DAO: {}", e.getMessage());
+                } else {
+                    log.warn("Received Kerberos token, but no Kerberos provider is configured for this tenant.");
+                    return null;
                 }
             }
 
-            // 2. Fallback to local password (DAO) authentication
-            log.debug("No Kerberos provider found or Kerberos failed, attempting with DAO provider.");
-            return authenticationProvider().authenticate(authentication);
+            // Fallback for password logins
+            log.debug("Token is not Kerberos, attempting with DAO provider.");
+            return daoAuthenticationProvider().authenticate(authentication);
         };
     }
 
     /**
-     * MODIFIED: This bean is now used as the fallback provider
-     * for local username/password authentication.
+     * This bean provides the fallback for local username/password authentication.
      */
     @Bean
-    public AuthenticationProvider authenticationProvider() {
+    public AuthenticationProvider daoAuthenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
@@ -185,22 +170,15 @@ public class SecurityConfig {
     }
 
     /**
-     * MODIFIED: This bean now exposes the new tenant-aware manager
-     * to the Spring context for use in your /api/auth/signin endpoint.
+     * Exposes the new tenant-aware manager to the Spring context.
      */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        // Return the composite, tenant-aware manager
         return tenantAwareAuthenticationManager();
     }
 
-    // --- REMOVED ---
-    // The old createKerberosFilterIfEnabled and kerberosAuthenticationManager beans
-    // are no longer needed as they are replaced by the logic above.
-
     // ========================================
     // SUCCESS HANDLERS & OTHER BEANS
-    // (No changes below this line)
     // ========================================
 
     @Bean
@@ -212,21 +190,39 @@ public class SecurityConfig {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
 
-            // Extract Kerberos principal (format: user@REALM)
-            String kerberosPrincipal = authentication.getName();
-            log.info("Kerberos authentication successful for: {}", kerberosPrincipal);
+            // Fix for the previous NullPointerException
+            Authentication successfulAuthentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (successfulAuthentication == null) {
+                log.error("CRITICAL: Kerberos success handler called, but no Authentication found in SecurityContextHolder.");
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Authentication context is null after Kerberos success.");
+                return;
+            }
+
+            // --- THIS IS THE FIX ---
+            // We MUST use the lowercase name to match the JWT and DB
+            String username = successfulAuthentication.getName().toLowerCase();
+            // --- END FIX ---
+
+            log.info("Kerberos authentication successful for: {}", username);
+
+            // --- FIX for JIT Provisioning Race Condition ---
+            // We must explicitly call processKerberosLogin *here*
+            // to ensure the user is saved *before* the token is generated.
+            User appUser = authService.processKerberosLogin(username);
+            // --- END FIX ---
 
             // Check if this is an attribute test
             if (testProviderId != null) {
                 log.info("Kerberos login is an attribute test for: {}", testProviderId);
                 Map<String, String> attributes = new HashMap<>();
-                attributes.put("principal", kerberosPrincipal);
+                attributes.put("username", username);
+                attributes.put("roles", successfulAuthentication.getAuthorities().stream()
+                        .map(Object::toString).collect(Collectors.joining(",")));
 
-                if (kerberosPrincipal.contains("@")) {
-                    attributes.put("realm", kerberosPrincipal.split("@")[1]);
-                    attributes.put("username", kerberosPrincipal.split("@")[0]);
-                } else {
-                    attributes.put("username", kerberosPrincipal);
+                if (appUser != null) {
+                    attributes.put("principal (email)", appUser.getEmail());
+                    attributes.put("providerId", appUser.getProviderId());
                 }
 
                 session.setAttribute("sso_test_attributes", attributes);
@@ -235,18 +231,19 @@ public class SecurityConfig {
             }
 
             // --- Normal Login Flow ---
-            User appUser = authService.processKerberosLogin(kerberosPrincipal);
-            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
+            // The username is already lowercase
+            String accessToken = jwtTokenProvider.generateTokenFromUsername(username);
 
-            // Redirect based on role
+            // Redirect based on roles
             String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
             } else if (appUser.hasRole("ROLE_ADMIN")) {
-                targetUrl = "/admin/dashboard";
+                targetUrl = "/admin-dashboard";
             }
 
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+            log.info("Redirecting to {} with JWT token.", targetUrl);
             response.sendRedirect(redirectUrl);
         };
     }

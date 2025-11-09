@@ -52,11 +52,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * MODIFIED: This method now checks for the token in both the
+     * Authorization header AND the "token" URL parameter.
+     */
     private String getJwtFromRequest(HttpServletRequest request) {
+        // 1. Check for Bearer token in Header
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
+        // 2. Check for token in URL parameter (from SSO redirect)
+        String tokenFromParam = request.getParameter("token");
+        if (StringUtils.hasText(tokenFromParam)) {
+            log.debug("Found JWT token in URL parameter");
+            return tokenFromParam;
+        }
+
         return null;
     }
 }
