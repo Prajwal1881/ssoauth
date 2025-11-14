@@ -68,6 +68,11 @@ public class SsoConfigService {
      */
     @Transactional(readOnly = true)
     public List<SsoProviderConfig> getAllConfigEntities() {
+
+        // --- ADD THIS LOG LINE AS PROOF ---
+        log.info("--- RUNNING V3 OF getAllConfigEntities ---");
+        // --- END ADDITION ---
+
         Long tenantId = TenantContext.getCurrentTenant(); // <-- Use the getter that allows null
 
         if (tenantId == null) {
