@@ -116,6 +116,8 @@ public class SecurityConfig {
                         .successHandler(samlLoginSuccessHandler)
                 )
                 .authenticationProvider(daoAuthenticationProvider()) // Your local password provider
+
+                // This line is correct and ensures tenant filter runs first
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
 
                 // Correct Filter Order

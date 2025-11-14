@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered; // <-- NEW IMPORT
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +26,7 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@Order(1)
+@Order(Ordered.HIGHEST_PRECEDENCE) // <-- UPDATED from @Order(1)
 public class TenantIdentificationFilter implements Filter {
 
     private final TenantRepository tenantRepository;

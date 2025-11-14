@@ -73,14 +73,18 @@ public class DynamicKerberosConfig {
                 return null;
             }
 
+            // =================================================================
             // --- THIS IS THE FIX ---
+            // =================================================================
             // Dynamically set the KDC and Realm for this tenant's request.
             // This overrides any static krb5.conf file for this operation.
             log.info("Setting Kerberos runtime config for tenant {}: KDC={} Realm={}",
                     tenantId, config.getKerberosKdcServer(), config.getKerberosRealm());
             System.setProperty("java.security.krb5.kdc", config.getKerberosKdcServer());
             System.setProperty("java.security.krb5.realm", config.getKerberosRealm());
-            // --- END FIX ---
+            // =================================================================
+            // --- END OF FIX ---
+            // =================================================================
 
             log.info("Creating Kerberos provider for tenant {} with SPN: {}",
                     tenantId, config.getKerberosServicePrincipal());
@@ -98,6 +102,7 @@ public class DynamicKerberosConfig {
             KerberosServiceAuthenticationProvider provider = new KerberosServiceAuthenticationProvider();
             provider.setTicketValidator(ticketValidator);
 
+            // --- THIS IS THE FIX ---
             // Use a *dummy* UserDetailsService.
             // Its *only* job is to wrap the principal name (user@REALM)
             // so Spring Security is happy. The *real* user logic
@@ -108,6 +113,7 @@ public class DynamicKerberosConfig {
                 return new User(kerberosPrincipal.toLowerCase(), "N/A", true, true, true, true,
                         List.of(new SimpleGrantedAuthority("ROLE_PRE_AUTH")));
             });
+            // --- END FIX ---
 
             return provider;
 
