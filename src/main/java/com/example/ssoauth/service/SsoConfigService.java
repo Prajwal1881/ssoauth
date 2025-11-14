@@ -37,8 +37,10 @@ public class SsoConfigService {
     private Long getTenantIdFromContextOrFail() {
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
-            log.error("SECURITY VIOLATION: Attempted to access SSO config without tenant context");
-            throw new SecurityException("Tenant context is required for this operation");
+            // --- THIS IS THE NEW ERROR ---
+            log.error("--- V5 ERROR: NO TENANT CONTEXT ---");
+            throw new SecurityException("--- V5 ERROR: NO TENANT CONTEXT ---");
+            // --- END NEW ERROR ---
         }
         return tenantId;
     }
