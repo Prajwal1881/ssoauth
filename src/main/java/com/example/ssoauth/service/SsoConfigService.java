@@ -59,6 +59,9 @@ public class SsoConfigService {
                 .collect(Collectors.toList());
     }
 
+    // =================================================================
+    // --- THIS IS THE FIXED METHOD ---
+    // =================================================================
     /**
      * UPDATED METHOD: This version handles the 'null' tenantId for super-admins
      * by returning an empty list instead of throwing an exception.
@@ -80,6 +83,9 @@ public class SsoConfigService {
                 .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
                 .collect(Collectors.toList());
     }
+    // =================================================================
+    // --- END OF FIX ---
+    // =================================================================
 
     @Transactional(readOnly = true)
     public SsoProviderConfigDto getConfigById(Long id) {
