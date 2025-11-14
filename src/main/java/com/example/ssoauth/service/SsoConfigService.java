@@ -59,9 +59,20 @@ public class SsoConfigService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * UPDATED METHOD: This version handles the 'null' tenantId for super-admins
+     * by returning an empty list instead of throwing an exception.
+     */
     @Transactional(readOnly = true)
     public List<SsoProviderConfig> getAllConfigEntities() {
-        Long tenantId = getTenantIdFromContextOrFail();
+        Long tenantId = TenantContext.getCurrentTenant(); // <-- Use the getter that allows null
+
+        if (tenantId == null) {
+            // Super-admin or root domain access. No tenant-specific configs.
+            log.debug("getAllConfigEntities called with no tenant context. Returning empty list.");
+            return List.of(); // Return an empty list instead of throwing an error
+        }
+
         log.debug("Fetching SSO config entities for tenantId: {}", tenantId);
 
         // Use explicit tenant-aware query
@@ -176,6 +187,17 @@ public class SsoConfigService {
             log.debug("Updating client secret for config {}", id);
             existingConfig.setClientSecret(dto.getClientSecret());
         }
+
+        // --- FIX FOR KERBEROS KEYTAB ---
+        // If the update DTO has a keytab, update it.
+        // If the DTO's keytab field is null (e.g., file not re-uploaded),
+        // *keep* the existing one.
+        if (StringUtils.hasText(dto.getKerberosKeytabBase64())) {
+            log.debug("Updating keytab for config {}", id);
+            existingConfig.setKerberosKeytabBase64(dto.getKerberosKeytabBase64());
+        }
+        // --- END FIX ---
+
 
         SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
         log.info("✓ SSO config updated: id={}, providerId='{}'", id, updatedConfig.getProviderId());

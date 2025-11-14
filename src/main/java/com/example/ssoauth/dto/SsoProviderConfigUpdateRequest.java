@@ -23,7 +23,7 @@ public class SsoProviderConfigUpdateRequest {
     // Common
     private String issuerUri;
     private String clientId;
-    private String clientSecret;
+    private String clientSecret; // This is only used for updates
     private String scopes;
 
     // OIDC
@@ -43,6 +43,11 @@ public class SsoProviderConfigUpdateRequest {
     private String samlEntityId;
     private String samlCertificate;
 
-    // --- Attribute Mapping Fields ---
-    // (We are removing all 'attribute...' fields)
+    // --- NEW: KERBEROS FIELDS ---
+    // (Add this entire section)
+    private String kerberosServicePrincipal;
+    private String kerberosKeytabBase64; // This will be populated from the file upload
+    private String kerberosRealm;
+    private String kerberosKdcServer;
+    private String kerberosUserNameAttribute;
 }
