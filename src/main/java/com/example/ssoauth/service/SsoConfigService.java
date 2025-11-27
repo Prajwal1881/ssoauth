@@ -16,6 +16,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.StringReader;
+import java.util.Map;
+import java.util.HashMap;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -216,5 +227,95 @@ public class SsoConfigService {
         SsoProviderConfigDto dto = new SsoProviderConfigDto();
         BeanUtils.copyProperties(entity, dto);
         return dto;
+    }
+
+    // --- NEW: SAML Metadata Handling ---
+
+    public Map<String, String> parseSamlMetadata(MultipartFile file) {
+        Map<String, String> result = new HashMap<>();
+        try {
+            String xmlContent = new String(file.getBytes(), StandardCharsets.UTF_8);
+
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true); // Important for SAML namespaces
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xmlContent)));
+
+            // 1. Get Entity ID
+            Element root = doc.getDocumentElement();
+            String entityId = root.getAttribute("entityID");
+            result.put("entityId", entityId);
+
+            // 2. Find IDPSSODescriptor
+            NodeList idpDescriptors = root.getElementsByTagNameNS("*", "IDPSSODescriptor");
+            if (idpDescriptors.getLength() > 0) {
+                Element idpDescriptor = (Element) idpDescriptors.item(0);
+
+                // 3. Find SingleSignOnService (HTTP-Redirect preferred, else HTTP-POST)
+                NodeList ssoServices = idpDescriptor.getElementsByTagNameNS("*", "SingleSignOnService");
+                String ssoUrl = "";
+                for (int i = 0; i < ssoServices.getLength(); i++) {
+                    Element service = (Element) ssoServices.item(i);
+                    String binding = service.getAttribute("Binding");
+                    String location = service.getAttribute("Location");
+
+                    if (binding.contains("HTTP-Redirect")) {
+                        ssoUrl = location;
+                        break; // Prefer Redirect
+                    } else if (ssoUrl.isEmpty()) {
+                        ssoUrl = location; // Fallback
+                    }
+                }
+                result.put("ssoUrl", ssoUrl);
+
+                // 4. Find X.509 Certificate (Signing)
+                NodeList keyDescriptors = idpDescriptor.getElementsByTagNameNS("*", "KeyDescriptor");
+                for (int i = 0; i < keyDescriptors.getLength(); i++) {
+                    Element keyDesc = (Element) keyDescriptors.item(i);
+                    String use = keyDesc.getAttribute("use");
+
+                    // If 'use' is missing, it applies to both. If 'use' is 'signing', take it.
+                    if (use == null || use.isEmpty() || "signing".equals(use)) {
+                        NodeList certs = keyDesc.getElementsByTagNameNS("*", "X509Certificate");
+                        if (certs.getLength() > 0) {
+                            String rawCert = certs.item(0).getTextContent().replaceAll("\\s+", "");
+                            // Format as PEM
+                            String pemCert = "-----BEGIN CERTIFICATE-----\n" +
+                                    chunkString(rawCert, 64) +
+                                    "\n-----END CERTIFICATE-----";
+                            result.put("certificate", pemCert);
+                            break;
+                        }
+                    }
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("Error parsing SAML Metadata", e);
+            throw new IllegalArgumentException("Invalid SAML Metadata file: " + e.getMessage());
+        }
+    }
+
+    public String generateSpMetadata(String providerId, String baseUrl) {
+        String entityId = baseUrl + "/saml2/service-provider-metadata/" + providerId;
+        String acsUrl = baseUrl + "/login/saml2/sso/" + providerId;
+
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"" + entityId + "\">\n" +
+                "    <md:SPSSODescriptor AuthnRequestsSigned=\"false\" WantAssertionsSigned=\"true\" protocolSupportEnumeration=\"urn:oasis:names:tc:SAML:2.0:protocol\">\n" +
+                "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat>\n" +
+                "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>\n" +
+                "        <md:AssertionConsumerService Binding=\"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST\" Location=\"" + acsUrl + "\" index=\"0\" isDefault=\"true\"/>\n" +
+                "    </md:SPSSODescriptor>\n" +
+                "</md:EntityDescriptor>";
+    }
+
+    private String chunkString(String str, int chunkSize) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < str.length(); i += chunkSize) {
+            sb.append(str, i, Math.min(str.length(), i + chunkSize));
+            sb.append("\n");
+        }
+        return sb.toString().trim();
     }
 }

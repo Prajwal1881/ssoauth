@@ -216,7 +216,19 @@
                     <input type="hidden" id="samlConfigId">
                     <div class="toggle-row"><label class="main-lbl" for="samlEnable">Enable SAML Provider</label><label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label></div>
                     <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text" id="samlDisplayName" placeholder="e.g., Okta SAML"></div>
-                    <h4>Identity Provider Details</h4>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
+                        <h4 style="margin: 0; border: none; padding: 0;">Identity Provider Details</h4>
+                        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                            <button type="button" class="btn-save" style="background-color: #6c757d; font-size: 0.8rem; padding: 6px 12px; margin:0;" onclick="openImportSamlModal()">
+                                <i class="fas fa-file-upload"></i> Import IDP Metadata
+                            </button>
+                            <button type="button" class="btn-save" style="background-color: #17a2b8; font-size: 0.8rem; padding: 6px 12px; margin:0;" onclick="downloadSpMetadata()">
+                                <i class="fas fa-file-download"></i> Download SP Metadata
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="form-row"><label for="samlEntityId">IdP Entity ID</label><input type="text" id="samlEntityId" placeholder="https://idp.example.com/entityid"></div>
                     <div class="form-row"><label for="samlSsoUrl">SSO URL</label><input type="url" id="samlSsoUrl" placeholder="https://idp.example.com/sso"></div>
                     <div class="form-row"><label for="samlCertificate">X.509 Certificate</label><textarea id="samlCertificate" placeholder="Paste certificate here..."></textarea></div>
@@ -289,7 +301,7 @@
 
 <div id="userModal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
+        <span class="close" onclick="closeModal('userModal')">&times;</span>
         <h2 id="modalTitle">User Form</h2>
         <form id="userForm">
             <input type="hidden" id="userId">
@@ -301,6 +313,25 @@
             <div class="form-row"><label>Roles</label><input type="text" id="roles" placeholder="ROLE_USER,ROLE_ADMIN"></div>
             <div class="btn-container"><button type="submit" class="btn-save">Save User</button></div>
         </form>
+    </div>
+</div>
+
+<div id="importSamlModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('importSamlModal')">&times;</span>
+        <h2>Import IDP Metadata</h2>
+        <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+            Upload the XML metadata file provided by your Identity Provider (e.g., Okta, Azure AD).
+            This will auto-fill the configuration fields.
+        </p>
+        <div class="form-row">
+            <label for="metadataFile" style="width: auto; margin-right: 10px;">Metadata XML File:</label>
+            <input type="file" id="metadataFile" accept=".xml" style="padding: 5px; max-width: 100%;">
+        </div>
+        <div class="btn-container">
+            <button type="button" class="btn-test" onclick="closeModal('importSamlModal')">Cancel</button>
+            <button type="button" class="btn-save" onclick="processSamlImport()">Import Metadata</button>
+        </div>
     </div>
 </div>
 
@@ -419,7 +450,11 @@
         if (!confirm('Delete this user?')) return;
         try { await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); showToast('User deleted', 'success'); loadUsers(); } catch (e) { showToast(e.message, 'error'); }
     };
-    window.closeModal = function() { modal.style.display = "none"; };
+
+    window.closeModal = function(modalId = 'userModal') {
+        document.getElementById(modalId).style.display = "none";
+    };
+
     userForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = userIdInput.value;
@@ -428,7 +463,7 @@
         try {
             const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
             if (!res.ok) throw new Error((await res.json()).message);
-            closeModal(); showToast('User saved', 'success'); loadUsers();
+            closeModal('userModal'); showToast('User saved', 'success'); loadUsers();
         } catch (e) { showToast(e.message, 'error'); }
     });
 
@@ -528,6 +563,96 @@
 
     document.getElementById('logout-button').addEventListener('click', () => { localStorage.removeItem('accessToken'); window.location.href = '/login'; });
     if (token) document.getElementById("welcome").style.display = "block"; else window.location.href = '/login';
+
+    // --- NEW: SAML METADATA FUNCTIONS ---
+
+    function openImportSamlModal() {
+        document.getElementById('metadataFile').value = '';
+        document.getElementById('importSamlModal').style.display = 'block';
+    }
+
+    async function processSamlImport() {
+        const fileInput = document.getElementById('metadataFile');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showToast('Please select a file first.', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        // Get the button to show status
+        const importBtn = document.querySelector('#importSamlModal .btn-save');
+        const originalText = importBtn.textContent;
+        importBtn.textContent = 'Parsing...';
+        importBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/admin/sso-config/saml/import-metadata', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                body: formData
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Failed to parse metadata');
+            }
+
+            const data = await res.json();
+
+            // Auto-fill fields
+            if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
+            if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
+            if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
+
+            showToast('Metadata imported successfully!', 'success');
+            closeModal('importSamlModal');
+
+        } catch (e) {
+            console.error("Import error:", e);
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            importBtn.textContent = originalText;
+            importBtn.disabled = false;
+        }
+    }
+
+    function downloadSpMetadata() {
+        const form = document.getElementById('samlConfigForm');
+        // Default to 'saml_miniorange' if not set
+        const providerId = form.dataset.providerId || 'saml';
+
+        // Use fetch to handle Auth header, then create blob
+        fetch(`/api/admin/sso-config/saml/download-metadata/${providerId}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(response => {
+            if(response.ok) return response.blob();
+            throw new Error('Download failed');
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `sp-metadata-${providerId}.xml`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(err => showToast("Failed to download metadata: " + err.message, 'error'));
+    }
+
+    // Modal closing logic update
+    window.onclick = function(event) {
+        const userModal = document.getElementById('userModal');
+        const importModal = document.getElementById('importSamlModal');
+        if (event.target == userModal) closeModal('userModal');
+        if (event.target == importModal) closeModal('importSamlModal');
+    }
 </script>
 </body>
 </html>
