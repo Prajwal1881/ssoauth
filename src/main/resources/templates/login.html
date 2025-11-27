@@ -203,7 +203,13 @@
 
 
     <div class="signup-link">
-        Don't have an account? <a href="/signup">Sign up here</a>
+        <span th:if="${isTenant}">
+            Don't have an account? <a href="/signup">Sign up here</a>
+        </span>
+
+        <span th:unless="${isTenant}">
+            Need an account? <a href="/register">Create an Organization</a>
+        </span>
     </div>
 </div>
 

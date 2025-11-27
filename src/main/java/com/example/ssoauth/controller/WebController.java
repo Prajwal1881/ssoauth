@@ -7,6 +7,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.util.StringUtils;
+import com.example.ssoauth.config.TenantContext;
 
 import java.util.Map;
 
@@ -23,16 +24,31 @@ public class WebController {
 
     @GetMapping("/login")
     public String loginPage(Model model) {
-        // --- REMOVED ---
-        // All logic for finding "jwt_miniorange" is gone.
-        // The frontend JS /api/sso/enabled-providers handles this.
-        // --- END REMOVED ---
+        // Check if we are on a tenant subdomain
+        boolean isTenant = TenantContext.getCurrentTenant() != null;
+
+        // Pass this flag to the HTML
+        model.addAttribute("isTenant", isTenant);
+
         return "login";
     }
 
     @GetMapping("/signup")
     public String signupPage() {
-        return "signup";
+        // Check if we are on a Tenant Subdomain
+        if (TenantContext.getCurrentTenant() != null) {
+            // We are on 'acme.localhost', serve the User Signup Page
+            return "signup";
+        } else {
+            // We are on 'localhost' (Root), User Signup is disabled here.
+            // Redirect them to create a NEW Organization instead.
+            return "redirect:/register";
+        }
+    }
+
+    @GetMapping("/register")
+    public String registerPage() {
+        return "tenant-register";
     }
 
     @GetMapping("/dashboard")

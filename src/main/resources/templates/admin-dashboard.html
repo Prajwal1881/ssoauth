@@ -3,1189 +3,531 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary-orange: #FF6600;
             --secondary-orange: #FF9933;
-            --background-color: #F8F8F8;
-            --form-background: #FFFFFF;
+            --sidebar-bg: #1c1e2f;
+            --sidebar-text: #aeb9c0;
+            --header-bg: #FFFFFF;
+            --body-bg: #f3f4f6;
             --text-color: #333333;
-            --border-color: #DDDDDD;
+            --border-color: #e5e7eb;
+            --input-border: #d1d5db;
             --error-color: #DC3545;
             --success-color: #28a745;
             --link-color: #007bff;
-            --tab-inactive-bg: #E9ECEF;
-            --tab-active-bg: var(--form-background);
-            --tab-active-border: var(--primary-orange);
-            --input-focus-border: var(--primary-orange);
             --input-focus-shadow: rgba(255, 102, 0, 0.2);
-            --toggle-bg-off: #ccc;
-            --toggle-bg-on: var(--primary-orange);
-            --toggle-knob: white;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0; margin: 0; background-color: var(--background-color); color: var(--text-color); }
-        h1, h2, h3 { color: var(--primary-orange); font-weight: 600; margin-bottom: 10px; }
-        h4 { color: var(--text-color); font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
-
-        .admin-container { padding: 20px 30px; }
-        .admin-header { display: flex; justify-content: space-between; align-items: center; background-color: #fff; padding: 10px 30px; border-bottom: 2px solid var(--primary-orange); box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-
-        .header-logo-img { max-height: 40px; margin-right: 15px; display: none; }
-        .header-logo-text { font-size: 1.5em; margin: 0; color: var(--primary-orange); font-weight: 600; }
-
-        .admin-nav a, .admin-nav button { margin-left: 15px; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em; }
-        .admin-nav .button-link { background-color: #6c757d; color: white; border: none; }
-        .admin-nav .btn-logout { background-color: var(--link-color); color: white; border: none; cursor: pointer; }
-
-        .tab-nav { border-bottom: 1px solid var(--border-color); padding-left: 0; margin-bottom: 20px; list-style: none; display: flex; flex-wrap: wrap; }
-        .tab-nav li { margin-right: 5px; margin-bottom: -1px; }
-        .tab-nav button { background-color: var(--tab-inactive-bg); border: 1px solid var(--border-color); border-bottom: none; padding: 10px 15px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 0.95em; font-weight: 500; color: var(--text-color); transition: background-color 0.2s; }
-        .tab-nav button:hover { background-color: #ddd; }
-        .tab-nav button.active { background-color: var(--tab-active-bg); border-color: var(--border-color); border-bottom: 1px solid var(--tab-active-bg); position: relative; top: 1px; color: var(--primary-orange); font-weight: 600; }
-        .tab-nav button.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background-color: var(--tab-active-border); }
-        .tab-content { display: none; padding: 20px; background-color: var(--form-background); border: 1px solid var(--border-color); border-radius: 0 8px 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .tab-content.active { display: block; }
-
-        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; background-color: var(--form-background); border-radius: 8px; overflow: hidden; }
-        th, td { border: 1px solid var(--border-color); padding: 12px; text-align: left; font-size: 0.9em; }
-        th { background-color: #EFEFEF; font-weight: 600; border-bottom: 2px solid var(--primary-orange); }
-        tr:nth-child(even) { background-color: #F8F8F8; }
-
-        button, .button-link { margin: 5px 2px; padding: 8px 15px; border-radius: 4px; border: none; font-size: 0.9em; cursor: pointer; }
-        .btn-create { background-color: #28a745; color: white; }
-        .btn-edit { background-color: var(--secondary-orange); color: var(--text-color); }
-        .btn-delete { background-color: var(--error-color); color: white; }
-        .btn-save { background-color: var(--primary-orange); color: white; margin-top: 10px; }
-        .btn-test { background-color: var(--success-color); color: white; margin-top: 10px; margin-left: 10px;}
-
-        .sso-form { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-color); }
-        .sso-form:last-child { border-bottom: none; }
-        label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; }
-        input[type=text], input[type=email], input[type=password], input[type=url], textarea, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 1em; box-sizing: border-box; background-color: #fff; }
-        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--input-focus-border); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
-        textarea { min-height: 80px; resize: vertical; font-family: inherit; }
-        .form-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 0; }
-        .form-row > div { flex: 1; min-width: 200px; }
-        .toggle-switch { display: flex; align-items: center; margin-bottom: 15px; }
-        .toggle-switch label { margin-right: 10px; margin-bottom: 0; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--toggle-bg-off); transition: .4s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--toggle-knob); transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--toggle-bg-on); }
-        input:checked + .slider:before { transform: translateX(26px); }
-
-        .error { color: var(--error-color); background-color: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
-        .success-message { color: var(--success-color); background-color: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
-
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: var(--form-background); margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 550px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .close { color: #aaa; float: right; font-size: 30px; font-weight: bold; cursor: pointer; line-height: 1; }
-
-        .password-wrapper { position: relative; display: flex; align-items: center; width: 100%; margin-bottom: 15px; }
-        .password-wrapper input { padding-right: 65px; margin-bottom: 0; }
-        .toggle-password { position: absolute; right: 1px; top: 1px; bottom: 1px; border: none; background: #f0f0f0; color: var(--text-color); padding: 0 10px; cursor: pointer; font-size: 0.8em; font-weight: 600; border-radius: 0 4px 4px 0; z-index: 2; width: 60px; }
-        .toggle-password:hover { background: #e0e0e0; }
-
-        .form-hint { font-size: 0.85em; color: #6c757d; margin-top: -10px; margin-bottom: 15px; }
-        .form-hint code { background-color: #e9ecef; padding: 2px 4px; border-radius: 3px; }
-
-        /* --- NEW STYLES FOR URL DISPLAY --- */
-        .url-display-box {
-            background-color: #f8f9fa;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 15px;
-            margin-top: 10px;
-            margin-bottom: 25px; /* Space it out */
-        }
-        .url-display-box label {
-            font-weight: 600;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--body-bg);
             color: var(--text-color);
-            margin-bottom: 5px;
-            font-size: 0.9em;
+            height: 100vh;
+            overflow: hidden;
         }
-        .url-display-box code {
-            display: block; /* Make it take its own line */
-            background-color: #e9ecef;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            color: #333;
-            word-break: break-all; /* Handle long URLs */
-            margin-bottom: 10px; /* Space between URLs */
+
+        /* --- LAYOUT --- */
+        .dashboard-container { display: flex; height: 100vh; width: 100%; }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; background-color: var(--sidebar-bg); display: flex; flex-direction: column; flex-shrink: 0; color: #fff;
         }
-        .url-display-box code:last-child {
-            margin-bottom: 0;
+        .sidebar-header {
+            height: 70px; display: flex; align-items: center; padding: 0 20px;
+            background-color: var(--header-bg); border-bottom: 3px solid var(--primary-orange);
+            color: var(--primary-orange); font-size: 1.3rem; font-weight: 700;
         }
-        .dynamic-subdomain {
-            color: var(--primary-orange);
-            font-weight: bold;
+        .header-logo-img { max-height: 32px; margin-right: 10px; display: none; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 20px 0 0 0; flex-grow: 1; overflow-y: auto; }
+        .sidebar-menu li { width: 100%; }
+        .nav-btn {
+            width: 100%; text-align: left; background: transparent; border: none; color: var(--sidebar-text);
+            padding: 12px 25px; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
         }
-        /* --- END NEW STYLES --- */
+        .nav-btn i { width: 20px; text-align: center; }
+        .nav-btn:hover { background-color: rgba(255, 255, 255, 0.05); color: #fff; }
+        .nav-btn.active { background-color: var(--primary-orange); color: #fff; font-weight: 500; }
+        .sidebar-footer { padding: 20px; }
+        .btn-logout-sidebar {
+            width: 100%; background-color: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: 500;
+        }
+        .btn-logout-sidebar:hover { background-color: #c82333; }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header {
+            height: 70px; background-color: var(--header-bg); border-bottom: 3px solid var(--primary-orange);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 30px; flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
+        }
+        .admin-title { font-size: 1.2rem; font-weight: 600; color: #333; margin: 0; }
+        .btn-dashboard {
+            background-color: #6c757d; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; font-weight: 500;
+        }
+        .btn-dashboard:hover { background-color: #5a6268; }
+
+        /* --- CONTENT --- */
+        .content-area { padding: 30px; overflow-y: auto; height: 100%; }
+        .tab-content {
+            display: none; background-color: #fff; border: 1px solid var(--border-color); border-radius: 6px;
+            padding: 40px; max-width: 900px; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .tab-content.active { display: block; }
+        h2 { margin-top: 0; color: #333; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+        h4 { color: #333; font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .form-row { display: flex; align-items: center; margin-bottom: 15px; }
+        .form-row label { width: 220px; text-align: right; margin-right: 25px; font-weight: 500; font-size: 0.9rem; color: #555; flex-shrink: 0; }
+        .form-row input[type=text], .form-row input[type=email], .form-row input[type=password], .form-row input[type=url], .form-row textarea, .form-row select {
+            width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;
+        }
+        .form-row input:focus, .form-row textarea:focus { outline: none; border-color: var(--primary-orange); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
+        textarea { min-height: 80px; resize: vertical; }
+
+        .toggle-row { display: flex; align-items: center; margin-bottom: 15px; }
+        .toggle-row label.main-lbl { width: 220px; text-align: right; margin-right: 25px; font-weight: 500; font-size: 0.9rem; color: #555; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-orange); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        .btn-container { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: right; }
+        .btn-save { background-color: var(--primary-orange); color: white; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        .btn-save:hover { background-color: #e65c00; }
+        .btn-test { background-color: #fff; border: 1px solid #ddd; color: #333; padding: 8px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-weight: 500; font-size: 0.9rem; }
+        .btn-test:hover { background-color: #f8f8f8; }
+        .btn-create { background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+
+        .password-wrapper { position: relative; width: 100%; max-width: 350px; }
+        .password-wrapper input { width: 100%; padding-right: 60px; }
+        .toggle-password { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-orange); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+
+        .url-display-box { background-color: #f8f9fa; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-top: 20px; }
+        .url-display-box label { font-weight: 600; color: #333; display: block; margin-bottom: 5px; font-size: 0.85rem; }
+        .url-display-box code { display: block; background-color: #fff; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem; color: #e83e8c; word-break: break-all; margin-bottom: 10px; }
+
+        /* User Table */
+        .user-management-container { padding: 0; border: none; background: transparent; box-shadow: none; max-width: 100%; }
+        .table-wrapper { background-color: #fff; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin: 0; }
+        th { background-color: #f9fafb; color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; padding: 16px 24px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        td { padding: 16px 24px; border-bottom: 1px solid #f3f4f6; color: #374151; font-size: 0.9rem; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f9fafb; }
+        .action-cell { display: flex; gap: 8px; }
+        .btn-icon { width: 32px; height: 32px; border-radius: 4px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; background: transparent; }
+        .btn-icon.edit { color: var(--primary-orange); background-color: #fff7ed; border-color: #ffedd5; }
+        .btn-icon.delete { color: #ef4444; background-color: #fef2f2; border-color: #fee2e2; }
+
+        /* Modal & Toast */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fff; margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 8px; position: relative; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: #fff; color: #333; padding: 15px 25px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease-out forwards; border-left: 4px solid #ccc; min-width: 300px; font-size: 0.95rem; }
+        .toast.success { border-left-color: var(--success-color); }
+        .toast.error { border-left-color: var(--error-color); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
     </style>
 </head>
 <body>
 
-<div class="admin-header">
-    <div>
-        <img src="" alt="Logo" class="header-logo-img" id="header-logo" />
-        <h1 class="header-logo-text" id="header-logo-text">Admin Panel</h1>
-    </div>
-    <div class="admin-nav">
-        <a href="/dashboard" class="button-link">Go to User Dashboard</a>
-        <button id="logout-button" class="btn-logout">Logout</button>
-    </div>
-</div>
+<div id="toast-container" class="toast-container"></div>
 
-<div class="admin-container">
-    <ul class="tab-nav">
-        <li><button class="tab-button active" onclick="openTab(event, 'welcome')">Welcome</button></li>
-        <li><button class="tab-button" onclick="openTab(event, 'brandingConfig')">Branding & Domain</button></li>
-        <li><button class="tab-button" onclick="openTab(event, 'userManagement')">User Management</button></li>
-        <li><button class="tab-button" onclick="openTab(event, 'samlConfig')">SAML Config</button></li>
-        <li><button class="tab-button" onclick="openTab(event, 'oidcConfig')">OIDC Config</button></li>
-        <li><button class="tab-button" onclick="openTab(event, 'jwtConfig')">JWT Config</button></li>
-    </ul>
-
-    <div id="welcome" class="tab-content active">
-        <h2>Welcome, Customer Admin!</h2>
-        <p>Use the tabs above to manage your organization's users, configure Single Sign-On providers, or set up your branding.</p>
-        <h4>How to Test Your SSO Configuration:</h4>
-        <ol>
-            <li>Go to the "Branding & Domain" tab and set your unique subdomain.</li>
-            <li>Configure and save an SSO provider (e.g., OIDC, SAML, or JWT).</li>
-            <li>Click the **"Test Connection"** button. This will open a new popup window.</li>
-            <li>Perform a real SSO login as a test user *in that popup window*.</li>
-            <li>The popup window will refresh and show you a "TEST SUCCESSFUL" message.</li>
-        </ol>
-    </div>
-
-    <div id="brandingConfig" class="tab-content">
-        <h2>Branding & Domain</h2>
-        <p>Customize your organization's login page and set your unique login URL.</p>
-        <div id="branding-error-message" class="error" style="display: none;"></div>
-        <div id="branding-success-message" class="success-message" style="display: none;"></div>
-
-        <form id="brandingConfigForm">
-            <div>
-                <label for="brandingSubdomain">Branding Name (Subdomain):</label>
-                <input type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required>
-                <p class="form-hint">Your unique login URL: <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code></p>
-            </div>
-            <div>
-                <label for="brandingLogoUrl">Logo URL (Optional):</label>
-                <input type="url" id="brandingLogoUrl" placeholder="https://example.com/logo.png">
-                <p class="form-hint">Provide a direct URL to your company's logo.</p>
-            </div>
-            <div>
-                <label for="brandingPrimaryColor">Primary Color (Optional):</label>
-                <input type="text" id="brandingPrimaryColor" placeholder="#FF6600">
-                <p class="form-hint">Enter a hex color code (e.g., <code>#007bff</code>) to theme your login page.</p>
-            </div>
-
-            <button type="submit" class="btn-save">Save Branding Settings</button>
-        </form>
-    </div>
-
-    <div id="userManagement" class="tab-content">
-        <h2>User Management</h2>
-        <button onclick="openCreateModal()" class="btn-create">Create New User</button>
-        <div id="error-message" class="error" style="display: none;"></div>
-        <table id="user-table">
-            <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>First Name</th><th>Last Name</th><th>Roles</th><th>Provider</th><th>Actions</th></tr></thead>
-            <tbody><tr><td colspan="8">Loading users...</td></tr></tbody>
-        </table>
-    </div>
-
-    <div id="samlConfig" class="tab-content">
-        <h2>SAML Configuration</h2>
-        <div id="saml-error-message" class="error" style="display: none;"></div>
-        <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
-            <input type="hidden" id="samlConfigId">
-            <h4>General Settings</h4>
-            <div class="toggle-switch">
-                <label for="samlEnable">Enable SAML Provider:</label>
-                <label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label>
-            </div>
-            <label for="samlDisplayName">Display Name:</label>
-            <input type="text" id="samlDisplayName" placeholder="e.g., Okta SAML">
-            <h4>Identity Provider (IdP) Details</h4>
-            <label for="samlEntityId">Identity Provider Entity ID:</label>
-            <input type="text" id="samlEntityId" placeholder="e.g., https://idp.example.com/entityid">
-            <label for="samlSsoUrl">SSO URL (Login Endpoint):</label>
-            <input type="url" id="samlSsoUrl" placeholder="e.g., https://idp.example.com/sso">
-            <label for="samlCertificate">X.509 Certificate (PEM format):</label>
-            <textarea id="samlCertificate" placeholder="Paste the certificate here..."></textarea>
-            <button type="submit" class="btn-save">Save SAML Config</button>
-            <button type="button" class="btn-test" onclick="testAttributes('saml_miniorange')">
-                Test Connection
-            </button>
-        </form>
-
-        <h4>Your Service Provider (SP) URLs</h4>
-        <p class="form-hint">Provide these URLs to your Identity Provider (IdP) to complete the setup.</p>
-        <div class="url-display-box">
-            <label>SP Entity ID (Issuer / Audience URI):</label>
-            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
-            <label>ACS URL (Reply URL):</label>
-            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
+<div class="dashboard-container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="" alt="Logo" class="header-logo-img" id="header-logo" />
+            <span id="header-logo-text">Admin Panel</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li><button class="nav-btn active" onclick="openTab(event, 'welcome')"><i class="fas fa-home"></i> Welcome</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'brandingConfig')"><i class="fas fa-paint-brush"></i> Branding & Domain</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'userManagement')"><i class="fas fa-users"></i> User Management</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'samlConfig')"><i class="fas fa-key"></i> SAML Config</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'oidcConfig')"><i class="fab fa-openid"></i> OIDC Config</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'jwtConfig')"><i class="fas fa-shield-alt"></i> JWT Config</button></li>
+        </ul>
+        <div class="sidebar-footer">
+            <button id="logout-button" class="btn-logout-sidebar">Logout</button>
         </div>
     </div>
 
-    <div id="oidcConfig" class="tab-content">
-        <h2>OAuth 2.0 / OpenID Connect Configuration</h2>
-        <div id="oidc-error-message" class="error" style="display: none;"></div>
-        <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
-            <input type="hidden" id="oidcConfigId">
-            <h4>General Settings</h4>
-            <div class="toggle-switch">
-                <label for="oidcEnable">Enable OIDC Provider:</label>
-                <label class="switch"><input type="checkbox" id="oidcEnable"><span class="slider"></span></label>
+    <div class="main-content">
+        <div class="top-header">
+            <div class="admin-title">Configuration Dashboard</div>
+            <a href="/dashboard" class="btn-dashboard">Go to User Dashboard</a>
+        </div>
+
+        <div class="content-area">
+            <div id="welcome" class="tab-content active">
+                <h2>Welcome, Customer Admin!</h2>
+                <p>Use the sidebar to manage your organization's users, configure Single Sign-On providers, or set up your branding.</p>
+                <h4 style="margin-top: 30px;">How to Test Your SSO Configuration:</h4>
+                <ol style="line-height: 1.8; color: #555; margin-left: 20px; padding: 0;">
+                    <li>Go to the "Branding & Domain" tab and set your unique subdomain.</li>
+                    <li>Configure and save an SSO provider (e.g., OIDC, SAML, or JWT).</li>
+                    <li>Click the <strong>"Test Connection"</strong> button. This will open a new popup window.</li>
+                    <li>Perform a real SSO login as a test user in that popup window.</li>
+                    <li>The popup window will refresh and show you a "TEST SUCCESSFUL" message.</li>
+                </ol>
             </div>
-            <label for="oidcDisplayName">Display Name:</label>
-            <input type="text" id="oidcDisplayName" placeholder="e.g., MiniOrange OIDC">
-            <h4>Identity Provider (IdP) Details</h4>
-            <label for="oidcIssuerUri">Issuer URI: (Leave blank to use discovery)</label>
-            <input type="url" id="oidcIssuerUri" placeholder="e.g., httpss://csumairkhan.xecurify.com/moas/discovery/v2.0/...">
-            <div class="form-row">
-                <div><label for="oidcClientId">Client ID:</label><input type="text" id="oidcClientId"></div>
-                <div>
-                    <label for="oidcClientSecret">Client Secret:</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="oidcClientSecret" placeholder="Enter new secret to update">
-                        <button type="button" class="toggle-password" id="toggleOidcSecret">Show</button>
+
+            <div id="brandingConfig" class="tab-content">
+                <h2>Branding & Domain</h2>
+                <form id="brandingConfigForm">
+                    <div class="form-row"><label for="brandingSubdomain">Branding Name (Subdomain)</label><input type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required></div>
+                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.85rem; color: #888; margin-bottom: 15px;">
+                        Login URL: <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code>
                     </div>
+                    <div class="form-row"><label for="brandingLogoUrl">Logo URL (Optional)</label><input type="url" id="brandingLogoUrl" placeholder="https://example.com/logo.png"></div>
+                    <div class="form-row"><label for="brandingPrimaryColor">Primary Color (Hex)</label><input type="text" id="brandingPrimaryColor" placeholder="#FF6600"></div>
+                    <div class="btn-container"><button type="submit" class="btn-save">Save Branding Settings</button></div>
+                </form>
+            </div>
+
+            <div id="userManagement" class="user-management-container" style="display: none; padding: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0; color: #333;">User Management</h2>
+                    <button onclick="openCreateModal()" class="btn-create"><i class="fas fa-plus"></i> Create New User</button>
+                </div>
+                <div class="table-wrapper">
+                    <table id="user-table">
+                        <thead>
+                        <tr><th style="width: 5%;">ID</th> <th style="width: 15%;">Username</th> <th style="width: 25%;">Email</th> <th style="width: 15%;">Name</th> <th style="width: 15%;">Roles</th> <th style="width: 10%;">Provider</th> <th style="width: 15%;">Actions</th></tr>
+                        </thead>
+                        <tbody><tr><td colspan="7" style="text-align:center;">Loading users...</td></tr></tbody>
+                    </table>
                 </div>
             </div>
-            <label for="oidcScopes">Scopes (comma-separated):</label>
-            <input type="text" id="oidcScopes" value="openid, profile, email">
-            <label for="oidcUserNameAttribute">User Name Attribute (claim):</label>
-            <input type="text" id="oidcUserNameAttribute" value="email" placeholder="e.g., email or sub">
-            <h4>Endpoint Overrides (Optional)</h4>
-            <label for="oidcAuthorizationUri">Authorization Endpoint URI:</label>
-            <input type="url" id="oidcAuthorizationUri">
-            <label for="oidcTokenUri">Token Endpoint URI:</label>
-            <input type="url" id="oidcTokenUri">
-            <label for="oidcUserInfoUri">UserInfo Endpoint URI:</label>
-            <input type="url" id="oidcUserInfoUri">
-            <label for="oidcJwkSetUri">JWK Set URI:</label>
-            <input type="url" id="oidcJwkSetUri">
-            <button type="submit" class="btn-save">Save OIDC Config</button>
-            <button type="button" class="btn-test" onclick="testAttributes('oidc_miniorange')">
-                Test Connection
-            </button>
-        </form>
 
-        <h4>Your OIDC Redirect URI</h4>
-        <p class="form-hint">Provide this URL to your Identity Provider (IdP) as the Redirect or Callback URL.</p>
-        <div class="url-display-box">
-            <label>Redirect URI:</label>
-            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
-        </div>
-    </div>
-
-    <div id="jwtConfig" class="tab-content">
-        <h2>Manual JWT Configuration</h2>
-        <div id="jwt-error-message" class="error" style="display: none;"></div>
-        <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT" data-provider-id="jwt_miniorange">
-            <input type="hidden" id="jwtConfigId">
-            <h4>General Settings</h4>
-            <div class="toggle-switch">
-                <label for="jwtEnable">Enable JWT Provider:</label>
-                <label class="switch"><input type="checkbox" id="jwtEnable"><span class="slider"></span></label>
-            </div>
-            <label for="jwtDisplayName">Display Name:</label>
-            <input type="text" id="jwtDisplayName" placeholder="e.g., MiniOrange JWT">
-            <h4>Identity Provider (IdP) Details</h4>
-            <label for="jwtSsoUrl">JWT SSO URL:</label>
-            <input type="url" id="jwtSsoUrl" placeholder="e.g., https://idp.example.com/jwtsso/appid">
-            <div class="form-row">
-                <div><label for="jwtClientId">Client ID:</label><input type="text" id="jwtClientId"></div>
-                <div>
-                    <label for="jwtClientSecret">Client Secret (if applicable):</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="jwtClientSecret" placeholder="Secret if needed by IdP">
-                        <button type="button" class="toggle-password" id="toggleJwtSecret">Show</button>
+            <div id="samlConfig" class="tab-content">
+                <h2>SAML Configuration</h2>
+                <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
+                    <input type="hidden" id="samlConfigId">
+                    <div class="toggle-row"><label class="main-lbl" for="samlEnable">Enable SAML Provider</label><label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label></div>
+                    <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text" id="samlDisplayName" placeholder="e.g., Okta SAML"></div>
+                    <h4>Identity Provider Details</h4>
+                    <div class="form-row"><label for="samlEntityId">IdP Entity ID</label><input type="text" id="samlEntityId" placeholder="https://idp.example.com/entityid"></div>
+                    <div class="form-row"><label for="samlSsoUrl">SSO URL</label><input type="url" id="samlSsoUrl" placeholder="https://idp.example.com/sso"></div>
+                    <div class="form-row"><label for="samlCertificate">X.509 Certificate</label><textarea id="samlCertificate" placeholder="Paste certificate here..."></textarea></div>
+                    <div class="btn-container">
+                        <button type="button" class="btn-test" onclick="testAttributes('saml_miniorange')">Test Connection</button>
+                        <button type="submit" class="btn-save">Save SAML Config</button>
                     </div>
+                </form>
+                <div class="url-display-box">
+                    <h4>Your Service Provider (SP) URLs</h4>
+                    <label>SP Entity ID:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
+                    <label>ACS URL:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
                 </div>
             </div>
-            <label for="jwtRedirectUri">Redirect URI (Callback URL):</label>
-            <input type="url" id="jwtRedirectUri" placeholder="e.g., https://your-subdomain.prajwal.cfd/login/jwt/callback">
-            <label for="jwtIssuerUri">Expected Issuer (iss claim):</label>
-            <input type="text" id="jwtIssuerUri" placeholder="e.g., Your Client ID or Issuer URL">
-            <label for="jwtCertificate">Certificate Content (PEM format):</label>
-            <textarea id="jwtCertificate" placeholder="Paste PEM certificate here..."></textarea>
-            <button type="submit" class="btn-save">Save JWT Config</button>
-            <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">
-                Test Connection
-            </button>
-        </form>
 
-        <h4>Your JWT Callback URL</h4>
-        <p class="form-hint">Provide this URL to your IdP and enter the <strong>exact same value</strong> in the "Redirect URI" field above.</p>
-        <div class="url-display-box">
-            <label>Callback URL:</label>
-            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
+            <div id="oidcConfig" class="tab-content">
+                <h2>OIDC Configuration</h2>
+                <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
+                    <input type="hidden" id="oidcConfigId">
+                    <div class="toggle-row"><label class="main-lbl" for="oidcEnable">Enable OIDC Provider</label><label class="switch"><input type="checkbox" id="oidcEnable"><span class="slider"></span></label></div>
+                    <div class="form-row"><label for="oidcDisplayName">Display Name</label><input type="text" id="oidcDisplayName" placeholder="e.g., Google Workspace"></div>
+                    <h4>Identity Provider Details</h4>
+                    <div class="form-row"><label for="oidcIssuerUri">Issuer URI</label><input type="url" id="oidcIssuerUri" placeholder="Leave blank to use discovery"></div>
+                    <div class="form-row"><label for="oidcClientId">Client ID</label><input type="text" id="oidcClientId"></div>
+                    <div class="form-row"><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret"><button type="button" class="toggle-password" id="toggleOidcSecret">Show</button></div></div>
+                    <div class="form-row"><label for="oidcScopes">Scopes</label><input type="text" id="oidcScopes" value="openid, profile, email"></div>
+                    <div class="form-row"><label for="oidcUserNameAttribute">User Name Attribute</label><input type="text" id="oidcUserNameAttribute" value="email"></div>
+                    <h4>Endpoint Overrides</h4>
+                    <div class="form-row"><label for="oidcAuthorizationUri">Auth Endpoint</label><input type="url" id="oidcAuthorizationUri"></div>
+                    <div class="form-row"><label for="oidcTokenUri">Token Endpoint</label><input type="url" id="oidcTokenUri"></div>
+                    <div class="form-row"><label for="oidcUserInfoUri">UserInfo Endpoint</label><input type="url" id="oidcUserInfoUri"></div>
+                    <div class="form-row"><label for="oidcJwkSetUri">JWK Set URI</label><input type="url" id="oidcJwkSetUri"></div>
+                    <div class="btn-container">
+                        <button type="button" class="btn-test" onclick="testAttributes('oidc_miniorange')">Test Connection</button>
+                        <button type="submit" class="btn-save">Save OIDC Config</button>
+                    </div>
+                </form>
+                <div class="url-display-box">
+                    <h4>Your OIDC Redirect URI</h4>
+                    <label>Redirect URI:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
+                </div>
+            </div>
+
+            <div id="jwtConfig" class="tab-content">
+                <h2>JWT Configuration</h2>
+                <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT" data-provider-id="jwt_miniorange">
+                    <input type="hidden" id="jwtConfigId">
+                    <div class="toggle-row"><label class="main-lbl" for="jwtEnable">Enable JWT Provider</label><label class="switch"><input type="checkbox" id="jwtEnable"><span class="slider"></span></label></div>
+                    <div class="form-row"><label for="jwtDisplayName">Display Name</label><input type="text" id="jwtDisplayName" placeholder="e.g., MiniOrange JWT"></div>
+                    <h4>Identity Provider Details</h4>
+                    <div class="form-row"><label for="jwtSsoUrl">JWT SSO URL (Full Link)</label><input type="url" id="jwtSsoUrl" placeholder="https://idp.example.com/jwtsso/...?client_id=..."></div>
+                    <div class="form-row"><label for="jwtClientId">Client ID</label><input type="text" id="jwtClientId"></div>
+                    <div class="form-row"><label for="jwtClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="jwtClientSecret"><button type="button" class="toggle-password" id="toggleJwtSecret">Show</button></div></div>
+                    <div class="form-row"><label for="jwtCertificate">Certificate (PEM)</label><textarea id="jwtCertificate"></textarea></div>
+
+                    <div class="btn-container">
+                        <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">Test Connection</button>
+                        <button type="submit" class="btn-save">Save JWT Config</button>
+                    </div>
+                </form>
+                <div class="url-display-box">
+                    <h4>Service Provider (SP) / Redirect URL</h4>
+                    <label>Redirect URI:</label>
+                    <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
+                </div>
+            </div>
         </div>
     </div>
-
-
 </div>
 
 <div id="userModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
         <h2 id="modalTitle">User Form</h2>
-        <div id="modal-error" class="error" style="display: none;"></div>
         <form id="userForm">
             <input type="hidden" id="userId">
-            <div><label for="username">Username:</label><input type="text" id="username" required></div>
-            <div><label for="email">Email:</label><input type="email" id="email" required></div>
-
-            <div>
-                <label for="password">Password:</label>
-                <div class="password-wrapper">
-                    <input type="password" id="password" placeholder="Leave blank if no change">
-                    <button type="button" class="toggle-password" id="toggleUserPassword">Show</button>
-                </div>
-            </div>
-            <div><label for="firstName">First Name:</label><input type="text" id="firstName"></div>
-            <div><label for="lastName">Last Name:</label><input type="text" id="lastName"></div>
-            <div><label for="roles">Roles:</label><input type="text" id="roles" placeholder="e.g., ROLE_USER,ROLE_ADMIN"></div>
-            <button type="submit" class="btn-save">Save User</button>
+            <div class="form-row"><label>Username</label><input type="text" id="username" required></div>
+            <div class="form-row"><label>Email</label><input type="email" id="email" required></div>
+            <div class="form-row"><label>Password</label><div class="password-wrapper"><input type="password" id="password"><button type="button" class="toggle-password" id="toggleUserPassword">Show</button></div></div>
+            <div class="form-row"><label>First Name</label><input type="text" id="firstName"></div>
+            <div class="form-row"><label>Last Name</label><input type="text" id="lastName"></div>
+            <div class="form-row"><label>Roles</label><input type="text" id="roles" placeholder="ROLE_USER,ROLE_ADMIN"></div>
+            <div class="btn-container"><button type="submit" class="btn-save">Save User</button></div>
         </form>
     </div>
 </div>
 
-
 <script>
-    // --- Global/Admin Variables ---
-    const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
-    const errorMessageDiv = document.getElementById('error-message');
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `<i class="${type==='success'?'fas fa-check-circle':'fas fa-exclamation-circle'}" style="color:${type==='success'?'var(--success-color)':'var(--error-color)'}"></i> <span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease-in forwards'; toast.addEventListener('animationend', () => toast.remove()); }, 3000);
+    }
+
     const token = localStorage.getItem('accessToken');
+    const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
     const modal = document.getElementById('userModal');
     const modalTitle = document.getElementById('modalTitle');
-    const modalError = document.getElementById('modal-error');
     const userForm = document.getElementById('userForm');
     const userIdInput = document.getElementById('userId');
-
-    // --- SSO Form Variables ---
-    const samlErrorDiv = document.getElementById('saml-error-message');
-    const oidcErrorDiv = document.getElementById('oidc-error-message');
-    const jwtErrorDiv = document.getElementById('jwt-error-message');
-    const samlConfigForm = document.getElementById('samlConfigForm');
-    const oidcConfigForm = document.getElementById('oidcConfigForm');
-    const jwtConfigForm = document.getElementById('jwtConfigForm');
-    let configDataStore = {}; // Stores config state { 'providerId': { id: 1, ... } }
-
-    // --- Branding Variables ---
     const brandingForm = document.getElementById('brandingConfigForm');
-    const brandingErrorDiv = document.getElementById('branding-error-message');
-    const brandingSuccessDiv = document.getElementById('branding-success-message');
     const brandingSubdomainInput = document.getElementById('brandingSubdomain');
     const brandingLogoUrlInput = document.getElementById('brandingLogoUrl');
     const brandingPrimaryColorInput = document.getElementById('brandingPrimaryColor');
     const subdomainPreview = document.getElementById('subdomain-preview');
+    let configDataStore = {};
 
-
-    // --- Apply Branding on Load ---
-    (async function initializeTenantAdmin() {
-        if (!token) {
-             window.location.href = '/login';
-             return;
-        }
+    (async function init() {
+        if (!token) { window.location.href = '/login'; return; }
         try {
-            const response = await fetch('/api/public/branding', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) throw new Error("Could not fetch branding");
-
-            const branding = await response.json();
-            if (branding.brandingLogoUrl) {
-                const logoEl = document.getElementById('header-logo');
-                logoEl.src = branding.brandingLogoUrl;
-                logoEl.style.display = 'inline-block';
-                document.getElementById('header-logo-text').style.display = 'none';
+            const res = await fetch('/api/public/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const b = await res.json();
+                if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
+                if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
+                if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
             }
-            if (branding.tenantName) {
-                document.getElementById('header-logo-text').textContent = `${branding.tenantName} Admin`;
-            }
-            if (branding.brandingPrimaryColor) {
-                document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
-            }
-            // Note: Branding API doesn't return subdomain, so we'll load that in openTab()
-
-        } catch (error) {
-            console.error('Error fetching branding:', error);
-        }
+        } catch (e) {}
+        await loadBrandingSettings();
     })();
 
-    // --- Tab switching logic (Modified) ---
-    function openTab(evt, tabName) {
-        clearSsoErrors('all');
-        clearBrandingMessages();
-        clearUserModalError();
-
-        const tabcontent = document.getElementsByClassName("tab-content");
-        for (let i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
-        const tablinks = document.getElementsByClassName("tab-button");
-        for (let i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
-
-        const currentTab = document.getElementById(tabName);
-        if (currentTab) currentTab.style.display = "block";
-        if (evt && evt.currentTarget) evt.currentTarget.className += " active";
-
+    window.openTab = function(evt, tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.getElementById("userManagement").style.display = "none";
+        document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabName).style.display = 'block';
+        if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
         if (tabName === 'userManagement') loadUsers();
-        else if (tabName === 'brandingConfig') loadBrandingSettings();
-        else if (tabName === 'samlConfig' || tabName === 'oidcConfig' || tabName === 'jwtConfig') {
+        else if (['samlConfig', 'oidcConfig', 'jwtConfig'].includes(tabName)) {
             loadSsoConfigurations();
-            // --- NEW: Ensure dynamic URLs are populated when tabbing ---
             updateDynamicSubdomainUrls(brandingSubdomainInput.value);
         }
+    };
+
+    function updateDynamicSubdomainUrls(sub) {
+        const txt = sub ? sub.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
+        if(subdomainPreview) subdomainPreview.textContent = txt;
+        document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
     }
-
-    // --- NEW: Branding Functions ---
-
-    // --- NEW HELPER FUNCTION ---
-    // Updates all dynamic subdomain spans across all tabs
-    function updateDynamicSubdomainUrls(subdomain) {
-        const cleanSubdomain = subdomain.toLowerCase().trim().replaceAll(' ', '-') || 'your-subdomain';
-
-        // Update Branding tab preview
-        if (subdomainPreview) {
-            subdomainPreview.textContent = cleanSubdomain;
-        }
-
-        // Update all SSO tab previews
-        const allSpans = document.querySelectorAll('.dynamic-subdomain');
-        allSpans.forEach(span => {
-            span.textContent = cleanSubdomain;
-        });
-    }
-    // --- END NEW FUNCTION ---
 
     async function loadBrandingSettings() {
-        clearBrandingMessages();
         try {
-            const response = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
-            if (!response.ok) return handleApiError(response, "load branding settings", false, brandingErrorDiv);
-
-            const branding = await response.json();
-            brandingSubdomainInput.value = branding.subdomain || '';
-            brandingLogoUrlInput.value = branding.brandingLogoUrl || '';
-            brandingPrimaryColorInput.value = branding.brandingPrimaryColor || '';
-
-            // --- MODIFIED: Use new helper function ---
-            updateDynamicSubdomainUrls(branding.subdomain);
-            // --- END MODIFICATION ---
-
-        } catch (error) {
-            console.error('Load branding error:', error);
-            showBrandingError(`Failed to load branding: ${error.message}`);
-        }
+            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const b = await res.json();
+                brandingSubdomainInput.value = b.subdomain || '';
+                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
+                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
+                updateDynamicSubdomainUrls(b.subdomain);
+            }
+        } catch (e) {}
     }
 
-    // --- MODIFIED: Use new helper function ---
-    brandingSubdomainInput.addEventListener('input', (e) => {
-        updateDynamicSubdomainUrls(e.target.value);
-    });
-    // --- END MODIFICATION ---
+    brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
 
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        clearBrandingMessages();
-        const brandingData = {
-            subdomain: brandingSubdomainInput.value,
-            brandingLogoUrl: brandingLogoUrlInput.value,
-            brandingPrimaryColor: brandingPrimaryColorInput.value
-        };
-
         try {
-            const response = await fetch('/api/admin/branding', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify(brandingData)
-            });
-
-            if (!response.ok) return handleApiError(response, "update branding", false, brandingErrorDiv);
-
-            const updatedBranding = await response.json();
-            showBrandingSuccess(`Branding updated successfully! Your login URL is active at: https://${updatedBranding.subdomain}.prajwal.cfd/login`);
-
-            document.documentElement.style.setProperty('--primary-orange', updatedBranding.brandingPrimaryColor || '#FF6600');
-            if (updatedBranding.brandingLogoUrl) {
-                 document.getElementById('header-logo').src = updatedBranding.brandingLogoUrl;
-                 document.getElementById('header-logo').style.display = 'inline-block';
-                 document.getElementById('header-logo-text').style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Save branding error:', error);
-            showBrandingError(`Save failed: ${error.message}`);
-        }
+            const res = await fetch('/api/admin/branding', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ subdomain: brandingSubdomainInput.value, brandingLogoUrl: brandingLogoUrlInput.value, brandingPrimaryColor: brandingPrimaryColorInput.value }) });
+            if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+            const b = await res.json();
+            showToast(`Branding updated!`, 'success');
+            document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor || '#FF6600');
+            if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
+            updateDynamicSubdomainUrls(b.subdomain);
+        } catch (e) { showToast(e.message, 'error'); }
     });
-
-    function showBrandingError(message) { brandingErrorDiv.textContent = message; brandingErrorDiv.style.display = 'block'; }
-    function showBrandingSuccess(message) { brandingSuccessDiv.textContent = message; brandingSuccessDiv.style.display = 'block'; }
-    function clearBrandingMessages() {
-        brandingErrorDiv.style.display = 'none'; brandingErrorDiv.textContent = '';
-        brandingSuccessDiv.style.display = 'none'; brandingSuccessDiv.textContent = '';
-    }
-
-    // --- (START) USER MANAGEMENT FUNCTIONS ---
 
     async function loadUsers() {
-        clearUserModalError();
-        userTableBody.innerHTML = '<tr><td colspan="8">Loading users...</td></tr>';
+        userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
         try {
-            const response = await fetch('/api/admin/users', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) {
-                return handleApiError(response, "load users", false, errorMessageDiv);
+            const res = await fetch('/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const users = await res.json();
+                userTableBody.innerHTML = '';
+                if(!users.length) userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No users found.</td></tr>';
+                users.forEach(u => {
+                    const row = userTableBody.insertRow();
+                    row.innerHTML = `<td><strong>${u.id}</strong></td><td>${u.username}</td><td>${u.email}</td><td>${(u.firstName||'')+' '+(u.lastName||'')}</td><td><span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:10px; font-size:0.75rem;">${u.roles||'USER'}</span></td><td>${u.authProvider}</td><td class="action-cell"><button class="btn-icon edit" onclick="openEditModal(${u.id})"><i class="fas fa-pen"></i></button><button class="btn-icon delete" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button></td>`;
+                });
             }
-            const users = await response.json();
-            renderUserTable(users);
-        } catch (error) {
-            console.error('Load users error:', error);
-            showUserError(`Failed to load users: ${error.message}`);
-        }
+        } catch (e) { showToast(e.message, 'error'); }
     }
 
-    function renderUserTable(users) {
-        userTableBody.innerHTML = '';
-        if (!users || users.length === 0) {
-            userTableBody.innerHTML = '<tr><td colspan="8">No users found.</td></tr>';
-            return;
-        }
-        users.forEach(user => {
-            const row = userTableBody.insertRow();
-            row.insertCell().textContent = user.id;
-            row.insertCell().textContent = user.username;
-            row.insertCell().textContent = user.email;
-            row.insertCell().textContent = user.firstName || '';
-            row.insertCell().textContent = user.lastName || '';
-            row.insertCell().textContent = user.roles || 'ROLE_USER';
-            row.insertCell().textContent = user.authProvider;
-            row.insertCell().innerHTML = `
-                <button onclick="openEditModal(${user.id})" class="btn-edit">Edit</button>
-                <button onclick="deleteUser(${user.id})" class="btn-delete">Delete</button>
-            `;
-        });
-    }
-
-    function openCreateModal() {
-        clearUserModalError();
-        userForm.reset();
-        userIdInput.value = '';
-        modalTitle.textContent = 'Create New User';
-        document.getElementById('password').placeholder = "Password (required)";
-        // --- FIX: Reset password toggle ---
-        document.getElementById('password').setAttribute('type', 'password');
-        document.getElementById('toggleUserPassword').textContent = 'Show';
-        // --- END FIX ---
-        modal.style.display = "block";
-    }
-
-    async function openEditModal(id) {
-        clearUserModalError();
-        userForm.reset();
+    window.openCreateModal = function() { userForm.reset(); userIdInput.value = ''; modalTitle.textContent = 'Create New User'; document.getElementById('password').placeholder = "Required"; modal.style.display = "block"; };
+    window.openEditModal = async function(id) {
         try {
-            const response = await fetch(`/api/admin/users/${id}`, {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) { return handleApiError(response, `fetch user ${id}`, false, errorMessageDiv); }
-            const user = await response.json();
-
-            userIdInput.value = user.id;
-            document.getElementById('username').value = user.username;
-            document.getElementById('email').value = user.email;
-            document.getElementById('firstName').value = user.firstName || '';
-            document.getElementById('lastName').value = user.lastName || '';
-            document.getElementById('roles').value = user.roles || '';
-            document.getElementById('password').placeholder = "Leave blank if no change";
-            // --- FIX: Reset password toggle ---
-            document.getElementById('password').setAttribute('type', 'password');
-            document.getElementById('toggleUserPassword').textContent = 'Show';
-            // --- END FIX ---
-
-            modalTitle.textContent = 'Edit User: ' + user.username;
-            modal.style.display = "block";
-        } catch(error) {
-            console.error("Edit user error:", error);
-            showUserError(`Failed to load user: ${error.message}`);
-        }
-    }
-
-    async function deleteUser(id) {
-        if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) {
-            return;
-        }
-        clearUserModalError();
-        try {
-            const response = await fetch(`/api/admin/users/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) { return handleApiError(response, `delete user ${id}`, false, errorMessageDiv); }
-
-            loadUsers();
-        } catch (error) {
-            console.error("Delete user error:", error);
-            showUserError(`Failed to delete user: ${error.message}`);
-        }
-    }
-
-    function closeModal() {
-        modal.style.display = "none";
-    }
-    window.onclick = function(event) {
-        if (event.target == modal) {
-            closeModal();
-        }
-    }
-
-    userForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        clearUserModalError();
-
+            const res = await fetch(`/api/admin/users/${id}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const u = await res.json();
+                userIdInput.value = u.id; document.getElementById('username').value = u.username; document.getElementById('email').value = u.email; document.getElementById('firstName').value = u.firstName || ''; document.getElementById('lastName').value = u.lastName || ''; document.getElementById('roles').value = u.roles || '';
+                document.getElementById('password').placeholder = "Leave blank if no change"; modalTitle.textContent = 'Edit User: ' + u.username; modal.style.display = "block";
+            }
+        } catch (e) { showToast(e.message, 'error'); }
+    };
+    window.deleteUser = async function(id) {
+        if (!confirm('Delete this user?')) return;
+        try { await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); showToast('User deleted', 'success'); loadUsers(); } catch (e) { showToast(e.message, 'error'); }
+    };
+    window.closeModal = function() { modal.style.display = "none"; };
+    userForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         const id = userIdInput.value;
-        const isUpdate = !!id;
-
-        const data = {
-            username: document.getElementById('username').value,
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value,
-            firstName: document.getElementById('firstName').value,
-            lastName: document.getElementById('lastName').value,
-            roles: document.getElementById('roles').value
-        };
-
-        if (isUpdate && !data.password) {
-            delete data.password; // Don't send empty password on update
-        }
-
-        const url = isUpdate ? `/api/admin/users/${id}` : '/api/admin/users';
-        const method = isUpdate ? 'PUT' : 'POST';
-        const action = isUpdate ? 'update user' : 'create user';
-
+        const data = { username: document.getElementById('username').value, email: document.getElementById('email').value, firstName: document.getElementById('firstName').value, lastName: document.getElementById('lastName').value, roles: document.getElementById('roles').value };
+        if (document.getElementById('password').value) data.password = document.getElementById('password').value;
         try {
-            const response = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify(data)
-            });
-            if (!response.ok) { return handleApiError(response, action, true, modalError); }
-
-            closeModal();
-            loadUsers();
-        } catch (error) {
-            console.error(`${action} error:`, error);
-            showUserModalError(`Save failed: ${error.message}`);
-        }
+            const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
+            if (!res.ok) throw new Error((await res.json()).message);
+            closeModal(); showToast('User saved', 'success'); loadUsers();
+        } catch (e) { showToast(e.message, 'error'); }
     });
-
-    // --- (END) USER MANAGEMENT FUNCTIONS ---
-
-
-    // --- (START) SSO CONFIG FUNCTIONS ---
 
     async function loadSsoConfigurations() {
         try {
-            const response = await fetch('/api/admin/sso-config', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!response.ok) return handleApiError(response, "load SSO configs", false, getErrorDivForType('all'));
-
-            const configs = await response.json();
-            configDataStore = {}; // Clear old data
-
-            configs.forEach(config => {
-                configDataStore[config.providerId] = config;
-                populateSsoForm(config);
-            });
-        } catch (error) {
-            console.error('Load SSO configs error:', error);
-            showSsoError(`Failed to load SSO configurations: ${error.message}`, 'all');
-        }
+            const res = await fetch('/api/admin/sso-config', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                (await res.json()).forEach(c => { configDataStore[c.providerId] = c; populateSsoForm(c); });
+            }
+        } catch (e) {}
     }
 
-    function populateSsoForm(config) {
-        const prefix = config.providerType.toLowerCase(); // 'saml', 'oidc', 'jwt'
-
-        // This relies on IDs matching the pattern: ${prefix}Enable, ${prefix}DisplayName, etc.
-        document.getElementById(`${prefix}ConfigId`).value = config.id || '';
-        document.getElementById(`${prefix}Enable`).checked = config.enabled;
-        document.getElementById(`${prefix}DisplayName`).value = config.displayName || '';
-
-        // --- Common ---
-        if (document.getElementById(`${prefix}ClientId`)) document.getElementById(`${prefix}ClientId`).value = config.clientId || '';
-        // NOTE: We no longer receive clientSecret, so the field will just be a placeholder
-        if (document.getElementById(`${prefix}ClientSecret`)) document.getElementById(`${prefix}ClientSecret`).value = '';
-        if (document.getElementById(`${prefix}IssuerUri`)) document.getElementById(`${prefix}IssuerUri`).value = config.issuerUri || '';
-
-        // --- OIDC ---
-        if (prefix === 'oidc') {
-            document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
-            document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
-            document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
-            document.getElementById('oidcTokenUri').value = config.tokenUri || '';
-            document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
-            document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
+    function populateSsoForm(c) {
+        const p = c.providerType.toLowerCase();
+        const idEl = document.getElementById(`${p}ConfigId`);
+        if (!idEl) return;
+        idEl.value = c.id || '';
+        document.getElementById(`${p}Enable`).checked = c.enabled;
+        document.getElementById(`${p}DisplayName`).value = c.displayName || '';
+        if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
+        if (document.getElementById(`${p}ClientSecret`)) document.getElementById(`${p}ClientSecret`).value = '';
+        if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
+        if (p === 'jwt') {
+            document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
+            document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
+            // Map Issuer to Client ID field if present (common usage)
+            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
         }
-        // --- SAML ---
-        else if (prefix === 'saml') {
-            document.getElementById('samlEntityId').value = config.samlEntityId || '';
-            document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
-            document.getElementById('samlCertificate').value = config.samlCertificate || '';
-        }
-        // --- JWT ---
-        else if (prefix === 'jwt') {
-            document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
-            document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
-            document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
-        }
+        // ... (Mapping other fields for SAML/OIDC - same as before) ...
+        if (p === 'saml') { document.getElementById('samlEntityId').value = c.samlEntityId||''; document.getElementById('samlSsoUrl').value = c.samlSsoUrl||''; document.getElementById('samlCertificate').value = c.samlCertificate||''; }
+        if (p === 'oidc') { document.getElementById('oidcScopes').value = c.scopes||''; document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||''; if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri; if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri; if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri; if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri; }
     }
 
-    [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const providerType = form.dataset.providerType;
-            const providerId = form.dataset.providerId;
-            const configId = configDataStore[providerId]?.id;
-            const prefix = providerType.toLowerCase();
+    ['saml', 'oidc', 'jwt'].forEach(type => {
+        const form = document.getElementById(`${type}ConfigForm`);
+        // Clean clones
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
 
-            clearSsoErrors(providerType);
-
-            // Create data payload from form
+        newForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pid = newForm.dataset.providerId;
+            const cfgId = configDataStore[pid]?.id;
             const data = {
-                id: configId,
-                providerId: providerId,
-                providerType: providerType,
-                enabled: document.getElementById(`${prefix}Enable`).checked,
-                displayName: document.getElementById(`${prefix}DisplayName`).value,
-
-                // Common
-                clientId: document.getElementById(`${prefix}ClientId`)?.value,
-                clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value,
-                issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value,
-
-                // OIDC
-                scopes: document.getElementById('oidcScopes')?.value,
-                userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value,
-                authorizationUri: document.getElementById('oidcAuthorizationUri')?.value,
-                tokenUri: document.getElementById('oidcTokenUri')?.value,
-                userInfoUri: document.getElementById('oidcUserInfoUri')?.value,
-                jwkSetUri: document.getElementById('oidcJwkSetUri')?.value,
-
-                // SAML
-                samlEntityId: document.getElementById('samlEntityId')?.value,
-                samlSsoUrl: document.getElementById('samlSsoUrl')?.value,
-                samlCertificate: document.getElementById('samlCertificate')?.value,
-
-                // JWT
-                jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value,
-                jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value,
-                jwtCertificate: document.getElementById('jwtCertificate')?.value,
+                id: cfgId, providerId: pid, providerType: type.toUpperCase(),
+                enabled: document.getElementById(`${type}Enable`).checked,
+                displayName: document.getElementById(`${type}DisplayName`).value
             };
+            // Mapping fields manually to ensure JWT special case is handled
+            if (type === 'jwt') {
+                data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
+                data.jwtCertificate = document.getElementById('jwtCertificate').value;
+                // Important: For JWT, Client ID field maps to Issuer URI
+                data.issuerUri = document.getElementById('jwtClientId').value;
+                // Pass Client ID as well if backend needs it separately
+                data.clientId = document.getElementById('jwtClientId').value;
 
-            // Don't send empty secret unless it's a create
-            if (configId && !data.clientSecret) {
-                delete data.clientSecret;
+                // Construct Redirect URI to ensure it is saved
+                const sub = document.getElementById('brandingSubdomain').value || 'example';
+                data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
+            } else {
+                // Standard mapping for OIDC/SAML
+                if(document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
+                if(document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;
+                if(type==='saml') { data.samlEntityId=document.getElementById('samlEntityId').value; data.samlSsoUrl=document.getElementById('samlSsoUrl').value; data.samlCertificate=document.getElementById('samlCertificate').value; }
+                if(type==='oidc') { data.scopes=document.getElementById('oidcScopes').value; data.userNameAttribute=document.getElementById('oidcUserNameAttribute').value; data.authorizationUri=document.getElementById('oidcAuthorizationUri').value; data.tokenUri=document.getElementById('oidcTokenUri').value; data.userInfoUri=document.getElementById('oidcUserInfoUri').value; data.jwkSetUri=document.getElementById('oidcJwkSetUri').value; }
             }
 
-            const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
-            const method = configId ? 'PUT' : 'POST';
+            // Password handling
+            const secretEl = document.getElementById(`${type}ClientSecret`);
+            if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
             try {
-                const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                    body: JSON.stringify(data)
-                });
-
-                if (!response.ok) {
-                    return handleApiError(response, `save ${providerType} config`, false, getErrorDivForType(providerType));
-                }
-
-                const updatedConfig = await response.json();
-                configDataStore[updatedConfig.providerId] = updatedConfig;
-                populateSsoForm(updatedConfig);
-                alert(`${providerType} configuration saved successfully!`);
-
-            } catch (error) {
-                console.error(`Save ${providerType} config error:`, error);
-                showSsoError(`Save failed: ${error.message}`, providerType);
-            }
+                const res = await fetch(cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config', { method: cfgId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
+                if (!res.ok) throw new Error((await res.json()).message);
+                const updated = await res.json();
+                configDataStore[pid] = updated;
+                populateSsoForm(updated);
+                showToast(`${type.toUpperCase()} Saved!`, 'success');
+            } catch (e) { showToast(e.message, 'error'); }
         });
     });
 
-    function testAttributes(providerId) {
-        const config = configDataStore[providerId];
-        if (!config || !config.enabled) {
-            alert("Please save and enable the configuration before testing.");
-            return;
-        }
-        // The /api/sso/test-attributes/{providerId} endpoint will handle the redirect
-        window.open(`/api/sso/test-attributes/${providerId}`, 'ssoTestWindow', 'width=600,height=700');
-    }
+    window.testAttributes = function(pid) {
+        const c = configDataStore[pid];
+        if (!c || !c.enabled) { showToast("Please save and enable configuration first.", 'error'); return; }
+        window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
+    };
 
-    // --- (END) SSO CONFIG FUNCTIONS ---
-
-
-    // --- Utility/Error Functions ---
-    function getErrorDivForType(providerType) {
-        if (providerType === 'SAML') return samlErrorDiv;
-        if (providerType === 'OIDC') return oidcErrorDiv;
-        if (providerType === 'JWT') return jwtErrorDiv;
-        if (providerType === 'BRANDING') return brandingErrorDiv;
-        return errorMessageDiv; // Default for 'all' or user management
-    }
-     function showSsoError(message, providerType = 'all') {
-         const div = getErrorDivForType(providerType);
-         if (div) { div.textContent = message; div.style.display = 'block'; }
-     }
-     function clearSsoErrors(providerType = 'all') {
-         if (providerType === 'all' || providerType === 'SAML') { samlErrorDiv.textContent = ''; samlErrorDiv.style.display = 'none'; }
-         if (providerType === 'all' || providerType === 'OIDC') { oidcErrorDiv.textContent = ''; oidcErrorDiv.style.display = 'none'; }
-         if (providerType === 'all' || providerType === 'JWT') { jwtErrorDiv.textContent = ''; jwtErrorDiv.style.display = 'none'; }
-     }
-     function showUserError(message) { errorMessageDiv.textContent = message; errorMessageDiv.style.display = 'block'; }
-     function showUserModalError(message) { modalError.textContent = message; modalError.style.display = 'block'; }
-     function clearUserModalError() {
-         errorMessageDiv.textContent = ''; errorMessageDiv.style.display = 'none';
-         modalError.textContent = ''; modalError.style.display = 'none';
-     }
-
-     async function handleApiError(response, actionDescription, showInModal = false, targetErrorDiv = null) {
-         let errorDisplayDiv = showInModal ? modalError : (targetErrorDiv || errorMessageDiv);
-         let errorMessage = `Failed to ${actionDescription} (Status: ${response.status})`;
-         try {
-             const errorData = await response.json();
-             if (response.status === 409) {
-                 errorMessage = errorData.message || "Conflict: Resource already exists.";
-             } else if (errorData.message) {
-                 errorMessage = errorData.message;
-             } else if (errorData.errors) {
-                 errorMessage = "Validation Failed: " + Object.values(errorData.errors).join('; ');
-             }
-         } catch (e) { /* Ignore */ }
-
-         console.error(`API Error during ${actionDescription}:`, errorMessage);
-         if (response.status === 403) errorMessage = "Permission Denied. You must be a Customer Admin.";
-         else if (response.status === 401) errorMessage = "Session Expired. Please log in.";
-
-         if (errorDisplayDiv) { errorDisplayDiv.textContent = errorMessage; errorDisplayDiv.style.display = 'block'; }
-         else { console.error("Target error div not found for message:", errorMessage); }
-     }
-
-    // --- Password Toggle & Logout ---
-    function setupPasswordToggle(inputId, toggleId) {
-        const passwordInput = document.getElementById(inputId);
-        const toggleButton = document.getElementById(toggleId);
-        if (passwordInput && toggleButton) {
-            toggleButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                toggleButton.textContent = type === 'password' ? 'Show' : 'Hide';
-            });
-        }
-    }
-    setupPasswordToggle('oidcClientSecret', 'toggleOidcSecret');
-    setupPasswordToggle('jwtClientSecret', 'toggleJwtSecret');
-    setupPasswordToggle('password', 'toggleUserPassword'); // <-- NEWLY ADDED
-
-    const logoutButton = document.getElementById('logout-button');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', () => {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('userInfo');
-            window.location.href = '/login';
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const inp = e.target.previousElementSibling;
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+            e.target.textContent = inp.type === 'password' ? 'Show' : 'Hide';
         });
-    }
+    });
 
-    // --- Initial Page Load Check ---
-    if (token) {
-        document.getElementById("welcome").style.display = "block";
-    } else {
-         setTimeout(() => { window.location.href = '/login'; }, 1000);
-    }
-
-            // ========================================
-        // PHASE 2 CRITICAL FIXES
-        // ========================================
-
-        // --- FIX 1: Improved Error Handling with Retry Logic ---
-        async function loadSsoConfigurations() {
-            const maxRetries = 3;
-            let attempt = 0;
-
-            while (attempt < maxRetries) {
-                try {
-                    console.log(`[SSO Config] Loading attempt ${attempt + 1}/${maxRetries}...`);
-
-                    const response = await fetch('/api/admin/sso-config', {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`[SSO Config] Load failed (${response.status}):`, errorText);
-
-                        if (response.status === 401 || response.status === 403) {
-                            // Auth error - don't retry
-                            showSsoError('Session expired or access denied. Please refresh the page.', 'all');
-                            return;
-                        }
-
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
-                    }
-
-                    const configs = await response.json();
-                    console.log(`[SSO Config] Loaded ${configs.length} configs:`, configs);
-
-                    configDataStore = {}; // Clear old data
-
-                    configs.forEach(config => {
-                        console.log(`[SSO Config] Processing config:`, {
-                            id: config.id,
-                            providerId: config.providerId,
-                            type: config.providerType,
-                            enabled: config.enabled
-                        });
-
-                        configDataStore[config.providerId] = config;
-                        populateSsoForm(config);
-                    });
-
-                    console.log('[SSO Config] Load completed successfully');
-                    return; // Success - exit retry loop
-
-                } catch (error) {
-                    attempt++;
-                    console.error(`[SSO Config] Load attempt ${attempt} failed:`, error);
-
-                    if (attempt >= maxRetries) {
-                        showSsoError(`Failed to load SSO configurations after ${maxRetries} attempts: ${error.message}`, 'all');
-                        return;
-                    }
-
-                    // Wait before retry (exponential backoff)
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-                }
-            }
-        }
-
-        // --- FIX 2: Enhanced Form Submission with Better Validation ---
-        [samlConfigForm, oidcConfigForm, jwtConfigForm].forEach(form => {
-            // Remove old listener first to prevent duplicates
-            const oldForm = form.cloneNode(true);
-            form.parentNode.replaceChild(oldForm, form);
-
-            // Get references again after replacement
-            const actualForm = document.getElementById(form.id);
-
-            actualForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                const providerType = actualForm.dataset.providerType;
-                const providerId = actualForm.dataset.providerId;
-                const prefix = providerType.toLowerCase();
-
-                console.log(`[${providerType}] Form submission started:`, { providerType, providerId });
-                clearSsoErrors(providerType);
-
-                // Get stored config
-                const storedConfig = configDataStore[providerId];
-                const configId = storedConfig?.id;
-
-                console.log(`[${providerType}] Stored config:`, storedConfig);
-                console.log(`[${providerType}] Config ID: ${configId}`);
-
-                // Build data payload
-                const data = {
-                    providerId: providerId,
-                    providerType: providerType,
-                    enabled: document.getElementById(`${prefix}Enable`).checked,
-                    displayName: document.getElementById(`${prefix}DisplayName`).value,
-
-                    // Common fields
-                    clientId: document.getElementById(`${prefix}ClientId`)?.value || null,
-                    clientSecret: document.getElementById(`${prefix}ClientSecret`)?.value || null,
-                    issuerUri: document.getElementById(`${prefix}IssuerUri`)?.value || null,
-
-                    // OIDC fields
-                    scopes: document.getElementById('oidcScopes')?.value || null,
-                    userNameAttribute: document.getElementById('oidcUserNameAttribute')?.value || null,
-                    authorizationUri: document.getElementById('oidcAuthorizationUri')?.value || null,
-                    tokenUri: document.getElementById('oidcTokenUri')?.value || null,
-                    userInfoUri: document.getElementById('oidcUserInfoUri')?.value || null,
-                    jwkSetUri: document.getElementById('oidcJwkSetUri')?.value || null,
-
-                    // SAML fields
-                    samlEntityId: document.getElementById('samlEntityId')?.value || null,
-                    samlSsoUrl: document.getElementById('samlSsoUrl')?.value || null,
-                    samlCertificate: document.getElementById('samlCertificate')?.value || null,
-
-                    // JWT fields
-                    jwtSsoUrl: document.getElementById('jwtSsoUrl')?.value || null,
-                    jwtRedirectUri: document.getElementById('jwtRedirectUri')?.value || null,
-                    jwtCertificate: document.getElementById('jwtCertificate')?.value || null,
-                };
-
-                // Don't send empty secret on update
-                if (configId && !data.clientSecret) {
-                    delete data.clientSecret;
-                }
-
-                // Determine endpoint and method
-                const url = configId ? `/api/admin/sso-config/${configId}` : '/api/admin/sso-config';
-                const method = configId ? 'PUT' : 'POST';
-                const action = configId ? 'update' : 'create';
-
-                console.log(`[${providerType}] Sending ${method} request to ${url}`, data);
-
-                try {
-                    const response = await fetch(url, {
-                        method: method,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        let errorMessage = `Failed to ${action} ${providerType} config (${response.status})`;
-
-                        try {
-                            const errorData = JSON.parse(errorText);
-                            if (errorData.message) {
-                                errorMessage = errorData.message;
-                            }
-                        } catch (e) {
-                            errorMessage += `: ${errorText}`;
-                        }
-
-                        console.error(`[${providerType}] ${action.toUpperCase()} FAILED:`, errorMessage);
-                        showSsoError(errorMessage, providerType);
-                        return;
-                    }
-
-                    const updatedConfig = await response.json();
-                    console.log(`[${providerType}] ${action.toUpperCase()} SUCCESS:`, updatedConfig);
-
-                    // Update stored config
-                    configDataStore[updatedConfig.providerId] = updatedConfig;
-                    populateSsoForm(updatedConfig);
-
-                    alert(`✓ ${providerType} configuration ${action}d successfully!`);
-
-                } catch (error) {
-                    console.error(`[${providerType}] ${action.toUpperCase()} ERROR:`, error);
-                    showSsoError(`Failed to ${action}: ${error.message}`, providerType);
-                }
-            });
-        });
-
-        // --- FIX 3: Add Debug Button (Add to HTML) ---
-        /*
-        Add this button to each SSO config form, after the "Test Connection" button:
-
-        <button type="button" class="btn-test" style="background-color: #6c757d;"
-                onclick="showDebugInfo()">
-            Debug Info
-        </button>
-        */
-
-        async function showDebugInfo() {
-            try {
-                const response = await fetch('/api/admin/sso-config/debug/tenant-info', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-
-                if (!response.ok) {
-                    alert('Debug endpoint failed: ' + response.status);
-                    return;
-                }
-
-                const debug = await response.json();
-
-                let message = `=== TENANT DEBUG INFO ===\n\n`;
-                message += `Current Tenant ID: ${debug.currentTenantId}\n`;
-                message += `Timestamp: ${new Date(debug.timestamp).toLocaleString()}\n\n`;
-                message += `=== MY VISIBLE CONFIGS ===\n`;
-                debug.myVisibleConfigs.forEach(c => {
-                    message += `- ID: ${c.id}, Provider: ${c.providerId}\n`;
-                });
-                message += `\n=== ALL CONFIGS IN DATABASE ===\n`;
-                debug.allConfigsInDatabase.forEach(c => {
-                    message += `- ID: ${c.id}, Provider: ${c.providerId}, Type: ${c.providerType}\n`;
-                    message += `  Tenant: ${c.tenantId} (${c.subdomain}), Visible: ${c.visibleToMe}\n`;
-                });
-
-                console.log(message);
-                alert(message);
-
-            } catch (error) {
-                console.error('Debug info failed:', error);
-                alert('Failed to fetch debug info: ' + error.message);
-            }
-        }
-
-        // --- FIX 4: Enhanced populateSsoForm with Validation ---
-        function populateSsoForm(config) {
-            const prefix = config.providerType.toLowerCase();
-
-            console.log(`[populateSsoForm] Processing ${prefix}:`, config);
-
-            // Validate required elements exist
-            const configIdEl = document.getElementById(`${prefix}ConfigId`);
-            const enableEl = document.getElementById(`${prefix}Enable`);
-            const displayNameEl = document.getElementById(`${prefix}DisplayName`);
-
-            if (!configIdEl || !enableEl || !displayNameEl) {
-                console.error(`[populateSsoForm] Missing form elements for ${prefix}`);
-                return;
-            }
-
-            // Set values
-            configIdEl.value = config.id || '';
-            enableEl.checked = config.enabled;
-            displayNameEl.value = config.displayName || '';
-
-            // Common fields
-            const clientIdEl = document.getElementById(`${prefix}ClientId`);
-            const issuerUriEl = document.getElementById(`${prefix}IssuerUri`);
-            if (clientIdEl) clientIdEl.value = config.clientId || '';
-            if (issuerUriEl) issuerUriEl.value = config.issuerUri || '';
-
-            // Type-specific fields
-            if (prefix === 'oidc') {
-                document.getElementById('oidcScopes').value = config.scopes || 'openid, profile, email';
-                document.getElementById('oidcUserNameAttribute').value = config.userNameAttribute || 'email';
-                document.getElementById('oidcAuthorizationUri').value = config.authorizationUri || '';
-                document.getElementById('oidcTokenUri').value = config.tokenUri || '';
-                document.getElementById('oidcUserInfoUri').value = config.userInfoUri || '';
-                document.getElementById('oidcJwkSetUri').value = config.jwkSetUri || '';
-            } else if (prefix === 'saml') {
-                document.getElementById('samlEntityId').value = config.samlEntityId || '';
-                document.getElementById('samlSsoUrl').value = config.samlSsoUrl || '';
-                document.getElementById('samlCertificate').value = config.samlCertificate || '';
-            } else if (prefix === 'jwt') {
-                document.getElementById('jwtSsoUrl').value = config.jwtSsoUrl || '';
-                document.getElementById('jwtRedirectUri').value = config.jwtRedirectUri || '';
-                document.getElementById('jwtCertificate').value = config.jwtCertificate || '';
-            }
-
-            console.log(`[populateSsoForm] ✓ Populated ${prefix} form`);
-        }
-
-        console.log('[Admin Dashboard] Phase 2 fixes applied ✓');
-
+    document.getElementById('logout-button').addEventListener('click', () => { localStorage.removeItem('accessToken'); window.location.href = '/login'; });
+    if (token) document.getElementById("welcome").style.display = "block"; else window.location.href = '/login';
 </script>
-
 </body>
 </html>

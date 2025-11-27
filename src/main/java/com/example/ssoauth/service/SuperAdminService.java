@@ -1,9 +1,6 @@
 package com.example.ssoauth.service;
 
-import com.example.ssoauth.dto.SignUpRequest;
-import com.example.ssoauth.dto.TenantDetailDto; // UPDATED DTO
-import com.example.ssoauth.dto.TenantDto;
-import com.example.ssoauth.dto.UserInfo;
+import com.example.ssoauth.dto.*;
 import com.example.ssoauth.entity.SsoProviderConfig; // NEW IMPORT
 import com.example.ssoauth.entity.SsoProviderType; // NEW IMPORT
 import com.example.ssoauth.entity.Tenant;
@@ -91,6 +88,52 @@ public class SuperAdminService {
         return mapToTenantDto(updatedTenant);
     }
 
+    // NEW METHOD: Public Onboarding Flow
+    @Transactional
+    public TenantDto registerNewTenant(TenantRegistrationRequest request) {
+        log.info("Public Registration: Creating tenant '{}' with subdomain '{}'", request.getTenantName(), request.getSubdomain());
+
+        // 1. Validate Subdomain Uniqueness
+        if (tenantRepository.findBySubdomain(request.getSubdomain()).isPresent()) {
+            throw new ResourceAlreadyExistsException("Subdomain '" + request.getSubdomain() + "' is already taken.");
+        }
+
+        // 2. Validate Admin Username/Email Global Uniqueness (Optional, but good for main domain)
+        // Since the new user will belong to the new tenant, we strictly only need to check inside that tenant context,
+        // but checking globally prevents confusion if you use email for discovery later.
+        if (userRepository.existsByEmailAndTenantIdIsNull(request.getEmail())) {
+            throw new ResourceAlreadyExistsException("Email is already registered in the system.");
+        }
+
+        // 3. Create Tenant
+        Tenant tenant = Tenant.builder()
+                .name(request.getTenantName())
+                .subdomain(request.getSubdomain().toLowerCase())
+                .build();
+        Tenant savedTenant = tenantRepository.save(tenant);
+
+        // 4. Create Admin User linked to Tenant
+        User adminUser = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .tenant(savedTenant) // Link to new tenant
+                .roles("ROLE_ADMIN,ROLE_USER") // Assign Admin Role
+                .enabled(true)
+                .accountNonExpired(true)
+                .accountNonLocked(true)
+                .credentialsNonExpired(true)
+                .authProvider(User.AuthProvider.LOCAL)
+                .build();
+
+        userRepository.save(adminUser);
+
+        log.info("Successfully registered tenant {} and admin user {}", savedTenant.getId(), adminUser.getUsername());
+
+        return mapToTenantDto(savedTenant);
+    }
     // --- User Management (Onboarding) ---
 
     @Transactional

@@ -31,9 +31,6 @@ public class SsoConfigService {
     private final SsoProviderConfigRepository configRepository;
     private final TenantRepository tenantRepository;
 
-    /**
-     * CRITICAL FIX: Always validate tenant context exists before any operation.
-     */
     private Long getTenantIdFromContextOrFail() {
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
@@ -48,7 +45,6 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Fetching ALL SSO configs for tenantId: {}", tenantId);
 
-        // CRITICAL FIX: Use explicit tenant query instead of relying on filter
         List<SsoProviderConfig> configs = configRepository.findAll().stream()
                 .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
                 .collect(Collectors.toList());
@@ -64,7 +60,6 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.debug("Fetching SSO config entities for tenantId: {}", tenantId);
 
-        // Use explicit tenant-aware query
         return configRepository.findAll().stream()
                 .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
                 .collect(Collectors.toList());
@@ -75,7 +70,6 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Fetching SSO config: id={}, tenantId={}", id, tenantId);
 
-        // CRITICAL FIX: Use explicit tenant-aware query
         SsoProviderConfig config = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> {
                     log.error("✗ SSO Config not found: id={}, tenantId={}", id, tenantId);
@@ -83,15 +77,12 @@ public class SsoConfigService {
                             String.format("SSO Config not found with ID %d for your organization", id));
                 });
 
-        // Double-check tenant ownership (defensive programming)
         if (!config.getTenant().getId().equals(tenantId)) {
             log.error("SECURITY VIOLATION: Config {} belongs to tenant {}, but requested by tenant {}",
                     id, config.getTenant().getId(), tenantId);
             throw new SecurityException("Access denied to this SSO configuration");
         }
 
-        log.info("✓ SSO Config found: id={}, providerId='{}', tenant={}",
-                id, config.getProviderId(), tenantId);
         return mapEntityToDto(config);
     }
 
@@ -100,10 +91,8 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.debug("Fetching SSO config: providerId='{}', tenantId={}", providerId, tenantId);
 
-        // Use explicit tenant-aware query
         Optional<SsoProviderConfig> configOpt = configRepository.findByProviderIdAndTenantId(providerId, tenantId);
 
-        // Validate tenant ownership if found
         configOpt.ifPresent(config -> {
             if (!config.getTenant().getId().equals(tenantId)) {
                 log.error("SECURITY VIOLATION: Config '{}' belongs to wrong tenant", providerId);
@@ -119,14 +108,11 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.debug("Fetching enabled SSO providers for tenantId: {}", tenantId);
 
-        // Use explicit tenant-aware query
         List<SsoProviderConfig> enabledConfigs = configRepository.findByTenantIdAndEnabledTrue(tenantId);
 
         List<EnabledProviderDto> providerDtos = new ArrayList<>();
         for (SsoProviderConfig config : enabledConfigs) {
-            // Validate tenant ownership
             if (!config.getTenant().getId().equals(tenantId)) {
-                log.warn("Skipping config {} - wrong tenant", config.getProviderId());
                 continue;
             }
 
@@ -147,7 +133,6 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Updating SSO config: id={}, tenantId={}", id, tenantId);
 
-        // CRITICAL FIX: Use explicit tenant-aware query
         SsoProviderConfig existingConfig = configRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> {
                     log.error("✗ Update failed - Config not found: id={}, tenantId={}", id, tenantId);
@@ -155,30 +140,22 @@ public class SsoConfigService {
                             String.format("SSO Config not found with ID %d for your organization", id));
                 });
 
-        // Validate tenant ownership (defensive)
         if (!existingConfig.getTenant().getId().equals(tenantId)) {
-            log.error("SECURITY VIOLATION: Attempted to update config {} belonging to different tenant", id);
             throw new SecurityException("Access denied to this SSO configuration");
         }
 
-        // Prevent changing providerId or type
         if (!existingConfig.getProviderId().equals(dto.getProviderId()) ||
                 !existingConfig.getProviderType().equals(dto.getProviderType())) {
-            log.warn("Attempt to change providerId or type for config {}", id);
             throw new IllegalArgumentException("Provider ID and Type cannot be changed");
         }
 
-        // Apply updates
         BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant");
 
-        // Update secret only if provided
         if (StringUtils.hasText(dto.getClientSecret())) {
-            log.debug("Updating client secret for config {}", id);
             existingConfig.setClientSecret(dto.getClientSecret());
         }
 
         SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
-        log.info("✓ SSO config updated: id={}, providerId='{}'", id, updatedConfig.getProviderId());
         return mapEntityToDto(updatedConfig);
     }
 
@@ -187,26 +164,19 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Creating SSO config: providerId='{}', tenantId={}", dto.getProviderId(), tenantId);
 
-        // Get tenant entity
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 
-        // Check for duplicate providerId within tenant
         if (configRepository.existsByProviderIdAndTenantId(dto.getProviderId(), tenantId)) {
-            log.warn("Create failed - providerId '{}' already exists for tenant {}",
-                    dto.getProviderId(), tenantId);
             throw new IllegalArgumentException(
                     "Provider ID '" + dto.getProviderId() + "' already exists for your organization");
         }
 
-        // Create new config
         SsoProviderConfig newConfig = new SsoProviderConfig();
         BeanUtils.copyProperties(dto, newConfig, "id", "createdAt", "updatedAt");
         newConfig.setTenant(tenant);
 
         SsoProviderConfig savedConfig = configRepository.save(newConfig);
-        log.info("✓ SSO config created: id={}, providerId='{}', tenantId={}",
-                savedConfig.getId(), savedConfig.getProviderId(), tenantId);
         return mapEntityToDto(savedConfig);
     }
 
@@ -221,6 +191,14 @@ public class SsoConfigService {
             case JWT:
                 try {
                     String ssoUrl = config.getJwtSsoUrl() != null ? config.getJwtSsoUrl() : "#";
+
+                    // --- UPDATED LOGIC ---
+                    // If the URL already contains parameters (like the full MiniOrange URL), use it as is.
+                    if (ssoUrl.contains("?") && ssoUrl.contains("client_id=")) {
+                        return ssoUrl;
+                    }
+
+                    // Otherwise, construct it manually (Legacy support)
                     String clientId = config.getClientId() != null ? config.getClientId() : "";
                     String redirectUri = config.getJwtRedirectUri() != null ? config.getJwtRedirectUri() : "";
                     String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
@@ -230,7 +208,6 @@ public class SsoConfigService {
                     return null;
                 }
             default:
-                log.warn("URL building not supported for type: {}", config.getProviderType());
                 return null;
         }
     }
@@ -238,7 +215,6 @@ public class SsoConfigService {
     private SsoProviderConfigDto mapEntityToDto(SsoProviderConfig entity) {
         SsoProviderConfigDto dto = new SsoProviderConfigDto();
         BeanUtils.copyProperties(entity, dto);
-        // Explicitly exclude clientSecret (it's not in the DTO)
         return dto;
     }
 }

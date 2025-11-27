@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Organization - SSO System</title>
+    <style>
+        :root {
+            --primary-orange: #FF6600;
+            --secondary-orange: #FF9933;
+            --background-color: #F8F8F8;
+            --white: #FFFFFF;
+            --text-color: #333333;
+            --border-color: #DDDDDD;
+            --success-color: #28a745;
+            --error-color: #DC3545;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .register-container {
+            background: var(--white);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary-orange);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .form-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .form-section:last-child { border-bottom: none; }
+
+        h4 { margin: 0 0 15px 0; color: var(--text-color); font-size: 1.1em; }
+
+        .form-group { margin-bottom: 15px; position: relative; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem; }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+        }
+
+        /* Subdomain Input Group */
+        .subdomain-group { display: flex; align-items: center; }
+        .subdomain-group input { border-radius: 6px 0 0 6px; }
+        .subdomain-suffix {
+            background: #eee;
+            border: 1px solid var(--border-color);
+            border-left: none;
+            padding: 10px;
+            border-radius: 0 6px 6px 0;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .validation-msg {
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .validation-msg.valid { color: var(--success-color); display: block; }
+        .validation-msg.invalid { color: var(--error-color); display: block; }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-orange);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .btn-submit:hover { background-color: var(--secondary-orange); }
+        .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .row { display: flex; gap: 15px; }
+        .row .form-group { flex: 1; }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .success-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            animation: popIn 0.3s ease-out;
+        }
+
+        .success-icon {
+            width: 60px; height: 60px;
+            background: var(--success-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 20px auto;
+        }
+
+        .redirect-text {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary-orange);
+            border-radius: 50%;
+            width: 16px; height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 5px;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="register-container">
+    <h2>Setup Your Organization</h2>
+    <p class="subtitle">Create your tenant environment and admin account.</p>
+
+    <form id="regForm">
+        <div class="form-section">
+            <h4>Organization Details</h4>
+            <div class="form-group">
+                <label for="tenantName">Company Name</label>
+                <input type="text" id="tenantName" name="tenantName" required placeholder="e.g. Acme Corp">
+            </div>
+
+            <div class="form-group">
+                <label for="subdomain">Subdomain (Login URL)</label>
+                <div class="subdomain-group">
+                    <input type="text" id="subdomain" name="subdomain" required placeholder="acme" autocomplete="off">
+                    <span class="subdomain-suffix">.localhost:8080</span>
+                </div>
+                <div id="subdomain-msg" class="validation-msg"></div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h4>Admin Account</h4>
+            <div class="row">
+                <div class="form-group">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+            </div>
+            <div id="password-msg" class="validation-msg invalid"></div>
+        </div>
+
+        <div id="global-error" class="validation-msg invalid" style="text-align: center; margin-bottom: 10px;"></div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">Create Organization</button>
+        <div style="text-align: center; margin-top: 15px; font-size: 0.9rem;">
+            <a href="/login" style="color: #007bff; text-decoration: none;">Back to Login</a>
+        </div>
+    </form>
+</div>
+
+<div class="modal-overlay" id="successModal">
+    <div class="success-card">
+        <div class="success-icon">✓</div>
+        <h3>All Set!</h3>
+        <p>Your organization has been created successfully.</p>
+        <div class="redirect-text">
+            Redirecting to your login portal... <div class="spinner"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const subdomainInput = document.getElementById('subdomain');
+    const subdomainMsg = document.getElementById('subdomain-msg');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirmPassword');
+    const passwordMsg = document.getElementById('password-msg');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('regForm');
+    const globalError = document.getElementById('global-error');
+    const successModal = document.getElementById('successModal');
+
+    let isSubdomainValid = false;
+    let debounceTimer;
+
+    // --- 1. Real-time Subdomain Check ---
+    subdomainInput.addEventListener('input', (e) => {
+        const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+        e.target.value = val; // Force alphanumeric
+
+        clearTimeout(debounceTimer);
+        subdomainMsg.className = 'validation-msg';
+        subdomainMsg.textContent = '';
+        isSubdomainValid = false;
+
+        if (val.length < 3) {
+            subdomainMsg.textContent = 'Minimum 3 characters required.';
+            subdomainMsg.classList.add('invalid');
+            return;
+        }
+
+        subdomainMsg.textContent = 'Checking availability...';
+        subdomainMsg.style.display = 'block';
+        subdomainMsg.style.color = '#666';
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/public/check-subdomain?subdomain=${val}`);
+                const data = await res.json();
+
+                if (data.available) {
+                    subdomainMsg.textContent = '✓ Subdomain is available';
+                    subdomainMsg.className = 'validation-msg valid';
+                    isSubdomainValid = true;
+                } else {
+                    subdomainMsg.textContent = '✗ Subdomain is already taken';
+                    subdomainMsg.className = 'validation-msg invalid';
+                    isSubdomainValid = false;
+                }
+            } catch (err) {
+                console.error(err);
+                subdomainMsg.textContent = 'Error checking subdomain';
+            }
+        }, 500); // Debounce delay
+    });
+
+    // --- 2. Password Validation ---
+    function validatePasswords() {
+        const p1 = passwordInput.value;
+        const p2 = confirmInput.value;
+
+        if (!p1 || !p2) {
+            passwordMsg.style.display = 'none';
+            return false;
+        }
+
+        if (p1 !== p2) {
+            passwordMsg.textContent = "Passwords do not match";
+            passwordMsg.style.display = 'block';
+            return false;
+        } else if (p1.length < 6) {
+            passwordMsg.textContent = "Password must be at least 6 characters";
+            passwordMsg.style.display = 'block';
+            return false;
+        } else {
+            passwordMsg.style.display = 'none';
+            return true;
+        }
+    }
+
+    passwordInput.addEventListener('input', validatePasswords);
+    confirmInput.addEventListener('input', validatePasswords);
+
+    // --- 3. Form Submission ---
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        globalError.style.display = 'none';
+
+        if (!isSubdomainValid) {
+            subdomainInput.focus();
+            subdomainMsg.textContent = "Please choose a valid available subdomain";
+            subdomainMsg.className = 'validation-msg invalid';
+            return;
+        }
+
+        if (!validatePasswords()) {
+            return;
+        }
+
+        // Prepare Data
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        delete data.confirmPassword; // Don't send confirm field
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating Account...';
+
+        try {
+            const response = await fetch('/api/public/register-tenant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // SUCCESS FLOW
+                successModal.style.display = 'flex';
+                const createdSubdomain = result.data.subdomain;
+
+                // Get the current base domain (handles localhost or real domain)
+                const currentHost = window.location.hostname; // e.g., localhost
+                const currentPort = window.location.port ? ':' + window.location.port : '';
+
+                // Construct target URL
+                // If on localhost, it becomes: subdomain.localhost:8080
+                // If on domain.com, it becomes: subdomain.domain.com
+                const targetUrl = `${window.location.protocol}//${createdSubdomain}.${currentHost}${currentPort}/login`;
+
+                setTimeout(() => {
+                    window.location.href = targetUrl;
+                }, 1500); // 1.5 seconds delay for user to read message
+            } else {
+                // API ERROR
+                throw new Error(result.message || 'Registration failed');
+            }
+        } catch (error) {
+            globalError.textContent = error.message;
+            globalError.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Organization';
+        }
+    });
+</script>
+
+</body>
+</html>

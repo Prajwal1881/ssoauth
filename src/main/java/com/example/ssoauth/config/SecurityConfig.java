@@ -67,11 +67,11 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/", "/login", "/signup", "/error",
+                                "/", "/login", "/signup", "/error","register",
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/**",
                                 "/api/sso/enabled-providers",
-                                "/api/public/branding",
+                                "/api/public/**",
                                 "/api/sso/test-attributes/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**",

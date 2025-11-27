@@ -34,27 +34,21 @@ public class PublicSsoController {
 
     @GetMapping("/enabled-providers")
     public ResponseEntity<List<EnabledProviderDto>> getEnabledProviders() {
-        // This method is now correct, as SsoConfigService handles resolving
-        // the Long tenantId.
         List<EnabledProviderDto> providerDtos = ssoConfigService.getEnabledProviders();
         return ResponseEntity.ok(providerDtos);
     }
 
     @GetMapping("/public/branding")
     public ResponseEntity<Map<String, String>> getTenantBranding() {
-        // --- FIX: Get Long tenantId from context ---
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
-            // No subdomain, return empty map
             return ResponseEntity.ok(Map.of());
         }
 
-        // Find the tenant by the Long ID
         Optional<Tenant> tenantOpt = tenantRepository.findById(tenantId);
-        // --- END FIX ---
 
         if (tenantOpt.isEmpty()) {
-            return ResponseEntity.ok(Map.of()); // No tenant found, return empty map
+            return ResponseEntity.ok(Map.of());
         }
 
         Tenant tenant = tenantOpt.get();
@@ -73,8 +67,6 @@ public class PublicSsoController {
 
         session.setAttribute("sso_test_provider_id", providerId);
 
-        // This method is now correct, as SsoConfigService handles resolving
-        // the Long tenantId before finding the config.
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(providerId)
                 .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
 
@@ -89,11 +81,19 @@ public class PublicSsoController {
             case JWT:
                 try {
                     String ssoUrl = config.getJwtSsoUrl() != null ? config.getJwtSsoUrl() : "#";
-                    String clientId = config.getClientId() != null ? config.getClientId() : "";
-                    String redirectUri = config.getJwtRedirectUri() != null ? config.getJwtRedirectUri() : "";
-                    String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
 
-                    redirectUrl = ssoUrl + "?client_id=" + clientId + "&redirect_uri=" + encodedRedirectUri;
+                    // --- FIX: Detect Full URL vs Manual Construction ---
+                    if (ssoUrl.contains("?") && ssoUrl.contains("client_id=")) {
+                        // It's already a full URL (like MiniOrange provides), use as is
+                        redirectUrl = ssoUrl;
+                    } else {
+                        // Manual construction (Legacy)
+                        String clientId = config.getClientId() != null ? config.getClientId() : "";
+                        String redirectUri = config.getJwtRedirectUri() != null ? config.getJwtRedirectUri() : "";
+                        String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
+                        redirectUrl = ssoUrl + "?client_id=" + clientId + "&redirect_uri=" + encodedRedirectUri;
+                    }
+
                     log.debug("Built JWT test redirect URL: {}", redirectUrl);
                 } catch (Exception e) {
                     log.error("Failed to build JWT redirect URL for test: {}", e.getMessage());
