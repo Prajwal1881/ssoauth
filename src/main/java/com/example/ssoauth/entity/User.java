@@ -119,6 +119,7 @@ public class User {
         LOCAL,
         OIDC,
         SAML,
-        SSO_JWT
+        SSO_JWT,
+        AD_LDAP
     }
 }

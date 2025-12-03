@@ -100,6 +100,10 @@ public class PublicSsoController {
                     return ResponseEntity.badRequest().build();
                 }
                 break;
+            case AD_LDAP:  // NEW
+                // For LDAP, we'll show a test page where admin can enter test credentials
+                redirectUrl = "/admin/ldap-test/" + providerId;
+                break;
             default:
                 log.warn("Attribute test not supported for provider type: {}", config.getProviderType());
                 return ResponseEntity.badRequest().build();

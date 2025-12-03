@@ -56,9 +56,7 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Fetching ALL SSO configs for tenantId: {}", tenantId);
 
-        List<SsoProviderConfig> configs = configRepository.findAll().stream()
-                .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
-                .collect(Collectors.toList());
+        List<SsoProviderConfig> configs = configRepository.findByTenantId(tenantId);
 
         log.info("← Found {} SSO configs for tenantId: {}", configs.size(), tenantId);
         return configs.stream()
@@ -160,10 +158,14 @@ public class SsoConfigService {
             throw new IllegalArgumentException("Provider ID and Type cannot be changed");
         }
 
-        BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant");
+        BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant", "ldapBindPassword");
 
         if (StringUtils.hasText(dto.getClientSecret())) {
             existingConfig.setClientSecret(dto.getClientSecret());
+        }
+
+        if (StringUtils.hasText(dto.getLdapBindPassword())) {
+            existingConfig.setLdapBindPassword(dto.getLdapBindPassword());
         }
 
         SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
@@ -218,6 +220,9 @@ public class SsoConfigService {
                     log.error("Failed to build JWT URL for {}: {}", config.getProviderId(), e.getMessage());
                     return null;
                 }
+            case AD_LDAP:
+                // Points to the local login page with the provider ID
+                return "/login/ad/" + config.getProviderId();
             default:
                 return null;
         }

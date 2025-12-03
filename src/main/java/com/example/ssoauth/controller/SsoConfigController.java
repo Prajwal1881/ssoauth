@@ -2,9 +2,15 @@ package com.example.ssoauth.controller;
 
 import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.ApiResponse;
+import com.example.ssoauth.dto.LdapUser;
 import com.example.ssoauth.dto.SsoProviderConfigDto;
 import com.example.ssoauth.dto.SsoProviderConfigUpdateRequest;
+import com.example.ssoauth.entity.SsoProviderConfig;
+import com.example.ssoauth.entity.User;
 import com.example.ssoauth.repository.SsoProviderConfigRepository;
+import com.example.ssoauth.repository.TenantRepository;
+import com.example.ssoauth.service.AuthService;
+import com.example.ssoauth.service.LdapService;
 import com.example.ssoauth.service.SsoConfigService;
 import com.example.ssoauth.service.SsoTestService;
 import jakarta.validation.Valid;
@@ -17,8 +23,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
-import com.example.ssoauth.entity.Tenant; // Ensure entity is imported or accessible
-import com.example.ssoauth.repository.TenantRepository; // Need to inject this
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,8 +38,10 @@ public class SsoConfigController {
 
     private final SsoConfigService ssoConfigService;
     private final SsoTestService ssoTestService;
-    private final SsoProviderConfigRepository configRepository; // For debug endpoint
+    private final SsoProviderConfigRepository configRepository;
     private final TenantRepository tenantRepository;
+    private final LdapService ldapService;
+    private final AuthService authService;
 
     // --- CRUD Endpoints ---
 
@@ -85,51 +91,57 @@ public class SsoConfigController {
         return ResponseEntity.ok(response);
     }
 
-    // --- NEW: DEBUG ENDPOINT ---
+    // --- NEW: AD User Import Endpoint ---
+    @PostMapping("/ad/import")
+    public ResponseEntity<ApiResponse> importAdUsers(@RequestBody Map<String, String> request) {
+        String providerId = request.get("providerId");
+        log.info("API: POST /api/admin/sso-config/ad/import - providerId='{}'", providerId);
 
-    /**
-     * DEBUG ENDPOINT: Returns tenant context and all SSO configs with their tenant IDs.
-     * Use this to troubleshoot tenant isolation issues.
-     *
-     * SECURITY: Only accessible to ADMINs, returns only configs for current tenant.
-     */
-    @GetMapping("/debug/tenant-info")
-    public ResponseEntity<Map<String, Object>> getDebugInfo() {
-        Long currentTenantId = TenantContext.getCurrentTenant();
+        try {
+            // 1. Fetch Config
+            SsoProviderConfig config = ssoConfigService.getConfigByProviderId(providerId)
+                    .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
 
-        Map<String, Object> debugInfo = new HashMap<>();
-        debugInfo.put("currentTenantId", currentTenantId);
-        debugInfo.put("timestamp", System.currentTimeMillis());
+            // 2. Fetch Users from AD
+            List<LdapUser> adUsers = ldapService.listUsers(config);
 
-        // Get all configs using the debug query
-        List<Object[]> allConfigs = configRepository.findAllWithTenantInfo();
-        List<Map<String, Object>> configList = allConfigs.stream()
-                .map(row -> {
-                    Map<String, Object> config = new HashMap<>();
-                    config.put("id", row[0]);
-                    config.put("providerId", row[1]);
-                    config.put("providerType", row[2]);
-                    config.put("tenantId", row[3]);
-                    config.put("subdomain", row[4]);
-                    config.put("visibleToMe", currentTenantId != null && currentTenantId.equals(row[3]));
-                    return config;
-                })
-                .collect(Collectors.toList());
+            if (adUsers.isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.builder()
+                        .success(true)
+                        .message("Connected to AD, but no users found matching the filter.")
+                        .build());
+            }
 
-        debugInfo.put("allConfigsInDatabase", configList);
+            // 3. Process/Save Users (Outbound Provisioning)
+            int createdOrUpdated = 0;
 
-        // Get configs visible through service layer
-        List<SsoProviderConfigDto> myConfigs = ssoConfigService.getAllConfigs();
-        debugInfo.put("myVisibleConfigs", myConfigs.stream()
-                .map(c -> Map.of("id", c.getId(), "providerId", c.getProviderId()))
-                .collect(Collectors.toList()));
+            for (LdapUser adUser : adUsers) {
+                // authService.processSsoLogin handles creation (with random password) or updates
+                authService.processSsoLogin(
+                        adUser.getUsername(),
+                        adUser.getEmail(),
+                        adUser.getFirstName(),
+                        adUser.getLastName(),
+                        adUser.getDn(), // Provider ID unique key
+                        User.AuthProvider.AD_LDAP,
+                        providerId
+                );
+                createdOrUpdated++;
+            }
 
-        log.info("DEBUG: Tenant {} sees {} total configs, {} visible to them",
-                currentTenantId, configList.size(), myConfigs.size());
+            String msg = String.format("Sync Complete! Processed %d users from Active Directory.", createdOrUpdated);
+            return ResponseEntity.ok(ApiResponse.builder().success(true).message(msg).data(createdOrUpdated).build());
 
-        return ResponseEntity.ok(debugInfo);
+        } catch (Exception e) {
+            log.error("Import failed", e);
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Import Failed: " + e.getMessage())
+                    .build());
+        }
     }
-    // --- NEW: SAML Metadata Endpoints ---
+
+    // --- SAML Metadata Endpoints ---
 
     @PostMapping(value = "/saml/import-metadata", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> importSamlMetadata(@RequestParam("file") MultipartFile file) {
@@ -141,21 +153,22 @@ public class SsoConfigController {
     @GetMapping("/saml/download-metadata/{providerId}")
     public ResponseEntity<String> downloadSpMetadata(@PathVariable String providerId) {
         Long tenantId = TenantContext.getCurrentTenant();
-        // We need the Subdomain/Base URL to generate correct EntityID
         // Ideally, fetch tenant to construct the domain
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new RuntimeException("Tenant not found"));
-
-        // Construct Base URL (Assuming logic similar to TenantIdentificationFilter)
-        // Note: You might need to inject 'app.base-domain' here
-        String baseDomain = "prajwal.cfd"; // Hardcoded based on your HTML, or inject @Value
-        String baseUrl = "https://" + tenant.getSubdomain() + "." + baseDomain;
-
-        String metadataXml = ssoConfigService.generateSpMetadata(providerId, baseUrl);
+        // For now, assuming standard naming
+        String metadataXml = ssoConfigService.generateSpMetadata(providerId, "https://example.prajwal.cfd"); // Replace with dynamic logic if needed
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sp-metadata-" + providerId + ".xml\"")
                 .contentType(MediaType.APPLICATION_XML)
                 .body(metadataXml);
+    }
+
+    // --- DEBUG ENDPOINT ---
+    @GetMapping("/debug/tenant-info")
+    public ResponseEntity<Map<String, Object>> getDebugInfo() {
+        Long currentTenantId = TenantContext.getCurrentTenant();
+        Map<String, Object> debugInfo = new HashMap<>();
+        debugInfo.put("currentTenantId", currentTenantId);
+        return ResponseEntity.ok(debugInfo);
     }
 }
