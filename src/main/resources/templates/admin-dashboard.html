@@ -466,21 +466,22 @@
 </div>
 
 <script>
+    // --- Toast Notification Helper ---
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.innerHTML = `<i class="${type==='success'?'fas fa-check-circle':'fas fa-exclamation-circle'}" style="color:${type==='success'?'var(--success-color)':'var(--error-color)'}"></i> <span>${message}</span>`;
         container.appendChild(toast);
-        setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease-in forwards'; toast.addEventListener('animationend', () => toast.remove()); }, 3000);
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 3000);
     }
 
+    // --- Global Variables ---
     const token = localStorage.getItem('accessToken');
     const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
-    const modal = document.getElementById('userModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const userForm = document.getElementById('userForm');
-    const userIdInput = document.getElementById('userId');
     const brandingForm = document.getElementById('brandingConfigForm');
     const brandingSubdomainInput = document.getElementById('brandingSubdomain');
     const brandingLogoUrlInput = document.getElementById('brandingLogoUrl');
@@ -488,28 +489,40 @@
     const subdomainPreview = document.getElementById('subdomain-preview');
     let configDataStore = {};
 
+    // --- Initialization ---
     (async function init() {
         if (!token) { window.location.href = '/login'; return; }
+
+        // Load Branding on Init
         try {
-            const res = await fetch('/api/public/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
                 const b = await res.json();
+                brandingSubdomainInput.value = b.subdomain || '';
+                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
+                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
+                updateDynamicSubdomainUrls(b.subdomain);
+
+                // Update header logo if present
                 if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
                 if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
                 if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
             }
-        } catch (e) {}
-        await loadBrandingSettings();
+        } catch (e) { console.error("Branding load failed", e); }
     })();
 
+    // --- Tab Navigation ---
     window.openTab = function(evt, tabName) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById("userManagement").style.display = "none";
         document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabName).style.display = 'block';
         if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
-        if (tabName === 'userManagement') loadUsers();
-        else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
+
+        if (tabName === 'userManagement') {
+            loadUsers();
+        } else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
+            // Reload configs every time the tab is opened to ensure freshness
             loadSsoConfigurations();
             updateDynamicSubdomainUrls(brandingSubdomainInput.value);
         }
@@ -521,34 +534,27 @@
         document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
     }
 
-    async function loadBrandingSettings() {
-        try {
-            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
-            if (res.ok) {
-                const b = await res.json();
-                brandingSubdomainInput.value = b.subdomain || '';
-                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
-                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
-                updateDynamicSubdomainUrls(b.subdomain);
-            }
-        } catch (e) {}
-    }
-
-    brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
-
+    // --- Branding Submit ---
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/admin/branding', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ subdomain: brandingSubdomainInput.value, brandingLogoUrl: brandingLogoUrlInput.value, brandingPrimaryColor: brandingPrimaryColorInput.value }) });
+            const res = await fetch('/api/admin/branding', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({
+                    subdomain: brandingSubdomainInput.value,
+                    brandingLogoUrl: brandingLogoUrlInput.value,
+                    brandingPrimaryColor: brandingPrimaryColorInput.value
+                })
+            });
             if (!res.ok) throw new Error((await res.json()).message || 'Failed');
             const b = await res.json();
             showToast(`Branding updated!`, 'success');
-            document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor || '#FF6600');
-            if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
             updateDynamicSubdomainUrls(b.subdomain);
         } catch (e) { showToast(e.message, 'error'); }
     });
 
+    // --- User Management ---
     async function loadUsers() {
         userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
         try {
@@ -565,143 +571,194 @@
         } catch (e) { showToast(e.message, 'error'); }
     }
 
-    window.openCreateModal = function() { userForm.reset(); userIdInput.value = ''; modalTitle.textContent = 'Create New User'; document.getElementById('password').placeholder = "Required"; modal.style.display = "block"; };
+    // User Modal Functions
+    const userModal = document.getElementById('userModal');
+    const userForm = document.getElementById('userForm');
+    const userIdInput = document.getElementById('userId');
+    const modalTitle = document.getElementById('modalTitle');
+
+    window.openCreateModal = function() {
+        userForm.reset();
+        userIdInput.value = '';
+        modalTitle.textContent = 'Create New User';
+        document.getElementById('password').placeholder = "Required";
+        userModal.style.display = "block";
+    };
+
     window.openEditModal = async function(id) {
         try {
             const res = await fetch(`/api/admin/users/${id}`, { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
                 const u = await res.json();
-                userIdInput.value = u.id; document.getElementById('username').value = u.username; document.getElementById('email').value = u.email; document.getElementById('firstName').value = u.firstName || ''; document.getElementById('lastName').value = u.lastName || ''; document.getElementById('roles').value = u.roles || '';
-                document.getElementById('password').placeholder = "Leave blank if no change"; modalTitle.textContent = 'Edit User: ' + u.username; modal.style.display = "block";
+                userIdInput.value = u.id;
+                document.getElementById('username').value = u.username;
+                document.getElementById('email').value = u.email;
+                document.getElementById('firstName').value = u.firstName || '';
+                document.getElementById('lastName').value = u.lastName || '';
+                document.getElementById('roles').value = u.roles || '';
+                document.getElementById('password').placeholder = "Leave blank if no change";
+                modalTitle.textContent = 'Edit User: ' + u.username;
+                userModal.style.display = "block";
             }
         } catch (e) { showToast(e.message, 'error'); }
     };
+
     window.deleteUser = async function(id) {
         if (!confirm('Delete this user?')) return;
         try { await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); showToast('User deleted', 'success'); loadUsers(); } catch (e) { showToast(e.message, 'error'); }
     };
 
-    window.closeModal = function(modalId = 'userModal') {
+    window.closeModal = function(modalId) {
         document.getElementById(modalId).style.display = "none";
     };
 
     userForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = userIdInput.value;
-        const data = { username: document.getElementById('username').value, email: document.getElementById('email').value, firstName: document.getElementById('firstName').value, lastName: document.getElementById('lastName').value, roles: document.getElementById('roles').value };
+        const data = {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            firstName: document.getElementById('firstName').value,
+            lastName: document.getElementById('lastName').value,
+            roles: document.getElementById('roles').value
+        };
         if (document.getElementById('password').value) data.password = document.getElementById('password').value;
         try {
-            const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
+            const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+                method: id ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(data)
+            });
             if (!res.ok) throw new Error((await res.json()).message);
             closeModal('userModal'); showToast('User saved', 'success'); loadUsers();
         } catch (e) { showToast(e.message, 'error'); }
     });
 
+    // --- SSO CONFIGURATION LOGIC (CRITICAL UPDATES) ---
+
     async function loadSsoConfigurations() {
         try {
             const res = await fetch('/api/admin/sso-config', { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
-                (await res.json()).forEach(c => { configDataStore[c.providerId] = c; populateSsoForm(c); });
+                const configs = await res.json();
+                console.log("Loaded Configs:", configs); // Debugging
+                configs.forEach(c => {
+                    try {
+                        configDataStore[c.providerId] = c;
+                        populateSsoForm(c);
+                    } catch (err) {
+                        console.error("Error populating form for:", c.providerId, err);
+                    }
+                });
             }
-        } catch (e) {}
+        } catch (e) { console.error("Failed to load SSO configs", e); }
     }
 
     function populateSsoForm(c) {
         let p = c.providerType.toLowerCase();
-        // Handle mapping from backend 'ad_ldap' to frontend 'ad'
+        // Correctly map backend AD_LDAP to frontend 'ad'
         if (p === 'ad_ldap') p = 'ad';
 
         const idEl = document.getElementById(`${p}ConfigId`);
-        if (!idEl) return;
+        if (!idEl) {
+            console.warn(`Form elements not found for provider type: ${p}`);
+            return;
+        }
+
+        // 1. Set ID (Critical for Update vs Create)
         idEl.value = c.id || '';
-        document.getElementById(`${p}Enable`).checked = c.enabled;
-        document.getElementById(`${p}DisplayName`).value = c.displayName || '';
 
-        // Standard fields (OIDC/SAML/JWT)
-        if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
-        if (document.getElementById(`${p}ClientSecret`)) document.getElementById(`${p}ClientSecret`).value = '';
-        if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
+        // 2. Set Basic Fields
+        const enableEl = document.getElementById(`${p}Enable`);
+        if (enableEl) enableEl.checked = c.enabled;
 
-        // JWT Specifics
-        if (p === 'jwt') {
-            document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
-            document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
-            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
-        }
+        const displayEl = document.getElementById(`${p}DisplayName`);
+        if (displayEl) displayEl.value = c.displayName || '';
 
-        // SAML Specifics
-        if (p === 'saml') {
-            document.getElementById('samlEntityId').value = c.samlEntityId||'';
-            document.getElementById('samlSsoUrl').value = c.samlSsoUrl||'';
-            document.getElementById('samlCertificate').value = c.samlCertificate||'';
-        }
-
-        // OIDC Specifics
-        if (p === 'oidc') {
-            document.getElementById('oidcScopes').value = c.scopes||'';
-            document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||'';
-            if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri;
-            if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri;
-            if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri;
-            if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri;
-        }
-
-        // AD / LDAP Specifics
+        // 3. Set Type-Specific Fields
         if (p === 'ad') {
-            document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
+            if(document.getElementById('adDirectoryType')) document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
 
             // Logic to split Protocol and Host
             const fullUrl = c.ldapServerUrl || '';
-            if (fullUrl.startsWith('ldaps://')) {
-                document.getElementById('adProtocol').value = 'ldaps://';
-                document.getElementById('adServerHost').value = fullUrl.replace('ldaps://', '');
-            } else {
-                document.getElementById('adProtocol').value = 'ldap://';
-                // Remove ldap:// if present, otherwise just show full
-                document.getElementById('adServerHost').value = fullUrl.replace('ldap://', '');
+            const protocolEl = document.getElementById('adProtocol');
+            const hostEl = document.getElementById('adServerHost');
+
+            if (protocolEl && hostEl) {
+                if (fullUrl.startsWith('ldaps://')) {
+                    protocolEl.value = 'ldaps://';
+                    hostEl.value = fullUrl.replace('ldaps://', '');
+                } else {
+                    protocolEl.value = 'ldap://';
+                    hostEl.value = fullUrl.replace('ldap://', '');
+                }
             }
 
-            document.getElementById('adBindDn').value = c.ldapBindDn || '';
-            document.getElementById('adBindPassword').value = ''; // Never show password
-            document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
-            document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
-            document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
-            document.getElementById('adSyncUsers').checked = c.ldapSyncUsers || false;
+            if(document.getElementById('adBindDn')) document.getElementById('adBindDn').value = c.ldapBindDn || '';
+            if(document.getElementById('adBindPassword')) document.getElementById('adBindPassword').value = ''; // Security: Empty
+            if(document.getElementById('adSearchBase')) document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
+            if(document.getElementById('adUserSearchFilter')) document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
+            if(document.getElementById('adFallbackAuth')) document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
+            if(document.getElementById('adSyncUsers')) document.getElementById('adSyncUsers').checked = c.ldapSyncUsers || false;
+
+        } else if (p === 'jwt') {
+            document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
+            document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
+            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri; // Map issuer to Client ID field for JWT
+        } else {
+            // SAML & OIDC
+            if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
+            if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
+
+            if (p === 'saml') {
+                document.getElementById('samlEntityId').value = c.samlEntityId||'';
+                document.getElementById('samlSsoUrl').value = c.samlSsoUrl||'';
+                document.getElementById('samlCertificate').value = c.samlCertificate||'';
+            }
+            if (p === 'oidc') {
+                document.getElementById('oidcScopes').value = c.scopes||'';
+                document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||'';
+                if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri;
+                if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri;
+                if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri;
+                if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri;
+            }
         }
     }
 
-    // UPDATED: Now includes 'ad' in the list
+    // --- SSO Submit Handlers ---
     ['saml', 'oidc', 'jwt', 'ad'].forEach(type => {
         const form = document.getElementById(`${type}ConfigForm`);
-        // Clean clones
+        if (!form) return;
+
+        // Clone to remove old listeners
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
 
         newForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const pid = newForm.dataset.providerId;
-            const cfgId = configDataStore[pid]?.id;
+
+            // CRITICAL FIX: Try to find ID in Store OR Hidden Input
+            let cfgId = configDataStore[pid]?.id;
+            const hiddenIdVal = document.getElementById(`${type}ConfigId`).value;
+            if (!cfgId && hiddenIdVal) {
+                cfgId = hiddenIdVal; // Fallback to hidden input if store wasn't updated
+            }
+
             const data = {
                 id: cfgId,
                 providerId: pid,
-                // Ensure providerType matches backend enum exactly
-                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(),
+                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(), // Ensure correct Enum
                 enabled: document.getElementById(`${type}Enable`).checked,
                 displayName: document.getElementById(`${type}DisplayName`).value
             };
 
-            // Mapping fields manually
-            if (type === 'jwt') {
-                data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
-                data.jwtCertificate = document.getElementById('jwtCertificate').value;
-                data.issuerUri = document.getElementById('jwtClientId').value;
-                data.clientId = document.getElementById('jwtClientId').value;
-                const sub = document.getElementById('brandingSubdomain').value || 'example';
-                data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
-            } else if (type === 'ad') {
+            // Field Mapping
+            if (type === 'ad') {
                 data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
 
-                // Logic to Combine Protocol + Host
+                // Combine Protocol + Host
                 const protocol = document.getElementById('adProtocol').value;
                 const host = document.getElementById('adServerHost').value.trim();
                 data.ldapServerUrl = protocol + host;
@@ -711,61 +768,90 @@
                 data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
                 data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
                 data.ldapSyncUsers = document.getElementById('adSyncUsers').checked;
+
                 const pass = document.getElementById('adBindPassword').value;
                 if(pass) data.ldapBindPassword = pass;
+
+            } else if (type === 'jwt') {
+                data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
+                data.jwtCertificate = document.getElementById('jwtCertificate').value;
+                data.issuerUri = document.getElementById('jwtClientId').value;
+                data.clientId = document.getElementById('jwtClientId').value;
+                const sub = document.getElementById('brandingSubdomain').value || 'example';
+                data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
             } else {
-                // Standard mapping for OIDC/SAML
+                // SAML/OIDC
                 if(document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
                 if(document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;
-                if(type==='saml') { data.samlEntityId=document.getElementById('samlEntityId').value; data.samlSsoUrl=document.getElementById('samlSsoUrl').value; data.samlCertificate=document.getElementById('samlCertificate').value; }
-                if(type==='oidc') { data.scopes=document.getElementById('oidcScopes').value; data.userNameAttribute=document.getElementById('oidcUserNameAttribute').value; data.authorizationUri=document.getElementById('oidcAuthorizationUri').value; data.tokenUri=document.getElementById('oidcTokenUri').value; data.userInfoUri=document.getElementById('oidcUserInfoUri').value; data.jwkSetUri=document.getElementById('oidcJwkSetUri').value; }
+
+                if(type==='saml') {
+                    data.samlEntityId=document.getElementById('samlEntityId').value;
+                    data.samlSsoUrl=document.getElementById('samlSsoUrl').value;
+                    data.samlCertificate=document.getElementById('samlCertificate').value;
+                }
+                if(type==='oidc') {
+                    data.scopes=document.getElementById('oidcScopes').value;
+                    data.userNameAttribute=document.getElementById('oidcUserNameAttribute').value;
+                    data.authorizationUri=document.getElementById('oidcAuthorizationUri').value;
+                    data.tokenUri=document.getElementById('oidcTokenUri').value;
+                    data.userInfoUri=document.getElementById('oidcUserInfoUri').value;
+                    data.jwkSetUri=document.getElementById('oidcJwkSetUri').value;
+                }
             }
 
-            // Password handling for standard providers
+            // Secret Handling
             const secretEl = document.getElementById(`${type}ClientSecret`);
             if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
             try {
-                const res = await fetch(cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config', { method: cfgId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
+                // Determine PUT vs POST based on ID existence
+                const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
+                const method = cfgId ? 'PUT' : 'POST';
+
+                console.log(`Submitting ${type} (${method}) to ${url}`, data);
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify(data)
+                });
+
                 if (!res.ok) throw new Error((await res.json()).message);
+
                 const updated = await res.json();
+
+                // Update Local State
                 configDataStore[pid] = updated;
                 populateSsoForm(updated);
+
                 showToast(`${type.toUpperCase()} Saved!`, 'success');
             } catch (e) { showToast(e.message, 'error'); }
         });
     });
 
-    // --- UPDATED: Open Modal for AD, Window for others ---
+    // --- TEST CONNECTION LOGIC ---
     window.testAttributes = function(pid) {
-        // Special flow for AD: Open the credentials popup
         if (pid === 'ad_ldap') {
             openTestAdModal();
-            return;
+        } else {
+            // Standard OIDC/SAML/JWT Test
+            const c = configDataStore[pid];
+            if (!c || !c.enabled) {
+                 showToast("Please save and enable configuration first.", 'error');
+                 return;
+            }
+            window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
         }
-
-        // Standard flow for OIDC/SAML/JWT
-        const c = configDataStore[pid];
-        if (!c || !c.enabled) {
-             showToast("Please save and enable configuration first.", 'error');
-             return;
-        }
-        window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
     };
 
-    // --- NEW: AD Test Functions ---
-
     function openTestAdModal() {
-        // Prefill with values from the main form for convenience
-
-        // 1. Reconstruct URL
+        // Prefill modal with values from the form
         const protocol = document.getElementById('adProtocol').value;
         const host = document.getElementById('adServerHost').value.trim();
         document.getElementById('testAdServerUrl').value = protocol + host;
 
         document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
-        document.getElementById('testAdPassword').value = ''; // Always clear password for security
-
+        document.getElementById('testAdPassword').value = ''; // Always clear password
         document.getElementById('testAdConnectionModal').style.display = 'block';
     }
 
@@ -791,7 +877,6 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                // Requirement: Specific success message
                 showToast("Connection to LDAP was successful.", 'success');
                 closeModal('testAdConnectionModal');
             } else {
@@ -805,6 +890,7 @@
         });
     }
 
+    // --- Helpers & Listeners ---
     document.querySelectorAll('.toggle-password').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const inp = e.target.previousElementSibling;
@@ -813,94 +899,15 @@
         });
     });
 
-    document.getElementById('logout-button').addEventListener('click', () => { localStorage.removeItem('accessToken'); window.location.href = '/login'; });
-    if (token) document.getElementById("welcome").style.display = "block"; else window.location.href = '/login';
-
-    // --- SAML METADATA FUNCTIONS (Unchanged) ---
-    function openImportSamlModal() {
-        document.getElementById('metadataFile').value = '';
-        document.getElementById('importSamlModal').style.display = 'block';
-    }
-
-    async function processSamlImport() {
-        const fileInput = document.getElementById('metadataFile');
-        if (!fileInput.files || fileInput.files.length === 0) {
-            showToast('Please select a file first.', 'error');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-
-        const importBtn = document.querySelector('#importSamlModal .btn-save');
-        const originalText = importBtn.textContent;
-        importBtn.textContent = 'Parsing...';
-        importBtn.disabled = true;
-
-        try {
-            const res = await fetch('/api/admin/sso-config/saml/import-metadata', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                },
-                body: formData
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Failed to parse metadata');
-            }
-
-            const data = await res.json();
-
-            if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
-            if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
-            if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
-
-            showToast('Metadata imported successfully!', 'success');
-            closeModal('importSamlModal');
-
-        } catch (e) {
-            console.error("Import error:", e);
-            showToast('Error: ' + e.message, 'error');
-        } finally {
-            importBtn.textContent = originalText;
-            importBtn.disabled = false;
-        }
-    }
-
-    function downloadSpMetadata() {
-        const form = document.getElementById('samlConfigForm');
-        const providerId = form.dataset.providerId || 'saml';
-
-        fetch(`/api/admin/sso-config/saml/download-metadata/${providerId}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        })
-        .then(response => {
-            if(response.ok) return response.blob();
-            throw new Error('Download failed');
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `sp-metadata-${providerId}.xml`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        })
-        .catch(err => showToast("Failed to download metadata: " + err.message, 'error'));
-    }
+    document.getElementById('logout-button').addEventListener('click', () => {
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
+    });
 
     window.onclick = function(event) {
-        const userModal = document.getElementById('userModal');
-        const importModal = document.getElementById('importSamlModal');
-        const adTestModal = document.getElementById('testAdConnectionModal');
-
         if (event.target == userModal) closeModal('userModal');
-        if (event.target == importModal) closeModal('importSamlModal');
-        if (event.target == adTestModal) closeModal('testAdConnectionModal');
+        if (event.target == document.getElementById('importSamlModal')) closeModal('importSamlModal');
+        if (event.target == document.getElementById('testAdConnectionModal')) closeModal('testAdConnectionModal');
     }
 </script>
 </body>

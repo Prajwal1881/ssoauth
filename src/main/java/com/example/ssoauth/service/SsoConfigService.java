@@ -56,9 +56,7 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.info("→ Fetching ALL SSO configs for tenantId: {}", tenantId);
 
-        List<SsoProviderConfig> configs = configRepository.findAll().stream()
-                .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
-                .collect(Collectors.toList());
+        List<SsoProviderConfig> configs = configRepository.findByTenantId(tenantId);
 
         log.info("← Found {} SSO configs for tenantId: {}", configs.size(), tenantId);
         return configs.stream()

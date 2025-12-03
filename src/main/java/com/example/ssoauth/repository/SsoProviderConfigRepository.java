@@ -38,6 +38,9 @@ public interface SsoProviderConfigRepository extends JpaRepository<SsoProviderCo
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM SsoProviderConfig s WHERE s.providerId = :providerId AND s.tenant.id = :tenantId")
     boolean existsByProviderIdAndTenantId(@Param("providerId") String providerId, @Param("tenantId") Long tenantId);
 
+    // This bypasses findAll() and ensures we strictly get only this tenant's configs
+    @Query("SELECT s FROM SsoProviderConfig s WHERE s.tenant.id = :tenantId")
+    List<SsoProviderConfig> findByTenantId(@Param("tenantId") Long tenantId);
     // --- DEBUG QUERY (Use for troubleshooting) ---
 
     /**

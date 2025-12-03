@@ -61,45 +61,30 @@ public class AdAuthController {
             config = ssoConfigService.getConfigByProviderId(providerId)
                     .orElseThrow(() -> new SSOAuthenticationException("Provider not found"));
 
-            // 1. Attempt LDAP Authentication
+            // 1. Authenticate against AD (Bind Check)
             LdapUser ldapUser = ldapService.authenticate(config, username, password);
             log.info("LDAP Authentication successful for user: {}", ldapUser.getUsername());
 
-            User user;
-            // 2. Handle User Sync Logic
-            if (Boolean.TRUE.equals(config.getLdapSyncUsers())) {
-                // Sync ON: Create or Update user in local DB
-                user = authService.processSsoLogin(
-                        ldapUser.getUsername(),
-                        ldapUser.getEmail(),
-                        ldapUser.getFirstName(),
-                        ldapUser.getLastName(),
-                        ldapUser.getDn(),
-                        User.AuthProvider.AD_LDAP,
-                        providerId
-                );
-            } else {
-                // Sync OFF: Only allow login if user exists locally
-                Long tenantId = TenantContext.getCurrentTenant();
-                Optional<User> localUser = userRepository.findByEmailAndTenantId(ldapUser.getEmail(), tenantId);
+            // 2. Perform JIT Provisioning (Create or Update)
+            // We REMOVED the 'if (syncUsers)' check. Now we always provision.
+            // AuthService.processSsoLogin handles "Find by Email" -> "Update" OR "Create New with Random Password"
+            User user = authService.processSsoLogin(
+                    ldapUser.getUsername(),
+                    ldapUser.getEmail(),
+                    ldapUser.getFirstName(),
+                    ldapUser.getLastName(),
+                    ldapUser.getDn(), // Use DN as the unique Provider ID
+                    User.AuthProvider.AD_LDAP,
+                    providerId
+            );
 
-                if (localUser.isPresent()) {
-                    user = localUser.get();
-                    // Optional: Update last login even if sync is off
-                    user.setLastLogin(java.time.LocalDateTime.now());
-                    userRepository.save(user);
-                } else {
-                    log.warn("LDAP login successful but User Sync is disabled and user not found locally: {}", ldapUser.getEmail());
-                    throw new SSOAuthenticationException("Login failed: User not found locally and sync is disabled.");
-                }
-            }
-
+            // 3. Generate Token and Redirect
             return generateTokenAndRedirect(user);
 
         } catch (Exception e) {
             log.warn("AD Login Failed: {}", e.getMessage());
 
-            // 3. Handle Fallback Authentication
+            // 4. Handle Fallback Authentication (Try Local DB if LDAP fails)
             if (config != null && Boolean.TRUE.equals(config.getLdapFallbackAuth())) {
                 log.info("Attempting Fallback Authentication (Local DB) for user: {}", username);
                 try {
@@ -107,20 +92,13 @@ public class AdAuthController {
                     SignInRequest fallbackRequest = new SignInRequest(username, password);
                     JwtAuthResponse fallbackResponse = authService.signIn(fallbackRequest);
 
-                    // If we get here, local auth succeeded
                     log.info("Fallback Authentication successful for user: {}", username);
 
-                    // We need to retrieve the user entity to check roles for redirect
-                    // Since authService.signIn returns a DTO, we can just use the token or fetch user again.
-                    // For simplicity, let's just use the DTO info to redirect
-                    String accessToken = fallbackResponse.getAccessToken();
-                    String targetUrl = determineRedirectUrl(fallbackResponse.getUserInfo().getRoles());
-
-                    return "redirect:" + targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+                    // Simple redirect for fallback; roles will be handled by the frontend dashboard logic or next request
+                    return "redirect:/dashboard?token=" + URLEncoder.encode(fallbackResponse.getAccessToken(), StandardCharsets.UTF_8);
 
                 } catch (Exception localEx) {
                     log.error("Fallback Authentication also failed: {}", localEx.getMessage());
-                    // Fall through to show the original error or a generic one
                 }
             }
 
@@ -131,7 +109,15 @@ public class AdAuthController {
 
     private String generateTokenAndRedirect(User user) {
         String accessToken = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
-        String targetUrl = determineRedirectUrl(user.getRoles());
+
+        // Determine redirect based on role
+        String targetUrl = "/dashboard";
+        if (user.hasRole("ROLE_SUPER_ADMIN")) {
+            targetUrl = "/super-admin/dashboard";
+        } else if (user.hasRole("ROLE_ADMIN")) {
+            targetUrl = "/admin/dashboard";
+        }
+
         return "redirect:" + targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
     }
 
