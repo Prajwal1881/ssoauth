@@ -156,6 +156,7 @@
             <li><button class="nav-btn" onclick="openTab(event, 'samlConfig')"><i class="fas fa-key"></i> SAML Config</button></li>
             <li><button class="nav-btn" onclick="openTab(event, 'oidcConfig')"><i class="fab fa-openid"></i> OIDC Config</button></li>
             <li><button class="nav-btn" onclick="openTab(event, 'jwtConfig')"><i class="fas fa-shield-alt"></i> JWT Config</button></li>
+            <li><button class="nav-btn" onclick="openTab(event, 'adConfig')"><i class="fas fa-network-wired"></i> AD Config</button></li>
         </ul>
         <div class="sidebar-footer">
             <button id="logout-button" class="btn-logout-sidebar">Logout</button>
@@ -175,10 +176,9 @@
                 <h4 style="margin-top: 30px;">How to Test Your SSO Configuration:</h4>
                 <ol style="line-height: 1.8; color: #555; margin-left: 20px; padding: 0;">
                     <li>Go to the "Branding & Domain" tab and set your unique subdomain.</li>
-                    <li>Configure and save an SSO provider (e.g., OIDC, SAML, or JWT).</li>
-                    <li>Click the <strong>"Test Connection"</strong> button. This will open a new popup window.</li>
-                    <li>Perform a real SSO login as a test user in that popup window.</li>
-                    <li>The popup window will refresh and show you a "TEST SUCCESSFUL" message.</li>
+                    <li>Configure and save an SSO provider (e.g., OIDC, SAML, JWT, or AD).</li>
+                    <li>Click the <strong>"Test Connection"</strong> button. This will check the connection.</li>
+                    <li>For SSO types (OIDC/SAML), perform a real login in the popup window.</li>
                 </ol>
             </div>
 
@@ -295,6 +295,91 @@
                     <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
                 </div>
             </div>
+
+            <div id="adConfig" class="tab-content">
+                <h2>Active Directory Configuration</h2>
+                <form id="adConfigForm" class="sso-form" data-provider-type="AD_LDAP" data-provider-id="ad_ldap">
+                    <input type="hidden" id="adConfigId">
+
+                    <div class="toggle-row">
+                        <label class="main-lbl" for="adEnable">Enable AD Provider</label>
+                        <label class="switch">
+                            <input type="checkbox" id="adEnable">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="adDisplayName">Display Name</label>
+                        <input type="text" id="adDisplayName" placeholder="e.g., Corporate AD">
+                    </div>
+
+                    <h4 style="margin-top: 20px;">Connection Details</h4>
+
+                    <div class="form-row">
+                        <label for="adDirectoryType">Directory Type</label>
+                        <select id="adDirectoryType">
+                            <option value="Active Directory">Active Directory</option>
+                            <option value="OpenLDAP">OpenLDAP</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="adServerUrl">Server URL</label>
+                        <input type="url" id="adServerUrl" placeholder="ldaps://ad.example.com:636">
+                    </div>
+
+                    <div class="form-row">
+                        <label for="adBindDn">Bind Account DN</label>
+                        <input type="text" id="adBindDn" placeholder="cn=admin,dc=example,dc=com">
+                    </div>
+
+                    <div class="form-row">
+                        <label for="adBindPassword">Bind Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="adBindPassword" placeholder="Leave blank if unchanged">
+                            <button type="button" class="toggle-password">Show</button>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">User Search Settings</h4>
+
+                    <div class="form-row">
+                        <label for="adSearchBase">Search Base</label>
+                        <input type="text" id="adSearchBase" placeholder="ou=users,dc=example,dc=com">
+                    </div>
+
+                    <div class="form-row">
+                        <label for="adUserSearchFilter">Search Filter</label>
+                        <input type="text" id="adUserSearchFilter" placeholder="(&(objectClass=user)(sAMAccountName={0}))">
+                    </div>
+
+                    <h4 style="margin-top: 20px;">Options</h4>
+
+                    <div class="toggle-row" style="margin-bottom: 10px;">
+                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Fallback Authentication</label>
+                        <input type="checkbox" id="adFallbackAuth">
+                    </div>
+
+                    <div class="toggle-row">
+                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Sync Users on Login</label>
+                        <input type="checkbox" id="adSyncUsers">
+                    </div>
+
+                    <div class="btn-container">
+                        <button type="button" class="btn-test" onclick="testAttributes('ad_ldap')">Test Connection</button>
+                        <button type="submit" class="btn-save">Save AD Config</button>
+                    </div>
+                </form>
+
+                <div class="url-display-box">
+                    <h4>AD Login URL</h4>
+                    <label>Direct Login Link:</label>
+                    <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/ad/ad_ldap</code>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -331,6 +416,36 @@
         <div class="btn-container">
             <button type="button" class="btn-test" onclick="closeModal('importSamlModal')">Cancel</button>
             <button type="button" class="btn-save" onclick="processSamlImport()">Import Metadata</button>
+        </div>
+    </div>
+</div>
+
+<div id="testAdConnectionModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('testAdConnectionModal')">&times;</span>
+        <h2>Test AD Connection</h2>
+        <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+            Please enter your Active Directory credentials to verify the connection.
+        </p>
+
+        <div class="form-row">
+            <label for="testAdServerUrl">Server URL</label>
+            <input type="text" id="testAdServerUrl" placeholder="ldaps://ad.example.com:636">
+        </div>
+
+        <div class="form-row">
+            <label for="testAdBindDn">Bind DN / Username</label>
+            <input type="text" id="testAdBindDn" placeholder="cn=admin,dc=example,dc=com">
+        </div>
+
+        <div class="form-row">
+            <label for="testAdPassword">Bind Password</label>
+            <input type="password" id="testAdPassword" placeholder="Enter password">
+        </div>
+
+        <div class="btn-container">
+            <button type="button" class="btn-test" onclick="closeModal('testAdConnectionModal')">Cancel</button>
+            <button type="button" class="btn-save" onclick="performAdTest()">Verify Connection</button>
         </div>
     </div>
 </div>
@@ -379,7 +494,7 @@
         document.getElementById(tabName).style.display = 'block';
         if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
         if (tabName === 'userManagement') loadUsers();
-        else if (['samlConfig', 'oidcConfig', 'jwtConfig'].includes(tabName)) {
+        else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
             loadSsoConfigurations();
             updateDynamicSubdomainUrls(brandingSubdomainInput.value);
         }
@@ -477,27 +592,60 @@
     }
 
     function populateSsoForm(c) {
-        const p = c.providerType.toLowerCase();
+        let p = c.providerType.toLowerCase();
+        // Handle mapping from backend 'ad_ldap' to frontend 'ad'
+        if (p === 'ad_ldap') p = 'ad';
+
         const idEl = document.getElementById(`${p}ConfigId`);
         if (!idEl) return;
         idEl.value = c.id || '';
         document.getElementById(`${p}Enable`).checked = c.enabled;
         document.getElementById(`${p}DisplayName`).value = c.displayName || '';
+
+        // Standard fields (OIDC/SAML/JWT)
         if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
         if (document.getElementById(`${p}ClientSecret`)) document.getElementById(`${p}ClientSecret`).value = '';
         if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
+
+        // JWT Specifics
         if (p === 'jwt') {
             document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
             document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
-            // Map Issuer to Client ID field if present (common usage)
             if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
         }
-        // ... (Mapping other fields for SAML/OIDC - same as before) ...
-        if (p === 'saml') { document.getElementById('samlEntityId').value = c.samlEntityId||''; document.getElementById('samlSsoUrl').value = c.samlSsoUrl||''; document.getElementById('samlCertificate').value = c.samlCertificate||''; }
-        if (p === 'oidc') { document.getElementById('oidcScopes').value = c.scopes||''; document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||''; if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri; if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri; if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri; if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri; }
+
+        // SAML Specifics
+        if (p === 'saml') {
+            document.getElementById('samlEntityId').value = c.samlEntityId||'';
+            document.getElementById('samlSsoUrl').value = c.samlSsoUrl||'';
+            document.getElementById('samlCertificate').value = c.samlCertificate||'';
+        }
+
+        // OIDC Specifics
+        if (p === 'oidc') {
+            document.getElementById('oidcScopes').value = c.scopes||'';
+            document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||'';
+            if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri;
+            if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri;
+            if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri;
+            if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri;
+        }
+
+        // AD / LDAP Specifics
+        if (p === 'ad') {
+            document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
+            document.getElementById('adServerUrl').value = c.ldapServerUrl || '';
+            document.getElementById('adBindDn').value = c.ldapBindDn || '';
+            document.getElementById('adBindPassword').value = ''; // Never show password
+            document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
+            document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
+            document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
+            document.getElementById('adSyncUsers').checked = c.ldapSyncUsers || false;
+        }
     }
 
-    ['saml', 'oidc', 'jwt'].forEach(type => {
+    // UPDATED: Now includes 'ad' in the list
+    ['saml', 'oidc', 'jwt', 'ad'].forEach(type => {
         const form = document.getElementById(`${type}ConfigForm`);
         // Clean clones
         const newForm = form.cloneNode(true);
@@ -508,22 +656,32 @@
             const pid = newForm.dataset.providerId;
             const cfgId = configDataStore[pid]?.id;
             const data = {
-                id: cfgId, providerId: pid, providerType: type.toUpperCase(),
+                id: cfgId,
+                providerId: pid,
+                // Ensure providerType matches backend enum exactly
+                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(),
                 enabled: document.getElementById(`${type}Enable`).checked,
                 displayName: document.getElementById(`${type}DisplayName`).value
             };
-            // Mapping fields manually to ensure JWT special case is handled
+
+            // Mapping fields manually
             if (type === 'jwt') {
                 data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
                 data.jwtCertificate = document.getElementById('jwtCertificate').value;
-                // Important: For JWT, Client ID field maps to Issuer URI
                 data.issuerUri = document.getElementById('jwtClientId').value;
-                // Pass Client ID as well if backend needs it separately
                 data.clientId = document.getElementById('jwtClientId').value;
-
-                // Construct Redirect URI to ensure it is saved
                 const sub = document.getElementById('brandingSubdomain').value || 'example';
                 data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
+            } else if (type === 'ad') {
+                data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
+                data.ldapServerUrl = document.getElementById('adServerUrl').value;
+                data.ldapBindDn = document.getElementById('adBindDn').value;
+                data.ldapSearchBase = document.getElementById('adSearchBase').value;
+                data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
+                data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
+                data.ldapSyncUsers = document.getElementById('adSyncUsers').checked;
+                const pass = document.getElementById('adBindPassword').value;
+                if(pass) data.ldapBindPassword = pass;
             } else {
                 // Standard mapping for OIDC/SAML
                 if(document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
@@ -532,7 +690,7 @@
                 if(type==='oidc') { data.scopes=document.getElementById('oidcScopes').value; data.userNameAttribute=document.getElementById('oidcUserNameAttribute').value; data.authorizationUri=document.getElementById('oidcAuthorizationUri').value; data.tokenUri=document.getElementById('oidcTokenUri').value; data.userInfoUri=document.getElementById('oidcUserInfoUri').value; data.jwkSetUri=document.getElementById('oidcJwkSetUri').value; }
             }
 
-            // Password handling
+            // Password handling for standard providers
             const secretEl = document.getElementById(`${type}ClientSecret`);
             if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
@@ -547,11 +705,69 @@
         });
     });
 
+    // --- UPDATED: Open Modal for AD, Window for others ---
     window.testAttributes = function(pid) {
+        // Special flow for AD: Open the credentials popup
+        if (pid === 'ad_ldap') {
+            openTestAdModal();
+            return;
+        }
+
+        // Standard flow for OIDC/SAML/JWT
         const c = configDataStore[pid];
-        if (!c || !c.enabled) { showToast("Please save and enable configuration first.", 'error'); return; }
+        if (!c || !c.enabled) {
+             showToast("Please save and enable configuration first.", 'error');
+             return;
+        }
         window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
     };
+
+    // --- NEW: AD Test Functions ---
+
+    function openTestAdModal() {
+        // Prefill with values from the main form for convenience
+        document.getElementById('testAdServerUrl').value = document.getElementById('adServerUrl').value;
+        document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
+        document.getElementById('testAdPassword').value = ''; // Always clear password for security
+
+        document.getElementById('testAdConnectionModal').style.display = 'block';
+    }
+
+    function performAdTest() {
+        const btn = document.querySelector('#testAdConnectionModal .btn-save');
+        const originalText = btn.textContent;
+        btn.textContent = 'Testing...';
+        btn.disabled = true;
+
+        const testData = {
+            providerId: 'ad_ldap',
+            providerType: 'AD_LDAP',
+            ldapServerUrl: document.getElementById('testAdServerUrl').value,
+            ldapBindDn: document.getElementById('testAdBindDn').value,
+            ldapBindPassword: document.getElementById('testAdPassword').value
+        };
+
+        fetch('/api/admin/sso-config/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(testData)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Requirement: Specific success message
+                showToast("Connection to LDAP was successful.", 'success');
+                closeModal('testAdConnectionModal');
+            } else {
+                showToast("Connection failed: " + data.message, 'error');
+            }
+        })
+        .catch(e => showToast("Network error: " + e.message, 'error'))
+        .finally(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        });
+    }
 
     document.querySelectorAll('.toggle-password').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -564,8 +780,7 @@
     document.getElementById('logout-button').addEventListener('click', () => { localStorage.removeItem('accessToken'); window.location.href = '/login'; });
     if (token) document.getElementById("welcome").style.display = "block"; else window.location.href = '/login';
 
-    // --- NEW: SAML METADATA FUNCTIONS ---
-
+    // --- SAML METADATA FUNCTIONS (Unchanged) ---
     function openImportSamlModal() {
         document.getElementById('metadataFile').value = '';
         document.getElementById('importSamlModal').style.display = 'block';
@@ -581,7 +796,6 @@
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
 
-        // Get the button to show status
         const importBtn = document.querySelector('#importSamlModal .btn-save');
         const originalText = importBtn.textContent;
         importBtn.textContent = 'Parsing...';
@@ -603,7 +817,6 @@
 
             const data = await res.json();
 
-            // Auto-fill fields
             if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
             if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
             if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
@@ -622,10 +835,8 @@
 
     function downloadSpMetadata() {
         const form = document.getElementById('samlConfigForm');
-        // Default to 'saml_miniorange' if not set
         const providerId = form.dataset.providerId || 'saml';
 
-        // Use fetch to handle Auth header, then create blob
         fetch(`/api/admin/sso-config/saml/download-metadata/${providerId}`, {
             headers: { 'Authorization': 'Bearer ' + token }
         })
@@ -646,12 +857,14 @@
         .catch(err => showToast("Failed to download metadata: " + err.message, 'error'));
     }
 
-    // Modal closing logic update
     window.onclick = function(event) {
         const userModal = document.getElementById('userModal');
         const importModal = document.getElementById('importSamlModal');
+        const adTestModal = document.getElementById('testAdConnectionModal'); // NEW
+
         if (event.target == userModal) closeModal('userModal');
         if (event.target == importModal) closeModal('importSamlModal');
+        if (event.target == adTestModal) closeModal('testAdConnectionModal'); // NEW
     }
 </script>
 </body>

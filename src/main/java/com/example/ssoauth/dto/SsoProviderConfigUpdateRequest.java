@@ -43,6 +43,13 @@ public class SsoProviderConfigUpdateRequest {
     private String samlEntityId;
     private String samlCertificate;
 
-    // --- Attribute Mapping Fields ---
-    // (We are removing all 'attribute...' fields)
+    // --- NEW: AD / LDAP ---
+    private String ldapDirectoryType;
+    private String ldapServerUrl;
+    private String ldapBindDn;
+    private String ldapBindPassword; // Only sent on update
+    private String ldapSearchBase;
+    private String ldapUserSearchFilter;
+    private Boolean ldapFallbackAuth;
+    private Boolean ldapSyncUsers;
 }

@@ -27,6 +27,10 @@ import org.springframework.security.web.context.SecurityContextHolderFilter; // 
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
@@ -66,8 +70,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint))
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/", "/login", "/signup", "/error","register",
+                        .requestMatchers("/", "/login", "/signup", "/error", "/register",
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/**",
                                 "/api/sso/enabled-providers",
@@ -78,6 +81,8 @@ public class SecurityConfig {
                                 "/login/jwt/callback",
                                 "/saml2/**",
                                 "/login/saml2/**",
+                                "/login/ad/**",  // The login page
+                                "/auth/ad/**",   // The login form submission
                                 "/dashboard",
                                 "/admin/dashboard",
                                 "/admin/sso-test-result",

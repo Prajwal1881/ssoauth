@@ -40,6 +40,14 @@ public class SsoProviderConfigDto {
     private String samlEntityId;
     private String samlCertificate;
 
-    // --- Attribute Mapping Fields ---
-    // (We are removing all 'attribute...' fields)
+    // --- NEW: AD / LDAP ---
+    private String ldapDirectoryType;
+    private String ldapServerUrl;
+    private String ldapBindDn;
+    // private String ldapBindPassword; // Security: Never send the password back to the UI!
+    private String ldapSearchBase;
+    private String ldapUserSearchFilter;
+    // Change these to Boolean
+    private Boolean ldapFallbackAuth;
+    private Boolean ldapSyncUsers;
 }

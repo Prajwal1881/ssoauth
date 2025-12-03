@@ -13,11 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sso_provider_configs", uniqueConstraints = {
-        // --- FIX ---
-        // Changed "provider_id" to "providerId" to match the
-        // entity's property name, which is also the database column name.
-        @UniqueConstraint(columnNames = {"tenant_id", "providerId"})
-        // --- End Fix ---
+        @UniqueConstraint(columnNames = { "tenant_id", "providerId" })
 })
 @Data
 @NoArgsConstructor
@@ -35,7 +31,7 @@ public class SsoProviderConfig {
     private Tenant tenant;
 
     @Column(nullable = false, length = 100)
-    private String providerId; // This property maps to the "providerId" column
+    private String providerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -103,4 +99,32 @@ public class SsoProviderConfig {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    // --- NEW: AD / LDAP Specific Fields ---
+    @Column(length = 50)
+    private String ldapDirectoryType; // e.g., "Active Directory"
+
+    @Column(length = 512)
+    private String ldapServerUrl; // e.g., ldaps://192.168.1.100:636
+
+    @Column(length = 255)
+    private String ldapBindDn; // e.g., cn=admin,dc=example,dc=com
+
+    @Column(length = 512)
+    private String ldapBindPassword; // Store securely
+
+    @Column(length = 512)
+    private String ldapSearchBase; // e.g., ou=users,dc=example,dc=com
+
+    @Column(length = 512)
+    private String ldapUserSearchFilter; // e.g., (&(objectClass=user)(sAMAccountName={0}))
+
+    // Changed 'boolean' to 'Boolean' to handle database NULLs safely
+    @Column(name = "ldap_fallback_auth")
+    @Builder.Default
+    private Boolean ldapFallbackAuth = false;
+
+    @Column(name = "ldap_sync_users")
+    @Builder.Default
+    private Boolean ldapSyncUsers = false;
 }

@@ -2,19 +2,28 @@ package com.example.ssoauth.service;
 
 import com.example.ssoauth.dto.ApiResponse;
 import com.example.ssoauth.dto.SsoProviderConfigUpdateRequest;
-import com.example.ssoauth.util.CertificateUtils; // NEW IMPORT
+import com.example.ssoauth.util.CertificateUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.LdapContextSource;
+import org.springframework.ldap.query.LdapQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-// REMOVED: Unused imports
+import javax.naming.directory.DirContext;
+import javax.naming.Context;
+import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
+import java.util.Hashtable;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-// REMOVED: Unused imports
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +49,8 @@ public class SsoTestService {
                     return testSamlConnection(config);
                 case JWT:
                     return testJwtConnection(config);
+                case AD_LDAP:
+                    return testLdapConnection(config);
                 default:
                     return ApiResponse.builder().success(false).message("Unknown provider type").build();
             }
@@ -59,7 +70,8 @@ public class SsoTestService {
         }
 
         if (testUrl == null) {
-            return ApiResponse.builder().success(false).message("No JWK Set URI or Issuer URI provided to test.").build();
+            return ApiResponse.builder().success(false).message("No JWK Set URI or Issuer URI provided to test.")
+                    .build();
         }
 
         return pingEndpoint(testUrl);
@@ -80,6 +92,45 @@ public class SsoTestService {
         return testCertificate(config.getJwtCertificate(), "JWT");
     }
 
+    private ApiResponse testLdapConnection(SsoProviderConfigUpdateRequest config) {
+        if (!StringUtils.hasText(config.getLdapServerUrl()) ||
+                !StringUtils.hasText(config.getLdapBindDn()) ||
+                !StringUtils.hasText(config.getLdapBindPassword())) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Missing Server URL, Bind DN, or Password.")
+                    .build();
+        }
+
+        Hashtable<String, String> env = new Hashtable<>();
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL, config.getLdapServerUrl());
+        env.put(Context.SECURITY_AUTHENTICATION, "simple");
+        env.put(Context.SECURITY_PRINCIPAL, config.getLdapBindDn());
+        env.put(Context.SECURITY_CREDENTIALS, config.getLdapBindPassword());
+
+        // Force SSL if using ldaps
+        if (config.getLdapServerUrl().toLowerCase().startsWith("ldaps://")) {
+            env.put(Context.SECURITY_PROTOCOL, "ssl");
+        }
+
+        try {
+            // Attempt to create the initial context (Binding)
+            DirContext ctx = new InitialDirContext(env);
+            ctx.close();
+            return ApiResponse.builder()
+                    .success(true)
+                    .message("Successfully connected and bound to LDAP server.")
+                    .build();
+        } catch (Exception e) {
+            log.error("LDAP Test Failed: {}", e.getMessage());
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Connection Failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
     // Helper to ping a URL
     private ApiResponse pingEndpoint(String url) {
         try {
@@ -93,25 +144,29 @@ public class SsoTestService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                return ApiResponse.builder().success(true).message("Successfully connected to " + url + " (Status 200 OK).").build();
+                return ApiResponse.builder().success(true)
+                        .message("Successfully connected to " + url + " (Status 200 OK).").build();
             } else {
-                return ApiResponse.builder().success(false).message("Connected to " + url + ", but received non-200 status: " + response.statusCode()).build();
+                return ApiResponse.builder().success(false)
+                        .message("Connected to " + url + ", but received non-200 status: " + response.statusCode())
+                        .build();
             }
         } catch (Exception e) {
             log.error("Failed to connect to {}: {}", url, e.getMessage());
-            return ApiResponse.builder().success(false).message("Failed to connect to " + url + ": " + e.getMessage()).build();
+            return ApiResponse.builder().success(false).message("Failed to connect to " + url + ": " + e.getMessage())
+                    .build();
         }
     }
 
     // Helper to test-parse a certificate
     private ApiResponse testCertificate(String certPem, String type) {
         try {
-            // --- FIX: Use new utility class ---
             CertificateUtils.parseCertificate(certPem);
             return ApiResponse.builder().success(true).message(type + " certificate was parsed successfully.").build();
         } catch (Exception e) {
             log.error("Failed to parse certificate: {}", e.getMessage());
-            return ApiResponse.builder().success(false).message(type + " certificate is invalid: " + e.getMessage()).build();
+            return ApiResponse.builder().success(false).message(type + " certificate is invalid: " + e.getMessage())
+                    .build();
         }
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.util.StringUtils;
 import com.example.ssoauth.config.TenantContext;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.Map;
 
@@ -86,5 +87,10 @@ public class WebController {
         session.removeAttribute("sso_test_provider_id");
 
         return "sso-test-result";
+    }
+    @GetMapping("/admin/ldap-test/{providerId}")
+    public String ldapTestPage(@PathVariable String providerId, Model model) {
+        model.addAttribute("providerId", providerId);
+        return "admin-ldap-test";
     }
 }

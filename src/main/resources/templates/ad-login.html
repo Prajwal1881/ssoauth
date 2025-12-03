@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>AD Login</title>
+    <style>
+        :root {
+            --primary-color: #0078d4; /* standard corporate blue */
+            --bg-color: #f0f2f5;
+            --white: #ffffff;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background: var(--white);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h2 { color: var(--text-color); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
+        input {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;
+            box-sizing: border-box; font-size: 1rem;
+        }
+        button {
+            width: 100%; padding: 12px; background-color: var(--primary-color);
+            color: white; border: none; border-radius: 4px; font-size: 1rem;
+            cursor: pointer; margin-top: 10px;
+        }
+        button:hover { background-color: #005a9e; }
+        .error { color: #dc3545; background: #ffe6e6; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+        .back-link { display: block; margin-top: 15px; color: #666; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2 th:text="${displayName}">Corporate Login</h2>
+
+    <div th:if="${error}" class="error">
+        <span th:text="${error}">Invalid credentials</span>
+    </div>
+
+    <form action="/auth/ad/login" method="post">
+        <input type="hidden" name="providerId" th:value="${providerId}">
+
+        <div class="form-group">
+            <label for="username">AD Username / Email</label>
+            <input type="text" id="username" name="username" required autofocus>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <button type="submit">Sign In</button>
+    </form>
+
+    <a href="/login" class="back-link">← Back to standard login</a>
+</div>
+
+</body>
+</html>
