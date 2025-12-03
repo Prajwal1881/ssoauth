@@ -13,7 +13,6 @@ import org.springframework.util.StringUtils;
 
 import javax.naming.directory.DirContext;
 import javax.naming.Context;
-import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import java.util.Hashtable;
 import java.net.URI;
@@ -93,6 +92,7 @@ public class SsoTestService {
     }
 
     private ApiResponse testLdapConnection(SsoProviderConfigUpdateRequest config) {
+        // 1. Validate Input
         if (!StringUtils.hasText(config.getLdapServerUrl()) ||
                 !StringUtils.hasText(config.getLdapBindDn()) ||
                 !StringUtils.hasText(config.getLdapBindPassword())) {
@@ -102,6 +102,7 @@ public class SsoTestService {
                     .build();
         }
 
+        // 2. Setup Environment
         Hashtable<String, String> env = new Hashtable<>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, config.getLdapServerUrl());
@@ -109,28 +110,39 @@ public class SsoTestService {
         env.put(Context.SECURITY_PRINCIPAL, config.getLdapBindDn());
         env.put(Context.SECURITY_CREDENTIALS, config.getLdapBindPassword());
 
-        // Force SSL if using ldaps
+        // Handle LDAPS Protocol
         if (config.getLdapServerUrl().toLowerCase().startsWith("ldaps://")) {
             env.put(Context.SECURITY_PROTOCOL, "ssl");
+            // Note: If using self-signed certs, a custom TrustStore approach would be needed here.
+            // For now, we assume the server has a valid chain or the JVM trusts it.
         }
 
+        DirContext ctx = null;
         try {
-            // Attempt to create the initial context (Binding)
-            DirContext ctx = new InitialDirContext(env);
+            // 3. Perform Bind (User Auth for the Bind Account)
+            log.info("Attempting LDAP Bind for user: {}", config.getLdapBindDn());
+            ctx = new InitialDirContext(env);
+
+            // 4. Unbind
             ctx.close();
+
             return ApiResponse.builder()
                     .success(true)
-                    .message("Successfully connected and bound to LDAP server.")
+                    .message("Connection Successful! Successfully bound as " + config.getLdapBindDn())
                     .build();
+
         } catch (Exception e) {
-            log.error("LDAP Test Failed: {}", e.getMessage());
+            log.error("LDAP Connection Test Failed", e);
             return ApiResponse.builder()
                     .success(false)
                     .message("Connection Failed: " + e.getMessage())
                     .build();
+        } finally {
+            if (ctx != null) {
+                try { ctx.close(); } catch (Exception ex) { /* ignore */ }
+            }
         }
     }
-
     // Helper to ping a URL
     private ApiResponse pingEndpoint(String url) {
         try {

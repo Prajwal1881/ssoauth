@@ -317,22 +317,31 @@
                     <h4 style="margin-top: 20px;">Connection Details</h4>
 
                     <div class="form-row">
-                        <label for="adDirectoryType">Directory Type</label>
-                        <select id="adDirectoryType">
+                        <label for="adDirectoryType">Directory Type <i class="fas fa-info-circle" title="Select your directory server type"></i></label>
+                        <select id="adDirectoryType" style="width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px;">
                             <option value="Active Directory">Active Directory</option>
                             <option value="OpenLDAP">OpenLDAP</option>
+                            <option value="AD LDS">AD LDS</option>
+                            <option value="OpenDS">OpenDS</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
 
                     <div class="form-row">
-                        <label for="adServerUrl">Server URL</label>
-                        <input type="url" id="adServerUrl" placeholder="ldaps://ad.example.com:636">
+                        <label for="adServerHost">LDAP Server URL</label>
+                        <div style="display: flex; gap: 10px; width: 100%; max-width: 350px;">
+                            <select id="adProtocol" style="width: 100px; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px;">
+                                <option value="ldap://">ldap://</option>
+                                <option value="ldaps://">ldaps://</option>
+                            </select>
+                            <input type="text" id="adServerHost" placeholder="192.168.1.100:389" style="flex-grow: 1;">
+                        </div>
                     </div>
 
                     <div class="form-row">
                         <label for="adBindDn">Bind Account DN</label>
                         <input type="text" id="adBindDn" placeholder="cn=admin,dc=example,dc=com">
+                        <small style="display:block; color:#666; font-size:0.8em; margin-left: 10px;">(User credentials for searching)</small>
                     </div>
 
                     <div class="form-row">
@@ -361,10 +370,16 @@
                         <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Fallback Authentication</label>
                         <input type="checkbox" id="adFallbackAuth">
                     </div>
+                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.8rem; color: #888; margin-bottom: 15px;">
+                        If LDAP fails, try local DB password.
+                    </div>
 
                     <div class="toggle-row">
-                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Sync Users on Login</label>
+                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Sync Users in miniOrange</label>
                         <input type="checkbox" id="adSyncUsers">
+                    </div>
+                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.8rem; color: #888; margin-bottom: 15px;">
+                        Create/Update users in local DB after successful LDAP login.
                     </div>
 
                     <div class="btn-container">
@@ -634,7 +649,18 @@
         // AD / LDAP Specifics
         if (p === 'ad') {
             document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
-            document.getElementById('adServerUrl').value = c.ldapServerUrl || '';
+
+            // Logic to split Protocol and Host
+            const fullUrl = c.ldapServerUrl || '';
+            if (fullUrl.startsWith('ldaps://')) {
+                document.getElementById('adProtocol').value = 'ldaps://';
+                document.getElementById('adServerHost').value = fullUrl.replace('ldaps://', '');
+            } else {
+                document.getElementById('adProtocol').value = 'ldap://';
+                // Remove ldap:// if present, otherwise just show full
+                document.getElementById('adServerHost').value = fullUrl.replace('ldap://', '');
+            }
+
             document.getElementById('adBindDn').value = c.ldapBindDn || '';
             document.getElementById('adBindPassword').value = ''; // Never show password
             document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
@@ -674,7 +700,12 @@
                 data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
             } else if (type === 'ad') {
                 data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
-                data.ldapServerUrl = document.getElementById('adServerUrl').value;
+
+                // Logic to Combine Protocol + Host
+                const protocol = document.getElementById('adProtocol').value;
+                const host = document.getElementById('adServerHost').value.trim();
+                data.ldapServerUrl = protocol + host;
+
                 data.ldapBindDn = document.getElementById('adBindDn').value;
                 data.ldapSearchBase = document.getElementById('adSearchBase').value;
                 data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
@@ -726,7 +757,12 @@
 
     function openTestAdModal() {
         // Prefill with values from the main form for convenience
-        document.getElementById('testAdServerUrl').value = document.getElementById('adServerUrl').value;
+
+        // 1. Reconstruct URL
+        const protocol = document.getElementById('adProtocol').value;
+        const host = document.getElementById('adServerHost').value.trim();
+        document.getElementById('testAdServerUrl').value = protocol + host;
+
         document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
         document.getElementById('testAdPassword').value = ''; // Always clear password for security
 
@@ -860,11 +896,11 @@
     window.onclick = function(event) {
         const userModal = document.getElementById('userModal');
         const importModal = document.getElementById('importSamlModal');
-        const adTestModal = document.getElementById('testAdConnectionModal'); // NEW
+        const adTestModal = document.getElementById('testAdConnectionModal');
 
         if (event.target == userModal) closeModal('userModal');
         if (event.target == importModal) closeModal('importSamlModal');
-        if (event.target == adTestModal) closeModal('testAdConnectionModal'); // NEW
+        if (event.target == adTestModal) closeModal('testAdConnectionModal');
     }
 </script>
 </body>
