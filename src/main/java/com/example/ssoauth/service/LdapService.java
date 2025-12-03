@@ -10,7 +10,9 @@ import org.springframework.util.StringUtils;
 import javax.naming.Context;
 import javax.naming.NamingEnumeration;
 import javax.naming.directory.*;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
 
 @Service
 @Slf4j
@@ -145,6 +147,120 @@ public class LdapService {
                 try { ctx.close(); } catch (Exception ex) { /* ignore */ }
             }
         }
+    }
+
+    /**
+     * Connects to AD and fetches ALL users matching the filter in the search base.
+     */
+    public List<LdapUser> listUsers(SsoProviderConfig config) {
+        List<LdapUser> users = new ArrayList<>();
+
+        // 1. Setup Environment
+        Hashtable<String, String> env = new Hashtable<>();
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL, config.getLdapServerUrl());
+        env.put(Context.SECURITY_AUTHENTICATION, "simple");
+        env.put(Context.SECURITY_PRINCIPAL, config.getLdapBindDn());
+        env.put(Context.SECURITY_CREDENTIALS, config.getLdapBindPassword());
+
+        if (config.getLdapServerUrl().toLowerCase().startsWith("ldaps://")) {
+            env.put(Context.SECURITY_PROTOCOL, "ssl");
+        }
+
+        DirContext ctx = null;
+        try {
+            // 2. Connect
+            log.info("Connecting to LDAP for Bulk Import: {}", config.getLdapServerUrl());
+            ctx = new InitialDirContext(env);
+
+            // 3. Configure Search
+            String searchBase = config.getLdapSearchBase();
+
+            // Use configured filter or default to all users
+            String searchFilter = config.getLdapUserSearchFilter();
+            if (!StringUtils.hasText(searchFilter)) {
+                searchFilter = "(objectClass=user)";
+            } else {
+                // If filter has placeholders like {0} or ?, replace them with wildcard * for bulk fetch
+                searchFilter = searchFilter.replace("{0}", "*").replace("?", "*");
+            }
+
+            log.info("Importing users from Base: '{}' with Filter: '{}'", searchBase, searchFilter);
+
+            SearchControls searchControls = new SearchControls();
+            searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+            // Fetch standard attributes
+            searchControls.setReturningAttributes(new String[]{"dn", "cn", "sn", "givenName", "mail", "sAMAccountName", "userPrincipalName", "displayName"});
+            // Optional: Set count limit (e.g., 1000 is often AD default limit)
+            searchControls.setCountLimit(2000);
+
+            // 4. Search
+            NamingEnumeration<SearchResult> results = ctx.search(searchBase, searchFilter, searchControls);
+
+            while (results.hasMore()) {
+                try {
+                    SearchResult result = results.next();
+                    Attributes attrs = result.getAttributes();
+                    String userDn = result.getNameInNamespace();
+
+                    // Reuse the extraction logic from authenticate() or duplicate it here safely
+                    String email = getAttributeValue(attrs, "mail");
+                    String firstName = getAttributeValue(attrs, "givenName");
+                    String lastName = getAttributeValue(attrs, "sn");
+                    String sAMAccountName = getAttributeValue(attrs, "sAMAccountName");
+                    String upn = getAttributeValue(attrs, "userPrincipalName");
+                    String displayName = getAttributeValue(attrs, "displayName");
+
+                    // Username Logic
+                    String finalUsername = sAMAccountName;
+                    if (!StringUtils.hasText(finalUsername) && StringUtils.hasText(upn)) {
+                        finalUsername = upn.split("@")[0];
+                    }
+                    if (!StringUtils.hasText(finalUsername)) continue; // Skip if no identifier
+
+                    // Email Logic (Skip if no email, or generate placeholder?)
+                    // For import, we usually only want valid users. Let's skip if no email.
+                    if (!StringUtils.hasText(email)) {
+                        if (StringUtils.hasText(upn)) {
+                            email = upn;
+                        } else {
+                            log.debug("Skipping user {} - no email found.", finalUsername);
+                            continue;
+                        }
+                    }
+
+                    // Name Logic
+                    if (!StringUtils.hasText(firstName) && StringUtils.hasText(displayName)) {
+                        String[] parts = displayName.split(" ");
+                        firstName = parts[0];
+                        if (parts.length > 1 && !StringUtils.hasText(lastName)) {
+                            lastName = parts[parts.length - 1];
+                        }
+                    }
+
+                    users.add(LdapUser.builder()
+                            .username(finalUsername)
+                            .email(email)
+                            .firstName(firstName)
+                            .lastName(lastName)
+                            .dn(userDn)
+                            .build());
+
+                } catch (Exception e) {
+                    log.warn("Error parsing single LDAP entry during import: {}", e.getMessage());
+                }
+            }
+            log.info("Found {} users in AD.", users.size());
+
+        } catch (Exception e) {
+            log.error("LDAP Import Failed", e);
+            throw new SSOAuthenticationException("Import Failed: " + e.getMessage());
+        } finally {
+            if (ctx != null) {
+                try { ctx.close(); } catch (Exception ex) { }
+            }
+        }
+        return users;
     }
 
     private String getAttributeValue(Attributes attrs, String attributeId) {

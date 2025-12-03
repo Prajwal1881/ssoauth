@@ -131,12 +131,42 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: #fff; margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 8px; position: relative; }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+
         .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast { background: #fff; color: #333; padding: 15px 25px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease-out forwards; border-left: 4px solid #ccc; min-width: 300px; font-size: 0.95rem; }
         .toast.success { border-left-color: var(--success-color); }
         .toast.error { border-left-color: var(--error-color); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+
+        /* Success Card Styles */
+        .success-card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            margin: 15% auto; /* Center in modal overlay */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            animation: popIn 0.3s ease-out;
+            position: relative;
+        }
+        .success-icon {
+            width: 60px; height: 60px;
+            background: var(--success-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 20px auto;
+        }
+        .success-card h3 { margin: 0 0 15px 0; color: var(--primary-orange); }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -253,7 +283,7 @@
                     <h4>Identity Provider Details</h4>
                     <div class="form-row"><label for="oidcIssuerUri">Issuer URI</label><input type="url" id="oidcIssuerUri" placeholder="Leave blank to use discovery"></div>
                     <div class="form-row"><label for="oidcClientId">Client ID</label><input type="text" id="oidcClientId"></div>
-                    <div class="form-row"><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret"><button type="button" class="toggle-password" id="toggleOidcSecret">Show</button></div></div>
+                    <div class="form-row"><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret"><button type="button" class="toggle-password">Show</button></div></div>
                     <div class="form-row"><label for="oidcScopes">Scopes</label><input type="text" id="oidcScopes" value="openid, profile, email"></div>
                     <div class="form-row"><label for="oidcUserNameAttribute">User Name Attribute</label><input type="text" id="oidcUserNameAttribute" value="email"></div>
                     <h4>Endpoint Overrides</h4>
@@ -374,12 +404,21 @@
                         If LDAP fails, try local DB password.
                     </div>
 
-                    <div class="toggle-row">
-                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Sync Users in miniOrange</label>
-                        <input type="checkbox" id="adSyncUsers">
-                    </div>
-                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.8rem; color: #888; margin-bottom: 15px;">
-                        Create/Update users in local DB after successful LDAP login.
+                    <div class="form-row" style="align-items: flex-start; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #eee;">
+                        <label style="padding-top: 5px;">User Provisioning</label>
+                        <div style="width: 100%; max-width: 450px;">
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <strong style="display: block; color: #333; margin-bottom: 5px;">Import Users from AD</strong>
+                                    <p style="margin: 0; font-size: 0.85rem; color: #666;">
+                                        Fetch all users from the configured OU and create accounts locally.
+                                    </p>
+                                </div>
+                                <button type="button" class="btn-create" onclick="importAdUsers()" id="btnImportAd" style="margin-left: 15px; white-space: nowrap;">
+                                    <i class="fas fa-file-import"></i> Import Users
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="btn-container">
@@ -465,8 +504,50 @@
     </div>
 </div>
 
+<div id="importConfirmModal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <span class="close" onclick="closeModal('importConfirmModal')">&times;</span>
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-question-circle" style="font-size: 50px; color: var(--primary-orange);"></i>
+        </div>
+        <h3>Confirm Import</h3>
+        <p style="color: #666; margin-bottom: 25px;">
+            This will fetch all users from the configured Active Directory OU and create accounts in the application.
+            <br><br>
+            <strong>Note:</strong> Ensure you have saved your configuration first.
+        </p>
+        <div class="btn-container" style="justify-content: center; border: none;">
+            <button type="button" class="btn-test" onclick="closeModal('importConfirmModal')">Cancel</button>
+            <button type="button" class="btn-save" onclick="executeAdImport()">Yes, Import Users</button>
+        </div>
+    </div>
+</div>
+
+<div id="importSuccessModal" class="modal">
+    <div class="success-card">
+        <div class="success-icon">✓</div>
+        <h3>Import Complete!</h3>
+        <p id="importSuccessMessage">Users imported successfully.</p>
+        <button class="btn-create" onclick="closeModal('importSuccessModal')" style="margin: 20px auto; display: block;">Close</button>
+    </div>
+</div>
+
+<div id="deleteConfirmModal" class="modal">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <span class="close" onclick="closeModal('deleteConfirmModal')">&times;</span>
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
+        </div>
+        <h3>Confirm Deletion</h3>
+        <p style="color: #666; margin-bottom: 25px;">Are you sure you want to delete this user? This action cannot be undone.</p>
+        <div class="btn-container" style="justify-content: center; border: none;">
+            <button type="button" class="btn-test" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+            <button type="button" class="btn-save" style="background-color: #dc3545;" onclick="executeUserDeletion()">Delete</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    // --- Toast Notification Helper ---
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
@@ -479,7 +560,6 @@
         }, 3000);
     }
 
-    // --- Global Variables ---
     const token = localStorage.getItem('accessToken');
     const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
     const brandingForm = document.getElementById('brandingConfigForm');
@@ -489,11 +569,9 @@
     const subdomainPreview = document.getElementById('subdomain-preview');
     let configDataStore = {};
 
-    // --- Initialization ---
     (async function init() {
         if (!token) { window.location.href = '/login'; return; }
 
-        // Load Branding on Init
         try {
             const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
@@ -503,15 +581,14 @@
                 brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
                 updateDynamicSubdomainUrls(b.subdomain);
 
-                // Update header logo if present
                 if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
                 if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
                 if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
             }
         } catch (e) { console.error("Branding load failed", e); }
+        await loadBrandingSettings();
     })();
 
-    // --- Tab Navigation ---
     window.openTab = function(evt, tabName) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.getElementById("userManagement").style.display = "none";
@@ -522,7 +599,6 @@
         if (tabName === 'userManagement') {
             loadUsers();
         } else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
-            // Reload configs every time the tab is opened to ensure freshness
             loadSsoConfigurations();
             updateDynamicSubdomainUrls(brandingSubdomainInput.value);
         }
@@ -530,11 +606,25 @@
 
     function updateDynamicSubdomainUrls(sub) {
         const txt = sub ? sub.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
-        if(subdomainPreview) subdomainPreview.textContent = txt;
+        if(document.getElementById('subdomain-preview')) document.getElementById('subdomain-preview').textContent = txt;
         document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
     }
 
-    // --- Branding Submit ---
+    async function loadBrandingSettings() {
+        try {
+            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                const b = await res.json();
+                brandingSubdomainInput.value = b.subdomain || '';
+                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
+                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
+                updateDynamicSubdomainUrls(b.subdomain);
+            }
+        } catch (e) {}
+    }
+
+    brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
+
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -554,7 +644,6 @@
         } catch (e) { showToast(e.message, 'error'); }
     });
 
-    // --- User Management ---
     async function loadUsers() {
         userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
         try {
@@ -571,7 +660,6 @@
         } catch (e) { showToast(e.message, 'error'); }
     }
 
-    // User Modal Functions
     const userModal = document.getElementById('userModal');
     const userForm = document.getElementById('userForm');
     const userIdInput = document.getElementById('userId');
@@ -603,9 +691,37 @@
         } catch (e) { showToast(e.message, 'error'); }
     };
 
-    window.deleteUser = async function(id) {
-        if (!confirm('Delete this user?')) return;
-        try { await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); showToast('User deleted', 'success'); loadUsers(); } catch (e) { showToast(e.message, 'error'); }
+    // --- New: Delete User UI Popup Logic ---
+    let userToDeleteId = null;
+
+    window.deleteUser = function(id) {
+        // Open the custom delete modal instead of browser confirm
+        userToDeleteId = id;
+        document.getElementById('deleteConfirmModal').style.display = 'block';
+    };
+
+    window.executeUserDeletion = async function() {
+        if (!userToDeleteId) return;
+        closeModal('deleteConfirmModal');
+
+        try {
+            const res = await fetch(`/api/admin/users/${userToDeleteId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (res.ok) {
+                showToast('User deleted successfully', 'success');
+                loadUsers();
+            } else {
+                const data = await res.json();
+                showToast(data.message || 'Failed to delete user', 'error');
+            }
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            userToDeleteId = null;
+        }
     };
 
     window.closeModal = function(modalId) {
@@ -634,21 +750,16 @@
         } catch (e) { showToast(e.message, 'error'); }
     });
 
-    // --- SSO CONFIGURATION LOGIC (CRITICAL UPDATES) ---
-
     async function loadSsoConfigurations() {
         try {
             const res = await fetch('/api/admin/sso-config', { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
                 const configs = await res.json();
-                console.log("Loaded Configs:", configs); // Debugging
                 configs.forEach(c => {
                     try {
                         configDataStore[c.providerId] = c;
                         populateSsoForm(c);
-                    } catch (err) {
-                        console.error("Error populating form for:", c.providerId, err);
-                    }
+                    } catch (err) { console.error("Error populating", c.providerId, err); }
                 });
             }
         } catch (e) { console.error("Failed to load SSO configs", e); }
@@ -656,30 +767,19 @@
 
     function populateSsoForm(c) {
         let p = c.providerType.toLowerCase();
-        // Correctly map backend AD_LDAP to frontend 'ad'
         if (p === 'ad_ldap') p = 'ad';
 
         const idEl = document.getElementById(`${p}ConfigId`);
-        if (!idEl) {
-            console.warn(`Form elements not found for provider type: ${p}`);
-            return;
-        }
+        if (!idEl) return;
 
-        // 1. Set ID (Critical for Update vs Create)
         idEl.value = c.id || '';
 
-        // 2. Set Basic Fields
-        const enableEl = document.getElementById(`${p}Enable`);
-        if (enableEl) enableEl.checked = c.enabled;
+        if(document.getElementById(`${p}Enable`)) document.getElementById(`${p}Enable`).checked = c.enabled;
+        if(document.getElementById(`${p}DisplayName`)) document.getElementById(`${p}DisplayName`).value = c.displayName || '';
 
-        const displayEl = document.getElementById(`${p}DisplayName`);
-        if (displayEl) displayEl.value = c.displayName || '';
-
-        // 3. Set Type-Specific Fields
         if (p === 'ad') {
             if(document.getElementById('adDirectoryType')) document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
 
-            // Logic to split Protocol and Host
             const fullUrl = c.ldapServerUrl || '';
             const protocolEl = document.getElementById('adProtocol');
             const hostEl = document.getElementById('adServerHost');
@@ -695,18 +795,17 @@
             }
 
             if(document.getElementById('adBindDn')) document.getElementById('adBindDn').value = c.ldapBindDn || '';
-            if(document.getElementById('adBindPassword')) document.getElementById('adBindPassword').value = ''; // Security: Empty
+            if(document.getElementById('adBindPassword')) document.getElementById('adBindPassword').value = '';
             if(document.getElementById('adSearchBase')) document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
             if(document.getElementById('adUserSearchFilter')) document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
             if(document.getElementById('adFallbackAuth')) document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
-            if(document.getElementById('adSyncUsers')) document.getElementById('adSyncUsers').checked = c.ldapSyncUsers || false;
+            // NOTE: adSyncUsers checkbox is REMOVED from the UI, so we don't populate it.
 
         } else if (p === 'jwt') {
             document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
             document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
-            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri; // Map issuer to Client ID field for JWT
+            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
         } else {
-            // SAML & OIDC
             if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
             if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
 
@@ -726,12 +825,10 @@
         }
     }
 
-    // --- SSO Submit Handlers ---
     ['saml', 'oidc', 'jwt', 'ad'].forEach(type => {
         const form = document.getElementById(`${type}ConfigForm`);
         if (!form) return;
 
-        // Clone to remove old listeners
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
 
@@ -739,26 +836,22 @@
             e.preventDefault();
             const pid = newForm.dataset.providerId;
 
-            // CRITICAL FIX: Try to find ID in Store OR Hidden Input
             let cfgId = configDataStore[pid]?.id;
             const hiddenIdVal = document.getElementById(`${type}ConfigId`).value;
             if (!cfgId && hiddenIdVal) {
-                cfgId = hiddenIdVal; // Fallback to hidden input if store wasn't updated
+                cfgId = hiddenIdVal;
             }
 
             const data = {
                 id: cfgId,
                 providerId: pid,
-                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(), // Ensure correct Enum
+                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(),
                 enabled: document.getElementById(`${type}Enable`).checked,
                 displayName: document.getElementById(`${type}DisplayName`).value
             };
 
-            // Field Mapping
             if (type === 'ad') {
                 data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
-
-                // Combine Protocol + Host
                 const protocol = document.getElementById('adProtocol').value;
                 const host = document.getElementById('adServerHost').value.trim();
                 data.ldapServerUrl = protocol + host;
@@ -767,7 +860,9 @@
                 data.ldapSearchBase = document.getElementById('adSearchBase').value;
                 data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
                 data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
-                data.ldapSyncUsers = document.getElementById('adSyncUsers').checked;
+
+                // Force sync to true implicitly as we want JIT provisioning by default
+                data.ldapSyncUsers = true;
 
                 const pass = document.getElementById('adBindPassword').value;
                 if(pass) data.ldapBindPassword = pass;
@@ -780,10 +875,8 @@
                 const sub = document.getElementById('brandingSubdomain').value || 'example';
                 data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
             } else {
-                // SAML/OIDC
                 if(document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
                 if(document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;
-
                 if(type==='saml') {
                     data.samlEntityId=document.getElementById('samlEntityId').value;
                     data.samlSsoUrl=document.getElementById('samlSsoUrl').value;
@@ -799,12 +892,10 @@
                 }
             }
 
-            // Secret Handling
             const secretEl = document.getElementById(`${type}ClientSecret`);
             if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
             try {
-                // Determine PUT vs POST based on ID existence
                 const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
                 const method = cfgId ? 'PUT' : 'POST';
 
@@ -819,8 +910,6 @@
                 if (!res.ok) throw new Error((await res.json()).message);
 
                 const updated = await res.json();
-
-                // Update Local State
                 configDataStore[pid] = updated;
                 populateSsoForm(updated);
 
@@ -829,12 +918,56 @@
         });
     });
 
-    // --- TEST CONNECTION LOGIC ---
+    // --- Import Functions ---
+    function importAdUsers() {
+        // Open the confirmation modal instead of browser confirm()
+        document.getElementById('importConfirmModal').style.display = 'block';
+    }
+
+    async function executeAdImport() {
+        // Close confirm modal immediately
+        closeModal('importConfirmModal');
+
+        const btn = document.getElementById('btnImportAd');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+
+        try {
+            const response = await fetch('/api/admin/sso-config/ad/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ providerId: 'ad_ldap' })
+            });
+
+            const res = await response.json();
+
+            if (response.ok && res.success) {
+                // Show Success Modal
+                document.getElementById('importSuccessMessage').textContent = res.message;
+                document.getElementById('importSuccessModal').style.display = 'block';
+                // Optional: reload user table if we are looking at it
+                // loadUsers();
+            } else {
+                showToast("Import Failed: " + (res.message || 'Unknown Error'), 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast("Network Error during import", 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    // --- Test Connection & Modal Logic ---
     window.testAttributes = function(pid) {
         if (pid === 'ad_ldap') {
             openTestAdModal();
         } else {
-            // Standard OIDC/SAML/JWT Test
             const c = configDataStore[pid];
             if (!c || !c.enabled) {
                  showToast("Please save and enable configuration first.", 'error');
@@ -845,13 +978,12 @@
     };
 
     function openTestAdModal() {
-        // Prefill modal with values from the form
         const protocol = document.getElementById('adProtocol').value;
         const host = document.getElementById('adServerHost').value.trim();
         document.getElementById('testAdServerUrl').value = protocol + host;
 
         document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
-        document.getElementById('testAdPassword').value = ''; // Always clear password
+        document.getElementById('testAdPassword').value = '';
         document.getElementById('testAdConnectionModal').style.display = 'block';
     }
 
@@ -890,7 +1022,6 @@
         });
     }
 
-    // --- Helpers & Listeners ---
     document.querySelectorAll('.toggle-password').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const inp = e.target.previousElementSibling;
@@ -904,10 +1035,94 @@
         window.location.href = '/login';
     });
 
+    // --- SAML Metadata Functions ---
+    function openImportSamlModal() {
+        document.getElementById('metadataFile').value = '';
+        document.getElementById('importSamlModal').style.display = 'block';
+    }
+
+    async function processSamlImport() {
+        const fileInput = document.getElementById('metadataFile');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showToast('Please select a file first.', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        const importBtn = document.querySelector('#importSamlModal .btn-save');
+        const originalText = importBtn.textContent;
+        importBtn.textContent = 'Parsing...';
+        importBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/admin/sso-config/saml/import-metadata', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Failed to parse metadata');
+            }
+
+            const data = await res.json();
+            if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
+            if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
+            if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
+
+            showToast('Metadata imported successfully!', 'success');
+            closeModal('importSamlModal');
+
+        } catch (e) {
+            console.error("Import error:", e);
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            importBtn.textContent = originalText;
+            importBtn.disabled = false;
+        }
+    }
+
+    function downloadSpMetadata() {
+        const form = document.getElementById('samlConfigForm');
+        const providerId = form.dataset.providerId || 'saml';
+
+        fetch(`/api/admin/sso-config/saml/download-metadata/${providerId}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(response => {
+            if(response.ok) return response.blob();
+            throw new Error('Download failed');
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `sp-metadata-${providerId}.xml`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(err => showToast("Failed to download metadata: " + err.message, 'error'));
+    }
+
     window.onclick = function(event) {
+        const userModal = document.getElementById('userModal');
+        const importModal = document.getElementById('importSamlModal');
+        const adTestModal = document.getElementById('testAdConnectionModal');
+        const confirmModal = document.getElementById('importConfirmModal');
+        const successModal = document.getElementById('importSuccessModal');
+        const deleteModal = document.getElementById('deleteConfirmModal');
+
         if (event.target == userModal) closeModal('userModal');
-        if (event.target == document.getElementById('importSamlModal')) closeModal('importSamlModal');
-        if (event.target == document.getElementById('testAdConnectionModal')) closeModal('testAdConnectionModal');
+        if (event.target == importModal) closeModal('importSamlModal');
+        if (event.target == adTestModal) closeModal('testAdConnectionModal');
+        if (event.target == confirmModal) closeModal('importConfirmModal');
+        if (event.target == successModal) closeModal('importSuccessModal');
+        if (event.target == deleteModal) closeModal('deleteConfirmModal');
     }
 </script>
 </body>
