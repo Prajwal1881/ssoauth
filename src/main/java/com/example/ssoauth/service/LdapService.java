@@ -48,7 +48,7 @@ public class LdapService {
                 rawFilter = "(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})))";
             }
 
-            // --- CRITICAL FIX: Handle both '{0}' and '?' as placeholders ---
+            // Handle both '{0}' and '?' as placeholders
             String searchFilter = rawFilter
                     .replace("{0}", escapeLdapSearchFilter(username))
                     .replace("?", escapeLdapSearchFilter(username));
@@ -107,6 +107,11 @@ public class LdapService {
                 finalUsername = sAMAccountName;
             } else if (StringUtils.hasText(upn)) {
                 finalUsername = upn.split("@")[0];
+            }
+
+            // --- CRITICAL FIX: Normalize username to lowercase ---
+            if (finalUsername != null) {
+                finalUsername = finalUsername.toLowerCase();
             }
 
             // Email Heuristic (Crucial for SSO)
@@ -217,6 +222,11 @@ public class LdapService {
                         finalUsername = upn.split("@")[0];
                     }
                     if (!StringUtils.hasText(finalUsername)) continue; // Skip if no identifier
+
+                    // --- CRITICAL FIX: Normalize username to lowercase ---
+                    if (finalUsername != null) {
+                        finalUsername = finalUsername.toLowerCase();
+                    }
 
                     // Email Logic (Skip if no email, or generate placeholder?)
                     // For import, we usually only want valid users. Let's skip if no email.

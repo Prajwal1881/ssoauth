@@ -18,15 +18,19 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    Optional<User> findByUsernameAndTenantId(String username, Long tenantId);
-
     // --- NEW: Method for Super-Admin stats ---
     /**
      * Counts all users associated with a specific tenant.
      */
     Long countByTenant(Tenant tenant);
 
-    // --- Tenant-Aware Methods (Corrected from previous steps) ---
+    // --- Tenant-Aware Methods ---
+
+    /**
+     * CRITICAL FIX: Case-insensitive lookup for username within a tenant.
+     * Fixes issues where AD returns 'JDE' but token uses 'jde'.
+     */
+    Optional<User> findByUsernameIgnoreCaseAndTenantId(String username, Long tenantId);
 
     Optional<User> findByTenantIdAndUsernameOrTenantIdAndEmail(Long tenantId1, String username, Long tenantId2, String email);
 
@@ -64,10 +68,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.accountNonLocked = :locked WHERE u.id = :userId")
     void updateAccountLockStatus(@Param("userId") Long userId, @Param("locked") Boolean locked);
 
-    // --- FIX: Removed "Some(" and ")" wrapper ---
     Long countByAuthProvider(User.AuthProvider authProvider);
     Long countByEnabledTrue();
-    // --- End Fix ---
 
     List<User> findByCreatedAtAfter(LocalDateTime date);
     List<User> findByLastLoginAfter(LocalDateTime date);

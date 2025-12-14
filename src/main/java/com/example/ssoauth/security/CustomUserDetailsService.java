@@ -26,16 +26,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Transactional
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
 
+        // --- FIX: Get Long ID from context ---
         Long tenantId = TenantContext.getCurrentTenant();
         Optional<User> userOpt = Optional.empty();
 
         if (tenantId != null) {
-            log.debug("Loading user '{}' for tenantId: {}", usernameOrEmail, tenantId);
+            // This is a tenant-specific login (e.g., acme.localhost:8080)
+            log.debug("Loading user {} for tenantId: {}", usernameOrEmail, tenantId);
 
-            // --- FIX: Split the lookup for reliability ---
-
-            // 1. Try finding by Username first (This matches the JWT 'sub')
-            userOpt = userRepository.findByUsernameAndTenantId(usernameOrEmail, tenantId);
+            // 1. Try finding by Username (Case Insensitive) - Primary Fix
+            userOpt = userRepository.findByUsernameIgnoreCaseAndTenantId(usernameOrEmail, tenantId);
 
             // 2. If not found, try finding by Email
             if (userOpt.isEmpty()) {
@@ -43,8 +43,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
 
         } else {
-            // Super Admin / Root Domain Login
-            log.debug("Loading user '{}' for root (tenant_id IS NULL)", usernameOrEmail);
+            // This is a main domain login (Super Admin)
+            log.debug("Loading user {} for root (tenant_id IS NULL)", usernameOrEmail);
             userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(usernameOrEmail, usernameOrEmail);
 
             if (userOpt.isPresent() && !userOpt.get().hasRole("ROLE_SUPER_ADMIN")) {
@@ -52,10 +52,11 @@ public class CustomUserDetailsService implements UserDetailsService {
                 throw new UsernameNotFoundException("Please use your organization's login URL.");
             }
         }
+        // --- END FIX ---
 
         User user = userOpt.orElseThrow(() -> {
             log.error("Login Failed: User '{}' not found in Tenant {}", usernameOrEmail, tenantId);
-            return new UsernameNotFoundException("User not found: " + usernameOrEmail);
+            return new UsernameNotFoundException("User not found with username or email: " + usernameOrEmail);
         });
 
         return new org.springframework.security.core.userdetails.User(
@@ -71,6 +72,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Transactional
     public UserDetails loadUserById(Long id) {
+        // The TenantFilterAspect will ensure this findById is tenant-safe
+        // if called from a tenant-aware context (like AdminService).
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + id));
 
