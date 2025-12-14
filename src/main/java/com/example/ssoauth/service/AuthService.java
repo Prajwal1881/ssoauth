@@ -153,43 +153,58 @@ public class AuthService {
     }
 
 
+    /**
+     * Process OIDC login with explicit registrationId
+     *
+     * @param oidcUser The authenticated OIDC user
+     * @param registrationId The provider registration ID (e.g., "oidc_miniorange")
+     * @return The application user (created or updated)
+     */
     @Transactional
-    public User processOidcLogin(OidcUser oidcUser) {
+    public User processOidcLogin(OidcUser oidcUser, String registrationId) {
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
             throw new SSOAuthenticationException("OIDC login failed: No tenant context found.");
         }
 
-        String registrationId = (String) oidcUser.getAttributes().get("registrationId");
-        if (registrationId == null) {
-            registrationId = ssoConfigService.getAllConfigEntities().stream()
-                    .filter(c -> c.getProviderType() == SsoProviderType.OIDC && c.isEnabled())
-                    .findFirst()
-                    .map(SsoProviderConfig::getProviderId)
-                    .orElseThrow(() -> new SSOAuthenticationException("Could not determine OIDC registrationId or no OIDC provider enabled"));
+        // ✅ Use the provided registrationId instead of trying to extract from attributes
+        log.debug("Processing OIDC login for registrationId: {} in tenant: {}",
+                registrationId, tenantId);
+
+        // Validate that the config exists and belongs to this tenant
+        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
+                .orElseThrow(() -> new SSOAuthenticationException(
+                        "No OIDC config found for: " + registrationId));
+
+        // Security check: Ensure the config belongs to the current tenant
+        if (!config.getTenant().getId().equals(tenantId)) {
+            log.error("Security violation: OIDC config '{}' belongs to tenant {}, but current tenant is {}",
+                    registrationId, config.getTenant().getId(), tenantId);
+            throw new SSOAuthenticationException(
+                    "OIDC config mismatch: Provider does not belong to current tenant.");
         }
 
-        // --- FIX: Create an effectively final variable for the lambda ---
-        final String finalRegistrationId = registrationId;
-
-        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
-                .orElseThrow(() -> new SSOAuthenticationException("No OIDC config found for: " + finalRegistrationId));
-
-        if (!config.getTenant().getId().equals(tenantId)) {
-            throw new SSOAuthenticationException("OIDC config mismatch: Provider does not belong to current tenant.");
+        // Verify it's actually an OIDC provider
+        if (config.getProviderType() != SsoProviderType.OIDC) {
+            throw new SSOAuthenticationException(
+                    "Provider " + registrationId + " is not an OIDC provider");
         }
 
         Map<String, Object> claims = oidcUser.getClaims();
-
         log.debug("Processing OIDC Login for tenant {}. Attributes: {}", tenantId, claims);
 
-        String username = findOidcAttribute(claims, config.getUserNameAttribute(), "preferred_username", "username", "uid", "sub");
+        // Extract user attributes with fallbacks
+        String username = findOidcAttribute(claims,
+                config.getUserNameAttribute(), "preferred_username", "username", "uid", "sub");
         String email = findOidcAttribute(claims, "email", "mail", "userPrincipalName");
         String firstName = findOidcAttribute(claims, "given_name", "firstName", "fn");
         String lastName = findOidcAttribute(claims, "family_name", "lastName", "sn");
 
         if (email == null) email = oidcUser.getEmail();
         if (username == null) username = email;
+
+        log.info("OIDC user authenticated: username={}, email={}, provider={}",
+                username, email, registrationId);
 
         return processSsoLogin(
                 username,

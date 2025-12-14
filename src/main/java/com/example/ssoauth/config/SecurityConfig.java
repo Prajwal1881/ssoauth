@@ -1,5 +1,6 @@
 package com.example.ssoauth.config;
 
+import com.example.ssoauth.exception.SSOAuthenticationException;
 import com.example.ssoauth.security.JwtAuthenticationFilter;
 import com.example.ssoauth.security.JwtAuthenticationEntryPoint;
 import com.example.ssoauth.security.JwtTokenProvider;
@@ -21,6 +22,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter; // <-- NEW IMPORT
@@ -131,7 +133,22 @@ public class SecurityConfig {
         return (request, response, authentication) -> {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
-            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+
+            // ✅ FIX: Extract registrationId from OAuth2AuthenticationToken
+            String registrationId = null;
+            OidcUser oidcUser = null;
+
+            if (authentication instanceof OAuth2AuthenticationToken) {
+                OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
+                registrationId = oauth2Token.getAuthorizedClientRegistrationId();
+                oidcUser = (OidcUser) oauth2Token.getPrincipal();
+
+                log.info("OIDC callback received for registrationId: {}", registrationId);
+            } else {
+                log.error("Authentication is not OAuth2AuthenticationToken: {}",
+                        authentication.getClass().getName());
+                throw new SSOAuthenticationException("Invalid authentication type for OIDC");
+            }
 
             // Check if this is an attribute test
             if (testProviderId != null) {
@@ -143,15 +160,16 @@ public class SecurityConfig {
 
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
-                return; // Stop processing
+                return;
             }
 
             // --- Normal Login Flow ---
-            User appUser = authService.processOidcLogin(oidcUser);
+            // ✅ Pass registrationId explicitly
+            User appUser = authService.processOidcLogin(oidcUser, registrationId);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // NEW: Redirect based on role
-            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            // Redirect based on role
+            String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
             } else if (appUser.hasRole("ROLE_ADMIN")) {
