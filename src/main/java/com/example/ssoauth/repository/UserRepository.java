@@ -1,6 +1,6 @@
 package com.example.ssoauth.repository;
 
-import com.example.ssoauth.entity.Tenant; // NEW IMPORT
+import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -18,17 +18,16 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // --- NEW: Method for Super-Admin stats ---
+    // --- Tenant-Aware Lookups ---
+
     /**
-     * Counts all users associated with a specific tenant.
+     * CRITICAL FIX: Find by Provider ID strictly within the current Tenant.
+     * Prevents cross-tenant login issues (e.g., finding user in Tenant 21 when logging into Tenant 13).
      */
-    Long countByTenant(Tenant tenant);
-
-    // --- Tenant-Aware Methods ---
+    Optional<User> findByProviderIdAndTenantId(String providerId, Long tenantId);
 
     /**
-     * CRITICAL FIX: Case-insensitive lookup for username within a tenant.
-     * Fixes issues where AD returns 'JDE' but token uses 'jde'.
+     * CRITICAL FIX: Case-insensitive username lookup within tenant.
      */
     Optional<User> findByUsernameIgnoreCaseAndTenantId(String username, Long tenantId);
 
@@ -37,22 +36,28 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE (u.username = :username OR u.email = :email) AND u.tenant IS NULL")
     Optional<User> findByUsernameOrEmailAndTenantIsNull(@Param("username") String username, @Param("email") String email);
 
+    Optional<User> findByEmailAndTenantId(String email, Long tenantId);
+
+    // --- Boolean Checks ---
     Boolean existsByUsernameAndTenantId(String username, Long tenantId);
     Boolean existsByEmailAndTenantId(String email, Long tenantId);
     Boolean existsByUsernameAndTenantIdIsNull(String username);
     Boolean existsByEmailAndTenantIdIsNull(String email);
-    Optional<User> findByEmailAndTenantId(String email, Long tenantId);
 
-    // --- Original Methods (now auto-filtered by Hibernate) ---
+    // --- Stats ---
+    Long countByTenant(Tenant tenant);
+    Long countByAuthProvider(User.AuthProvider authProvider);
+    Long countByEnabledTrue();
 
+    // --- Legacy / Unfiltered (Be careful using these) ---
     @QueryHints(@QueryHint(name = "jakarta.persistence.cache.retrieveMode", value = "BYPASS"))
     Optional<User> findByEmail(String email);
 
-    Optional<User> findByProviderId(String providerId);
     List<User> findByAuthProvider(User.AuthProvider authProvider);
     List<User> findByEnabledTrue();
     List<User> findByEnabledFalse();
 
+    // --- Updates ---
     @Modifying
     @Transactional
     @Query("UPDATE User u SET u.lastLogin = :lastLogin WHERE u.id = :userId")
@@ -68,19 +73,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.accountNonLocked = :locked WHERE u.id = :userId")
     void updateAccountLockStatus(@Param("userId") Long userId, @Param("locked") Boolean locked);
 
-    Long countByAuthProvider(User.AuthProvider authProvider);
-    Long countByEnabledTrue();
-
+    // --- Search ---
     List<User> findByCreatedAtAfter(LocalDateTime date);
     List<User> findByLastLoginAfter(LocalDateTime date);
+    List<User> findByUsernameContainingIgnoreCase(String username);
+    List<User> findByEmailContainingIgnoreCase(String email);
+    List<User> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(String firstName, String lastName);
 
     @Transactional
     void deleteByUsername(String username);
     @Transactional
     void deleteByEmail(String email);
-
-    List<User> findByUsernameContainingIgnoreCase(String username);
-    List<User> findByEmailContainingIgnoreCase(String email);
-    List<User> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(
-            String firstName, String lastName);
 }
