@@ -45,12 +45,12 @@ public class AuthService {
     private final SsoConfigService ssoConfigService;
     private final TenantRepository tenantRepository;
 
+    // ... (signIn and signUp methods remain unchanged) ...
     @Transactional
     public JwtAuthResponse signIn(SignInRequest signInRequest) {
-
+        // ... existing implementation ...
         Long tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null) {
-            // Main domain login.
             Optional<User> userOpt = userRepository.findByUsernameOrEmailAndTenantIsNull(
                     signInRequest.getUsernameOrEmail(), signInRequest.getUsernameOrEmail());
 
@@ -69,7 +69,6 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String username = authentication.getName();
 
-        // Re-fetch user based on new context
         Optional<User> userOpt;
         Long authTenantId = TenantContext.getCurrentTenant();
 
@@ -95,6 +94,7 @@ public class AuthService {
 
     @Transactional
     public JwtAuthResponse signUp(SignUpRequest signUpRequest) {
+        // ... existing implementation ...
         Long tenantId = TenantContext.getCurrentTenant();
         Tenant tenant = null;
 
@@ -109,7 +109,6 @@ public class AuthService {
                 throw new ResourceAlreadyExistsException("Email is already in use for this tenant!");
             }
         } else {
-            // Super-admin signup (or main domain)
             if (userRepository.existsByUsernameAndTenantIdIsNull(signUpRequest.getUsername())) {
                 throw new ResourceAlreadyExistsException("Username is already taken!");
             }
@@ -152,13 +151,8 @@ public class AuthService {
                 .build();
     }
 
-
     /**
      * Process OIDC login with explicit registrationId
-     *
-     * @param oidcUser The authenticated OIDC user
-     * @param registrationId The provider registration ID (e.g., "oidc_miniorange")
-     * @return The application user (created or updated)
      */
     @Transactional
     public User processOidcLogin(OidcUser oidcUser, String registrationId) {
@@ -167,27 +161,38 @@ public class AuthService {
             throw new SSOAuthenticationException("OIDC login failed: No tenant context found.");
         }
 
-        // ✅ Use the provided registrationId instead of trying to extract from attributes
-        log.debug("Processing OIDC login for registrationId: {} in tenant: {}",
-                registrationId, tenantId);
+        // --- FIX: Handle unique internal ID format safely (Effectively Final) ---
+        String suffix = "-" + tenantId;
+
+        // Use a final variable for the DB lookup ID
+        final String dbProviderId = registrationId.endsWith(suffix)
+                ? registrationId.substring(0, registrationId.length() - suffix.length())
+                : registrationId;
+
+        if (registrationId.endsWith(suffix)) {
+            log.debug("Parsed internal OIDC ID '{}' to DB Provider ID '{}'", registrationId, dbProviderId);
+        }
+        // --- END FIX ---
+
+        log.debug("Processing OIDC login for registrationId: {} in tenant: {}", dbProviderId, tenantId);
 
         // Validate that the config exists and belongs to this tenant
-        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(registrationId)
+        // Now 'dbProviderId' is effectively final and can be used in the lambda below
+        SsoProviderConfig config = ssoConfigService.getConfigByProviderId(dbProviderId)
                 .orElseThrow(() -> new SSOAuthenticationException(
-                        "No OIDC config found for: " + registrationId));
+                        "No OIDC config found for: " + dbProviderId));
 
         // Security check: Ensure the config belongs to the current tenant
         if (!config.getTenant().getId().equals(tenantId)) {
             log.error("Security violation: OIDC config '{}' belongs to tenant {}, but current tenant is {}",
-                    registrationId, config.getTenant().getId(), tenantId);
+                    dbProviderId, config.getTenant().getId(), tenantId);
             throw new SSOAuthenticationException(
                     "OIDC config mismatch: Provider does not belong to current tenant.");
         }
 
-        // Verify it's actually an OIDC provider
         if (config.getProviderType() != SsoProviderType.OIDC) {
             throw new SSOAuthenticationException(
-                    "Provider " + registrationId + " is not an OIDC provider");
+                    "Provider " + dbProviderId + " is not an OIDC provider");
         }
 
         Map<String, Object> claims = oidcUser.getClaims();
@@ -204,7 +209,7 @@ public class AuthService {
         if (username == null) username = email;
 
         log.info("OIDC user authenticated: username={}, email={}, provider={}",
-                username, email, registrationId);
+                username, email, dbProviderId);
 
         return processSsoLogin(
                 username,
@@ -217,6 +222,7 @@ public class AuthService {
         );
     }
 
+    // ... (rest of the class methods: processSamlLogin, processSsoLogin, etc. remain unchanged) ...
     @Transactional
     public User processSamlLogin(Saml2AuthenticatedPrincipal samlUser) {
         Long tenantId = TenantContext.getCurrentTenant();
@@ -292,10 +298,8 @@ public class AuthService {
         }
         log.info("Processing SSO login for email: {}, providerId: {}, tenant: {}", email, providerId, tenantId);
 
-        // --- CRITICAL FIX: EXPLICIT TENANT ISOLATION ---
         User user = userRepository.findByProviderIdAndTenantId(providerId, tenantId)
                 .or(() -> {
-                    // Fallback to email lookup within tenant
                     log.warn("User not found by providerId {} in tenant {}. Attempting lookup by email.", providerId, tenantId);
                     return userRepository.findByEmailAndTenantId(email, tenantId);
                 })
@@ -317,11 +321,9 @@ public class AuthService {
                     return userRepository.save(existingUser);
                 })
                 .orElseGet(() -> {
-                    // Create NEW user in this tenant
                     log.info("Creating new SSO user in Tenant {} via {}", tenantId, provider);
 
                     String finalUsername;
-                    // Check strict tenant isolation for username as well
                     if (StringUtils.hasText(username) && !userRepository.existsByUsernameAndTenantId(username, tenantId)) {
                         finalUsername = username;
                     } else {
@@ -331,7 +333,6 @@ public class AuthService {
                         finalUsername = generateUniqueUsername(email, tenantId);
                     }
 
-                    // Ensure lowercase to match case-insensitive lookups later
                     if (finalUsername != null) finalUsername = finalUsername.toLowerCase();
 
                     User newUser = User.builder()
@@ -355,7 +356,6 @@ public class AuthService {
 
         return user;
     }
-
 
     private String generateRandomPassword() {
         return java.util.UUID.randomUUID().toString();

@@ -6,6 +6,7 @@ import com.example.ssoauth.security.JwtAuthenticationEntryPoint;
 import com.example.ssoauth.security.JwtTokenProvider;
 import com.example.ssoauth.service.AuthService;
 import com.example.ssoauth.entity.User;
+import com.example.ssoauth.security.CustomAuthenticationFailureHandler; // Import the new handler
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +60,7 @@ public class SecurityConfig {
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
     private final TenantIdentificationFilter tenantIdentificationFilter;
+    private final CustomAuthenticationFailureHandler failureHandler; // Inject the handler
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
@@ -105,6 +107,7 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .clientRegistrationRepository(dynamicOidcRepository)
                         .successHandler(oidcLoginSuccessHandler)
+                        .failureHandler(failureHandler) // <--- ADD THIS LINE
                 )
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
