@@ -87,7 +87,7 @@
         .form-row input[type=text], .form-row input[type=email], .form-row input[type=password], .form-row input[type=url], .form-row textarea, .form-row select {
             width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;
         }
-        .form-row input:focus, .form-row textarea:focus { outline: none; border-color: var(--primary-orange); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
+        .form-row input:focus, .form-row textarea:focus, .form-row select:focus { outline: none; border-color: var(--primary-orange); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
         textarea { min-height: 80px; resize: vertical; }
 
         .toggle-row { display: flex; align-items: center; margin-bottom: 15px; }
@@ -245,7 +245,7 @@
                 <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
                     <input type="hidden" id="samlConfigId">
                     <div class="toggle-row"><label class="main-lbl" for="samlEnable">Enable SAML Provider</label><label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label></div>
-                    <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text" id="samlDisplayName" placeholder="e.g., Okta SAML"></div>
+                    <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text" id="samlDisplayName" placeholder="e.g., miniOrange SAML"></div>
 
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
                         <h4 style="margin: 0; border: none; padding: 0;">Identity Provider Details</h4>
@@ -279,11 +279,11 @@
                 <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
                     <input type="hidden" id="oidcConfigId">
                     <div class="toggle-row"><label class="main-lbl" for="oidcEnable">Enable OIDC Provider</label><label class="switch"><input type="checkbox" id="oidcEnable"><span class="slider"></span></label></div>
-                    <div class="form-row"><label for="oidcDisplayName">Display Name</label><input type="text" id="oidcDisplayName" placeholder="e.g., Google Workspace"></div>
+                    <div class="form-row"><label for="oidcDisplayName">Display Name</label><input type="text" id="oidcDisplayName" placeholder="e.g., miniOrange, Google Workspace"></div>
                     <h4>Identity Provider Details</h4>
                     <div class="form-row"><label for="oidcIssuerUri">Issuer URI</label><input type="url" id="oidcIssuerUri" placeholder="Leave blank to use discovery"></div>
                     <div class="form-row"><label for="oidcClientId">Client ID</label><input type="text" id="oidcClientId"></div>
-                    <div class="form-row"><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret"><button type="button" class="toggle-password">Show</button></div></div>
+                    <div class="form-row" ><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret" placeholder="Leave blank if unchanged"><button type="button" class="toggle-password">Show</button></div></div>
                     <div class="form-row"><label for="oidcScopes">Scopes</label><input type="text" id="oidcScopes" value="openid, profile, email"></div>
                     <div class="form-row"><label for="oidcUserNameAttribute">User Name Attribute</label><input type="text" id="oidcUserNameAttribute" value="email"></div>
                     <h4>Endpoint Overrides</h4>
@@ -308,11 +308,40 @@
                     <input type="hidden" id="jwtConfigId">
                     <div class="toggle-row"><label class="main-lbl" for="jwtEnable">Enable JWT Provider</label><label class="switch"><input type="checkbox" id="jwtEnable"><span class="slider"></span></label></div>
                     <div class="form-row"><label for="jwtDisplayName">Display Name</label><input type="text" id="jwtDisplayName" placeholder="e.g., MiniOrange JWT"></div>
+
                     <h4>Identity Provider Details</h4>
                     <div class="form-row"><label for="jwtSsoUrl">JWT SSO URL (Full Link)</label><input type="url" id="jwtSsoUrl" placeholder="https://idp.example.com/jwtsso/...?client_id=..."></div>
                     <div class="form-row"><label for="jwtClientId">Client ID</label><input type="text" id="jwtClientId"></div>
-                    <div class="form-row"><label for="jwtClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="jwtClientSecret"><button type="button" class="toggle-password" id="toggleJwtSecret">Show</button></div></div>
-                    <div class="form-row"><label for="jwtCertificate">Certificate (PEM)</label><textarea id="jwtCertificate"></textarea></div>
+
+                    <div class="form-row">
+                        <label for="jwtClientSecret">Client Secret</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="jwtClientSecret" placeholder="Leave blank if unchanged">
+                            <button type="button" class="toggle-password">Show</button>
+                        </div>
+                    </div>
+                    <small id="jwtSecretHelp" style="display:none; color:#666; margin-left: 245px; margin-bottom: 10px;">* Must be at least 32 characters for HS256</small>
+
+                    <div class="form-row">
+                        <label for="jwtSignatureAlgorithm">Signature Algorithm</label>
+                        <select id="jwtSignatureAlgorithm" style="width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px;">
+                            <option value="RS256">RSA-SHA256 (Certificate)</option>
+                            <option value="HS256">HS256 (Client Secret)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row" id="jwtCertRow">
+                        <label for="jwtCertificate">Certificate (PEM)</label>
+                        <div style="width: 100%; max-width: 350px;">
+                            <textarea id="jwtCertificate" placeholder="-----BEGIN CERTIFICATE----- ..."></textarea>
+                            <div style="margin-top: 5px; text-align: right;">
+                                <input type="file" id="jwtCertFile" accept=".cer,.crt,.pem" style="display: none;" onchange="loadJwtCertFile(this)">
+                                <button type="button" class="btn-save" style="background-color: #17a2b8; font-size: 0.8rem; padding: 4px 10px;" onclick="document.getElementById('jwtCertFile').click()">
+                                    <i class="fas fa-upload"></i> Upload Certificate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="btn-container">
                         <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">Test Connection</button>
@@ -370,8 +399,7 @@
 
                     <div class="form-row">
                         <label for="adBindDn">Bind Account DN</label>
-                        <input type="text" id="adBindDn" placeholder="cn=admin,dc=example,dc=com">
-                        <small style="display:block; color:#666; font-size:0.8em; margin-left: 10px;">(User credentials for searching)</small>
+                        <input type="text" id="adBindDn" placeholder="User credentials for searching">
                     </div>
 
                     <div class="form-row">
@@ -460,7 +488,7 @@
         <span class="close" onclick="closeModal('importSamlModal')">&times;</span>
         <h2>Import IDP Metadata</h2>
         <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
-            Upload the XML metadata file provided by your Identity Provider (e.g., Okta, Azure AD).
+            Upload the XML metadata file provided by your Identity Provider (e.g., miniOrange, Azure AD).
             This will auto-fill the configuration fields.
         </p>
         <div class="form-row">
@@ -560,6 +588,30 @@
         }, 3000);
     }
 
+    // --- NEW: Centralized Fetch Wrapper to Handle 401s ---
+    async function fetchWithAuth(url, options = {}) {
+        // Ensure headers exist
+        options.headers = options.headers || {};
+        // Add Authorization header
+        if (token) {
+            options.headers['Authorization'] = 'Bearer ' + token;
+        }
+
+        const response = await fetch(url, options);
+
+        // Check for 401 Unauthorized (Expired Token)
+        if (response.status === 401) {
+            console.warn("Session expired. Redirecting to login.");
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userInfo');
+            window.location.href = '/login?error=session_expired';
+            // Throw error to stop further execution in the calling function
+            throw new Error("Session Expired");
+        }
+
+        return response;
+    }
+
     const token = localStorage.getItem('accessToken');
     const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
     const brandingForm = document.getElementById('brandingConfigForm');
@@ -573,7 +625,8 @@
         if (!token) { window.location.href = '/login'; return; }
 
         try {
-            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/branding');
             if (res.ok) {
                 const b = await res.json();
                 brandingSubdomainInput.value = b.subdomain || '';
@@ -585,8 +638,16 @@
                 if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
                 if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
             }
-        } catch (e) { console.error("Branding load failed", e); }
+        } catch (e) {
+            if (e.message !== "Session Expired") console.error("Branding load failed", e);
+        }
+
         await loadBrandingSettings();
+
+        // Init JWT UI State
+        if (typeof updateJwtUi === 'function') {
+            updateJwtUi();
+        }
     })();
 
     window.openTab = function(evt, tabName) {
@@ -612,7 +673,8 @@
 
     async function loadBrandingSettings() {
         try {
-            const res = await fetch('/api/admin/branding', { headers: { 'Authorization': 'Bearer ' + token } });
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/branding');
             if (res.ok) {
                 const b = await res.json();
                 brandingSubdomainInput.value = b.subdomain || '';
@@ -628,9 +690,10 @@
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/admin/branding', {
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/branding', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     subdomain: brandingSubdomainInput.value,
                     brandingLogoUrl: brandingLogoUrlInput.value,
@@ -641,13 +704,16 @@
             const b = await res.json();
             showToast(`Branding updated!`, 'success');
             updateDynamicSubdomainUrls(b.subdomain);
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) {
+            if (e.message !== "Session Expired") showToast(e.message, 'error');
+        }
     });
 
     async function loadUsers() {
         userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
         try {
-            const res = await fetch('/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/users');
             if (res.ok) {
                 const users = await res.json();
                 userTableBody.innerHTML = '';
@@ -657,7 +723,9 @@
                     row.innerHTML = `<td><strong>${u.id}</strong></td><td>${u.username}</td><td>${u.email}</td><td>${(u.firstName||'')+' '+(u.lastName||'')}</td><td><span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:10px; font-size:0.75rem;">${u.roles||'USER'}</span></td><td>${u.authProvider}</td><td class="action-cell"><button class="btn-icon edit" onclick="openEditModal(${u.id})"><i class="fas fa-pen"></i></button><button class="btn-icon delete" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button></td>`;
                 });
             }
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) {
+            if (e.message !== "Session Expired") showToast(e.message, 'error');
+        }
     }
 
     const userModal = document.getElementById('userModal');
@@ -675,7 +743,8 @@
 
     window.openEditModal = async function(id) {
         try {
-            const res = await fetch(`/api/admin/users/${id}`, { headers: { 'Authorization': 'Bearer ' + token } });
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth(`/api/admin/users/${id}`);
             if (res.ok) {
                 const u = await res.json();
                 userIdInput.value = u.id;
@@ -688,7 +757,9 @@
                 modalTitle.textContent = 'Edit User: ' + u.username;
                 userModal.style.display = "block";
             }
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) {
+            if (e.message !== "Session Expired") showToast(e.message, 'error');
+        }
     };
 
     // --- New: Delete User UI Popup Logic ---
@@ -705,9 +776,9 @@
         closeModal('deleteConfirmModal');
 
         try {
-            const res = await fetch(`/api/admin/users/${userToDeleteId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + token }
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth(`/api/admin/users/${userToDeleteId}`, {
+                method: 'DELETE'
             });
 
             if (res.ok) {
@@ -718,7 +789,7 @@
                 showToast(data.message || 'Failed to delete user', 'error');
             }
         } catch (e) {
-            showToast(e.message, 'error');
+            if (e.message !== "Session Expired") showToast(e.message, 'error');
         } finally {
             userToDeleteId = null;
         }
@@ -740,19 +811,66 @@
         };
         if (document.getElementById('password').value) data.password = document.getElementById('password').value;
         try {
-            const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth(id ? `/api/admin/users/${id}` : '/api/admin/users', {
                 method: id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (!res.ok) throw new Error((await res.json()).message);
             closeModal('userModal'); showToast('User saved', 'success'); loadUsers();
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) {
+            if (e.message !== "Session Expired") showToast(e.message, 'error');
+        }
     });
+
+    // --- JWT UI Logic ---
+    const jwtAlgoSelect = document.getElementById('jwtSignatureAlgorithm');
+    // Ensure we are selecting by ID 'jwtCertRow' which MUST exist in HTML
+    const jwtCertRow = document.getElementById('jwtCertRow');
+    const jwtCertInput = document.getElementById('jwtCertificate');
+    const jwtSecretInput = document.getElementById('jwtClientSecret');
+    const jwtSecretHelp = document.getElementById('jwtSecretHelp');
+
+    function updateJwtUi() {
+        const algo = jwtAlgoSelect.value;
+        if (algo === 'HS256') {
+            // HS256: Secret is Mandatory, Cert is Optional/Hidden
+            if (jwtCertRow) jwtCertRow.style.display = 'none'; // Hide Cert
+            if (jwtCertInput) jwtCertInput.required = false;
+
+            if (jwtSecretInput) jwtSecretInput.required = true;
+            if (jwtSecretHelp) jwtSecretHelp.style.display = 'block';
+        } else {
+            // RS256: Cert is Mandatory, Secret is Optional
+            if (jwtCertRow) jwtCertRow.style.display = 'flex'; // Show Cert (using flex to match .form-row)
+            if (jwtCertInput) jwtCertInput.required = true;
+
+            if (jwtSecretInput) jwtSecretInput.required = false;
+            if (jwtSecretHelp) jwtSecretHelp.style.display = 'none';
+        }
+    }
+
+    // Attach listener
+    if(jwtAlgoSelect) {
+        jwtAlgoSelect.addEventListener('change', updateJwtUi);
+    }
+
+    // Function to read uploaded certificate file
+    window.loadJwtCertFile = function(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jwtCertificate').value = e.target.result;
+            };
+            reader.readAsText(input.files[0]);
+        }
+    }
 
     async function loadSsoConfigurations() {
         try {
-            const res = await fetch('/api/admin/sso-config', { headers: { 'Authorization': 'Bearer ' + token } });
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/sso-config');
             if (res.ok) {
                 const configs = await res.json();
                 configs.forEach(c => {
@@ -762,7 +880,9 @@
                     } catch (err) { console.error("Error populating", c.providerId, err); }
                 });
             }
-        } catch (e) { console.error("Failed to load SSO configs", e); }
+        } catch (e) {
+            if (e.message !== "Session Expired") console.error("Failed to load SSO configs", e);
+        }
     }
 
     function populateSsoForm(c) {
@@ -805,6 +925,13 @@
             document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
             document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
             if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
+            if (c.clientId) document.getElementById('jwtClientId').value = c.clientId;
+
+            // Populate Algorithm
+            document.getElementById('jwtSignatureAlgorithm').value = c.signatureAlgorithm || 'RS256';
+
+            // Trigger UI update
+            updateJwtUi();
         } else {
             if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
             if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
@@ -870,8 +997,12 @@
             } else if (type === 'jwt') {
                 data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
                 data.jwtCertificate = document.getElementById('jwtCertificate').value;
-                data.issuerUri = document.getElementById('jwtClientId').value;
                 data.clientId = document.getElementById('jwtClientId').value;
+                data.issuerUri = document.getElementById('jwtClientId').value; // Mapping issuer to ClientID for this flow
+
+                // NEW: Add Signature Algorithm
+                data.signatureAlgorithm = document.getElementById('jwtSignatureAlgorithm').value;
+
                 const sub = document.getElementById('brandingSubdomain').value || 'example';
                 data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
             } else {
@@ -896,14 +1027,15 @@
             if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
             try {
+                // Updated to use fetchWithAuth
                 const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
                 const method = cfgId ? 'PUT' : 'POST';
 
                 console.log(`Submitting ${type} (${method}) to ${url}`, data);
 
-                const res = await fetch(url, {
+                const res = await fetchWithAuth(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
 
@@ -914,7 +1046,9 @@
                 populateSsoForm(updated);
 
                 showToast(`${type.toUpperCase()} Saved!`, 'success');
-            } catch (e) { showToast(e.message, 'error'); }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast(e.message, 'error');
+            }
         });
     });
 
@@ -934,11 +1068,11 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
 
         try {
-            const response = await fetch('/api/admin/sso-config/ad/import', {
+            // Updated to use fetchWithAuth
+            const response = await fetchWithAuth('/api/admin/sso-config/ad/import', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ providerId: 'ad_ldap' })
             });
@@ -955,8 +1089,10 @@
                 showToast("Import Failed: " + (res.message || 'Unknown Error'), 'error');
             }
         } catch (error) {
-            console.error(error);
-            showToast("Network Error during import", 'error');
+            if (error.message !== "Session Expired") {
+                console.error(error);
+                showToast("Network Error during import", 'error');
+            }
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalText;
@@ -1001,9 +1137,10 @@
             ldapBindPassword: document.getElementById('testAdPassword').value
         };
 
-        fetch('/api/admin/sso-config/test-connection', {
+        // Updated to use fetchWithAuth
+        fetchWithAuth('/api/admin/sso-config/test-connection', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(testData)
         })
         .then(res => res.json())
@@ -1015,7 +1152,9 @@
                 showToast("Connection failed: " + data.message, 'error');
             }
         })
-        .catch(e => showToast("Network error: " + e.message, 'error'))
+        .catch(e => {
+            if (e.message !== "Session Expired") showToast("Network error: " + e.message, 'error');
+        })
         .finally(() => {
             btn.textContent = originalText;
             btn.disabled = false;
@@ -1057,9 +1196,10 @@
         importBtn.disabled = true;
 
         try {
-            const res = await fetch('/api/admin/sso-config/saml/import-metadata', {
+            // Updated to use fetchWithAuth
+            const res = await fetchWithAuth('/api/admin/sso-config/saml/import-metadata', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token },
+                headers: {}, // Do NOT set Content-Type, let browser set it for FormData
                 body: formData
             });
 
@@ -1077,8 +1217,10 @@
             closeModal('importSamlModal');
 
         } catch (e) {
-            console.error("Import error:", e);
-            showToast('Error: ' + e.message, 'error');
+            if (e.message !== "Session Expired") {
+                console.error("Import error:", e);
+                showToast('Error: ' + e.message, 'error');
+            }
         } finally {
             importBtn.textContent = originalText;
             importBtn.disabled = false;
@@ -1089,9 +1231,8 @@
         const form = document.getElementById('samlConfigForm');
         const providerId = form.dataset.providerId || 'saml';
 
-        fetch(`/api/admin/sso-config/saml/download-metadata/${providerId}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        })
+        // Updated to use fetchWithAuth
+        fetchWithAuth(`/api/admin/sso-config/saml/download-metadata/${providerId}`)
         .then(response => {
             if(response.ok) return response.blob();
             throw new Error('Download failed');
@@ -1106,7 +1247,9 @@
             a.click();
             window.URL.revokeObjectURL(url);
         })
-        .catch(err => showToast("Failed to download metadata: " + err.message, 'error'));
+        .catch(err => {
+            if (err.message !== "Session Expired") showToast("Failed to download metadata: " + err.message, 'error');
+        });
     }
 
     window.onclick = function(event) {

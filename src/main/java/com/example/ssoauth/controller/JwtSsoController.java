@@ -1,14 +1,15 @@
 package com.example.ssoauth.controller;
 
-import com.example.ssoauth.entity.SsoProviderConfig; // NEW IMPORT
-import com.example.ssoauth.entity.SsoProviderType; // NEW IMPORT
+import com.example.ssoauth.entity.SsoProviderConfig;
+import com.example.ssoauth.entity.SsoProviderType;
 import com.example.ssoauth.entity.User;
-import com.example.ssoauth.exception.SSOAuthenticationException; // NEW IMPORT
+import com.example.ssoauth.exception.SSOAuthenticationException;
 import com.example.ssoauth.security.JwtTokenProvider;
 import com.example.ssoauth.service.AuthService;
 import com.example.ssoauth.service.JwtValidatorService;
-import com.example.ssoauth.service.SsoConfigService; // NEW IMPORT
+import com.example.ssoauth.service.SsoConfigService;
 import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,12 +32,25 @@ public class JwtSsoController {
     private final JwtTokenProvider jwtTokenProvider;
     private final SsoConfigService ssoConfigService; // NEWLY INJECTED
 
-    @GetMapping("/login/jwt/callback")
+    @GetMapping("/login/jwt/callback**")
     public String handleJwtCallback(
-            @RequestParam(value = "id_token", required = true) String receivedToken,
+            @RequestParam(value = "id_token", required = false) String paramToken,
+            HttpServletRequest request,
             HttpSession session
     ) {
-
+        String receivedToken = paramToken;
+        // Fallback: Extract token from URL path if param is missing
+        if (receivedToken == null) {
+            String uri = request.getRequestURI();
+            // Check if token is appended to path (e.g., .../callbackeyJ...)
+            if (uri.contains("/login/jwt/callback")) {
+                // Split by 'callback' and take the part after it
+                String[] parts = uri.split("/login/jwt/callback");
+                if (parts.length > 1) {
+                    receivedToken = parts[1]; // The JWT string
+                }
+            }
+        }
         log.info("Received request on /login/jwt/callback");
         String testProviderId = (String) session.getAttribute("sso_test_provider_id");
 
@@ -70,7 +83,9 @@ public class JwtSsoController {
             Claims claims = jwtValidatorService.validateAndParseToken(
                     receivedToken,
                     config.getJwtCertificate(),
-                    config.getIssuerUri() // Use Issuer URI from DB
+                    config.getClientSecret(),
+                    config.getIssuerUri(), // Use Issuer URI from DB
+                    config.getSignatureAlgorithm()
             );
             log.info("External JWT token validated successfully. Issuer: {}, Subject: {}", claims.getIssuer(), claims.getSubject());
             // --- END FIX ---

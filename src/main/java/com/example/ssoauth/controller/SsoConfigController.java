@@ -7,8 +7,6 @@ import com.example.ssoauth.dto.SsoProviderConfigDto;
 import com.example.ssoauth.dto.SsoProviderConfigUpdateRequest;
 import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.entity.User;
-import com.example.ssoauth.repository.SsoProviderConfigRepository;
-import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.service.AuthService;
 import com.example.ssoauth.service.LdapService;
 import com.example.ssoauth.service.SsoConfigService;
@@ -16,6 +14,7 @@ import com.example.ssoauth.service.SsoTestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder; // <--- ADD THIS IMPORT
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,7 +26,6 @@ import org.springframework.http.HttpHeaders;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/sso-config")
@@ -38,8 +36,6 @@ public class SsoConfigController {
 
     private final SsoConfigService ssoConfigService;
     private final SsoTestService ssoTestService;
-    private final SsoProviderConfigRepository configRepository;
-    private final TenantRepository tenantRepository;
     private final LdapService ldapService;
     private final AuthService authService;
 
@@ -152,10 +148,15 @@ public class SsoConfigController {
 
     @GetMapping("/saml/download-metadata/{providerId}")
     public ResponseEntity<String> downloadSpMetadata(@PathVariable String providerId) {
-        Long tenantId = TenantContext.getCurrentTenant();
-        // Ideally, fetch tenant to construct the domain
-        // For now, assuming standard naming
-        String metadataXml = ssoConfigService.generateSpMetadata(providerId, "https://example.prajwal.cfd"); // Replace with dynamic logic if needed
+        // Generate Base URL dynamically from the current request ---
+        // This will produce "http://acme.localhost:8080" or "https://tenant.yourdomain.com"
+        // depending on what is in the browser's address bar.
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+
+        log.info("Generating SP Metadata for provider '{}' using Base URL: '{}'", providerId, baseUrl);
+
+        // Pass the dynamic baseUrl to your service
+        String metadataXml = ssoConfigService.generateSpMetadata(providerId, baseUrl);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sp-metadata-" + providerId + ".xml\"")

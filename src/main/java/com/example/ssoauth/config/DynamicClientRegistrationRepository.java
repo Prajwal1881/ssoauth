@@ -52,7 +52,7 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
                 .scope(Arrays.stream(config.getScopes().split(","))
                         .map(String::trim)
                         .collect(Collectors.toSet()))
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST);
 
         // *** THIS IS THE CRITICAL CHANGE ***
         // Only set the Issuer URI if the user has provided one.

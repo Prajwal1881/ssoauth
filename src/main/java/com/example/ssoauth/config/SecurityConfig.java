@@ -78,7 +78,7 @@ public class SecurityConfig {
                                 "/api/sso/test-attributes/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
-                                "/login/jwt/callback",
+                                "/login/jwt/callback**",
                                 "/saml2/**",
                                 "/login/saml2/**",
                                 "/login/ad/**",  // The login page

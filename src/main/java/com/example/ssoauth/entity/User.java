@@ -7,8 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Filter;
-// REMOVED: org.hibernate.annotations.FilterDef;
-// REMOVED: org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -45,7 +43,7 @@ public class User {
     @Column(nullable = false, length = 50)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String email;
 
     @Column(nullable = false)

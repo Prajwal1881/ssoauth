@@ -79,6 +79,10 @@ public class SsoProviderConfig {
     @Column(length = 512)
     private String jwtRedirectUri;
 
+    // --- NEW FIELD ---
+    @Column(length = 20)
+    private String signatureAlgorithm; // "RS256" or "HS256"
+
     @Column(columnDefinition = "TEXT")
     private String jwtCertificate;
 
@@ -108,7 +112,7 @@ public class SsoProviderConfig {
     private String ldapServerUrl; // e.g., ldaps://192.168.1.100:636
 
     @Column(length = 255)
-    private String ldapBindDn; // e.g., cn=admin,dc=example,dc=com
+    private String ldapBindDn; // e.g., abcd@gmail.com
 
     @Column(length = 512)
     private String ldapBindPassword; // Store securely
