@@ -18,6 +18,8 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    Optional<User> findByUsernameAndTenantId(String username, Long tenantId);
+
     // --- NEW: Method for Super-Admin stats ---
     /**
      * Counts all users associated with a specific tenant.
