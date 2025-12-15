@@ -157,11 +157,11 @@ public class SsoConfigService {
                 !existingConfig.getProviderType().equals(dto.getProviderType())) {
             throw new IllegalArgumentException("Provider ID and Type cannot be changed");
         }
-
+        sanitizeDto(dto);
         BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant", "ldapBindPassword");
 
         if (StringUtils.hasText(dto.getClientSecret())) {
-            existingConfig.setClientSecret(dto.getClientSecret());
+            existingConfig.setClientSecret(dto.getClientSecret().trim()); // Explicit trim on secret
         }
 
         if (StringUtils.hasText(dto.getLdapBindPassword())) {
@@ -184,7 +184,7 @@ public class SsoConfigService {
             throw new IllegalArgumentException(
                     "Provider ID '" + dto.getProviderId() + "' already exists for your organization");
         }
-
+        sanitizeDto(dto);
         SsoProviderConfig newConfig = new SsoProviderConfig();
         BeanUtils.copyProperties(dto, newConfig, "id", "createdAt", "updatedAt");
         newConfig.setTenant(tenant);
@@ -322,5 +322,17 @@ public class SsoConfigService {
             sb.append("\n");
         }
         return sb.toString().trim();
+    }
+
+    /**
+     * Helper to trim whitespace from critical configuration fields.
+     */
+    private void sanitizeDto(SsoProviderConfigUpdateRequest dto) {
+        if (dto.getClientId() != null) dto.setClientId(dto.getClientId().trim());
+        if (dto.getClientSecret() != null) dto.setClientSecret(dto.getClientSecret().trim());
+        if (dto.getIssuerUri() != null) dto.setIssuerUri(dto.getIssuerUri().trim());
+        if (dto.getAuthorizationUri() != null) dto.setAuthorizationUri(dto.getAuthorizationUri().trim());
+        if (dto.getTokenUri() != null) dto.setTokenUri(dto.getTokenUri().trim());
+        if (dto.getJwkSetUri() != null) dto.setJwkSetUri(dto.getJwkSetUri().trim());
     }
 }

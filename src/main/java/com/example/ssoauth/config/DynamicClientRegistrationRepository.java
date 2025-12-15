@@ -31,7 +31,7 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
             return null;
         }
 
-        // CRITICAL FIX: Strip tenant suffix for DB lookup, but keep it for registration ID consistency
+        // CRITICAL: Strip tenant suffix for DB lookup, but keep it for registration ID consistency
         String dbProviderId = extractBaseProviderId(registrationId, tenantId);
 
         log.debug("🔍 OIDC Lookup - Requested: '{}', DB Key: '{}', Tenant: {}",
@@ -62,8 +62,6 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
         log.info("✅ Found Valid Config: '{}' for Tenant: {}", dbProviderId, tenantId);
 
         try {
-            // CRITICAL: Use the exact registrationId that was requested
-            // This ensures consistency between authorization and callback phases
             return buildClientRegistration(config, registrationId, dbProviderId);
         } catch (Exception e) {
             log.error("❌ Failed to build ClientRegistration for '{}': {}", registrationId, e.getMessage(), e);
@@ -71,11 +69,6 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
         }
     }
 
-    /**
-     * CRITICAL: Extracts base provider ID by removing tenant suffix if present.
-     * This allows us to use the same DB config for multiple tenants while maintaining
-     * unique registration IDs internally.
-     */
     private String extractBaseProviderId(String registrationId, Long tenantId) {
         String tenantSuffix = "-" + tenantId;
         if (registrationId.endsWith(tenantSuffix)) {
@@ -84,13 +77,6 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
         return registrationId;
     }
 
-    /**
-     * Builds ClientRegistration with consistent registration ID handling.
-     *
-     * @param config The SSO provider configuration from database
-     * @param registrationId The EXACT registration ID requested by Spring Security
-     * @param baseProviderId The provider ID without tenant suffix (for redirect URI)
-     */
     private ClientRegistration buildClientRegistration(
             SsoProviderConfig config,
             String registrationId,
@@ -98,23 +84,27 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
 
         validateRequiredFields(config);
 
-        // CRITICAL FIX: Use baseProviderId for redirect URI (matches IdP configuration)
-        // This allows a single redirect URI to serve all tenants
+        // CRITICAL: Use baseProviderId for redirect URI to allow a single URI to serve all tenants
         String callbackUrl = "{baseUrl}/login/oauth2/code/" + baseProviderId;
 
         log.debug("Building ClientRegistration - RegID: '{}', RedirectURI pattern: '{}'",
                 registrationId, callbackUrl);
 
+        // --- SECURITY FIX: TRIM WHITESPACE FROM CREDENTIALS ---
+        String clientId = config.getClientId().trim();
+        String clientSecret = config.getClientSecret().trim();
+        // -----------------------------------------------------
+
         ClientRegistration.Builder builder = ClientRegistration.withRegistrationId(registrationId)
-                .clientId(config.getClientId())
-                .clientSecret(config.getClientSecret())
+                .clientId(clientId)
+                .clientSecret(clientSecret)
                 .clientName(config.getDisplayName())
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(callbackUrl) // Uses base provider ID (no tenant suffix)
+                .redirectUri(callbackUrl)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
 
         if (StringUtils.hasText(config.getIssuerUri())) {
-            builder.issuerUri(config.getIssuerUri());
+            builder.issuerUri(config.getIssuerUri().trim()); // Trim issuer too
         }
 
         if (StringUtils.hasText(config.getScopes())) {
@@ -126,23 +116,22 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
             builder.scope("openid", "profile", "email");
         }
 
-        // Default to 'sub' if not configured
         String nameAttr = StringUtils.hasText(config.getUserNameAttribute())
-                ? config.getUserNameAttribute() : "sub";
+                ? config.getUserNameAttribute().trim() : "sub";
         builder.userNameAttributeName(nameAttr);
 
-        // Endpoint Overrides
+        // Endpoint Overrides - Trim these as well
         if (StringUtils.hasText(config.getAuthorizationUri())) {
-            builder.authorizationUri(config.getAuthorizationUri());
+            builder.authorizationUri(config.getAuthorizationUri().trim());
         }
         if (StringUtils.hasText(config.getTokenUri())) {
-            builder.tokenUri(config.getTokenUri());
+            builder.tokenUri(config.getTokenUri().trim());
         }
         if (StringUtils.hasText(config.getUserInfoUri())) {
-            builder.userInfoUri(config.getUserInfoUri());
+            builder.userInfoUri(config.getUserInfoUri().trim());
         }
         if (StringUtils.hasText(config.getJwkSetUri())) {
-            builder.jwkSetUri(config.getJwkSetUri());
+            builder.jwkSetUri(config.getJwkSetUri().trim());
         }
 
         return builder.build();

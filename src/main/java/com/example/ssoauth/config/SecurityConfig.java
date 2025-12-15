@@ -1,12 +1,12 @@
 package com.example.ssoauth.config;
 
+import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.SSOAuthenticationException;
-import com.example.ssoauth.security.JwtAuthenticationFilter;
+import com.example.ssoauth.security.CustomAuthenticationFailureHandler;
 import com.example.ssoauth.security.JwtAuthenticationEntryPoint;
+import com.example.ssoauth.security.JwtAuthenticationFilter;
 import com.example.ssoauth.security.JwtTokenProvider;
 import com.example.ssoauth.service.AuthService;
-import com.example.ssoauth.entity.User;
-import com.example.ssoauth.security.CustomAuthenticationFailureHandler; // Import the new handler
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,28 +24,28 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.context.SecurityContextHolderFilter; // <-- NEW IMPORT
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
-import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -60,7 +60,7 @@ public class SecurityConfig {
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
     private final TenantIdentificationFilter tenantIdentificationFilter;
-    private final CustomAuthenticationFailureHandler failureHandler; // Inject the handler
+    private final CustomAuthenticationFailureHandler failureHandler;
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
@@ -85,8 +85,8 @@ public class SecurityConfig {
                                 "/login/jwt/callback**",
                                 "/saml2/**",
                                 "/login/saml2/**",
-                                "/login/ad/**",  // The login page
-                                "/auth/ad/**",   // The login form submission
+                                "/login/ad/**",
+                                "/auth/ad/**",
                                 "/dashboard",
                                 "/admin/dashboard",
                                 "/admin/sso-test-result",
@@ -107,7 +107,7 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .clientRegistrationRepository(dynamicOidcRepository)
                         .successHandler(oidcLoginSuccessHandler)
-                        .failureHandler(failureHandler) // <--- ADD THIS LINE
+                        .failureHandler(failureHandler)
                 )
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
@@ -115,19 +115,41 @@ public class SecurityConfig {
                         .successHandler(samlLoginSuccessHandler)
                 )
                 .authenticationProvider(authenticationProvider())
-                // --- THIS IS THE FIX ---
-                // Move the Tenant filter to run *before* all other security filters,
-                // including the SAML and OIDC filters.
+                // Ensure tenant context is set BEFORE any security processing
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
-                // --- END FIX ---
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     /**
-     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
+     * CRITICAL FIX FOR MULTI-TENANCY OIDC:
+     * This custom factory caches decoders based on Client ID (unique per tenant)
+     * instead of Registration ID (shared across tenants).
+     * * Without this, Spring Security reuses the validator from the first tenant
+     * that logs in (e.g., Tenant 11) for subsequent tenants (e.g., Tenant 10),
+     * causing "invalid claims" errors because the audience (aud) check fails.
      */
+    @Bean
+    public JwtDecoderFactory<ClientRegistration> idTokenDecoderFactory() {
+        return new TenantAwareIdTokenDecoderFactory();
+    }
+
+    static class TenantAwareIdTokenDecoderFactory implements JwtDecoderFactory<ClientRegistration> {
+        private final Map<String, JwtDecoder> jwtDecoders = new ConcurrentHashMap<>();
+
+        @Override
+        public JwtDecoder createDecoder(ClientRegistration clientRegistration) {
+            // Use Client ID as the cache key. This is unique per tenant config.
+            String key = clientRegistration.getClientId();
+
+            return jwtDecoders.computeIfAbsent(key, k -> {
+                OidcIdTokenDecoderFactory delegate = new OidcIdTokenDecoderFactory();
+                return delegate.createDecoder(clientRegistration);
+            });
+        }
+    }
+
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
             AuthService authService,
@@ -137,7 +159,6 @@ public class SecurityConfig {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
 
-            // Extract registrationId from OAuth2AuthenticationToken
             String registrationId = null;
             OidcUser oidcUser = null;
 
@@ -154,9 +175,7 @@ public class SecurityConfig {
                 throw new SSOAuthenticationException("Invalid authentication type for OIDC");
             }
 
-            // Check if this is an attribute test
             if (testProviderId != null) {
-                // Extract base provider ID for comparison
                 String baseTestId = testProviderId;
                 Long tenantId = TenantContext.getCurrentTenant();
                 if (tenantId != null) {
@@ -166,7 +185,6 @@ public class SecurityConfig {
                     }
                 }
 
-                // Check if current registration matches test provider
                 if (registrationId != null && registrationId.contains(baseTestId)) {
                     log.info("🧪 OIDC login is an attribute test for: {}", testProviderId);
                     Map<String, String> attributes = new HashMap<>();
@@ -180,11 +198,9 @@ public class SecurityConfig {
                 }
             }
 
-            // Normal Login Flow
             User appUser = authService.processOidcLogin(oidcUser, registrationId);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // Redirect based on role
             String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
@@ -198,9 +214,6 @@ public class SecurityConfig {
         };
     }
 
-    /**
-     * UPDATED: This handler now checks for test mode and redirects to the correct dashboard.
-     */
     @Bean
     public AuthenticationSuccessHandler samlLoginSuccessHandler(
             AuthService authService,
@@ -211,11 +224,10 @@ public class SecurityConfig {
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
             Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
 
-            // Check if this is an attribute test
             if (testProviderId != null && testProviderId.equals(samlUser.getRelyingPartyRegistrationId())) {
                 log.info("SAML login is an attribute test for: {}", testProviderId);
                 Map<String, String> attributes = new HashMap<>();
-                attributes.put("NameID", samlUser.getName()); // Add NameID
+                attributes.put("NameID", samlUser.getName());
                 samlUser.getAttributes().forEach((key, value) -> {
                     String aValue = value.stream()
                             .map(Object::toString)
@@ -225,15 +237,13 @@ public class SecurityConfig {
 
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
-                return; // Stop processing
+                return;
             }
 
-            // --- Normal Login Flow ---
             User appUser = authService.processSamlLogin(samlUser);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
-            // NEW: Redirect based on role
-            String targetUrl = "/dashboard"; // Default for ROLE_USER
+            String targetUrl = "/dashboard";
             if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                 targetUrl = "/super-admin/dashboard";
             } else if (appUser.hasRole("ROLE_ADMIN")) {
