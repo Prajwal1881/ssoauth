@@ -31,18 +31,11 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
             return null;
         }
 
-        // --- ROBUST ID PARSING ---
-        // We expect IDs like "oidc_miniorange" (Start) or "oidc_miniorange-10" (Callback)
-        // We must strip the "-{tenantId}" suffix to find the configuration in the DB.
-        String dbProviderId = registrationId;
-        String expectedSuffix = "-" + tenantId;
+        // CRITICAL FIX: Strip tenant suffix for DB lookup, but keep it for registration ID consistency
+        String dbProviderId = extractBaseProviderId(registrationId, tenantId);
 
-        if (registrationId.endsWith(expectedSuffix)) {
-            dbProviderId = registrationId.substring(0, registrationId.length() - expectedSuffix.length());
-            log.debug("🔍 Callback Flow: Parsed '{}' -> DB Key '{}'", registrationId, dbProviderId);
-        } else {
-            log.debug("🔍 Start Flow: Using raw ID '{}'", registrationId);
-        }
+        log.debug("🔍 OIDC Lookup - Requested: '{}', DB Key: '{}', Tenant: {}",
+                registrationId, dbProviderId, tenantId);
 
         // Load configuration from database
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(dbProviderId).orElse(null);
@@ -61,41 +54,63 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
             return null;
         }
         if (!config.getTenant().getId().equals(tenantId)) {
-            log.error("❌ SECURITY VIOLATION: Tenant Mismatch. Config Owner: {}, Current: {}", config.getTenant().getId(), tenantId);
+            log.error("❌ SECURITY VIOLATION: Tenant Mismatch. Config Owner: {}, Current: {}",
+                    config.getTenant().getId(), tenantId);
             return null;
         }
 
         log.info("✅ Found Valid Config: '{}' for Tenant: {}", dbProviderId, tenantId);
 
         try {
-            // We pass the ORIGINAL requested registrationId to ensure Spring finds what it asked for
-            // BUT we ensure it has the unique suffix so the Cache Manager treats it as unique
-            String uniqueRegistrationId = registrationId;
-            if (!uniqueRegistrationId.endsWith(expectedSuffix)) {
-                uniqueRegistrationId = uniqueRegistrationId + expectedSuffix;
-            }
-
-            return buildClientRegistration(config, uniqueRegistrationId);
+            // CRITICAL: Use the exact registrationId that was requested
+            // This ensures consistency between authorization and callback phases
+            return buildClientRegistration(config, registrationId, dbProviderId);
         } catch (Exception e) {
             log.error("❌ Failed to build ClientRegistration for '{}': {}", registrationId, e.getMessage(), e);
             return null;
         }
     }
 
-    private ClientRegistration buildClientRegistration(SsoProviderConfig config, String uniqueRegistrationId) {
+    /**
+     * CRITICAL: Extracts base provider ID by removing tenant suffix if present.
+     * This allows us to use the same DB config for multiple tenants while maintaining
+     * unique registration IDs internally.
+     */
+    private String extractBaseProviderId(String registrationId, Long tenantId) {
+        String tenantSuffix = "-" + tenantId;
+        if (registrationId.endsWith(tenantSuffix)) {
+            return registrationId.substring(0, registrationId.length() - tenantSuffix.length());
+        }
+        return registrationId;
+    }
+
+    /**
+     * Builds ClientRegistration with consistent registration ID handling.
+     *
+     * @param config The SSO provider configuration from database
+     * @param registrationId The EXACT registration ID requested by Spring Security
+     * @param baseProviderId The provider ID without tenant suffix (for redirect URI)
+     */
+    private ClientRegistration buildClientRegistration(
+            SsoProviderConfig config,
+            String registrationId,
+            String baseProviderId) {
+
         validateRequiredFields(config);
 
-        // ✅ CRITICAL FIX:
-        // 1. Use 'uniqueRegistrationId' (e.g. oidc_miniorange-10) for the Registration ID (Cache Key)
-        // 2. Use 'config.getProviderId()' (e.g. oidc_miniorange) for the Redirect URL (IdP Callback)
-        String callbackUrl = "{baseUrl}/login/oauth2/code/" + config.getProviderId();
+        // CRITICAL FIX: Use baseProviderId for redirect URI (matches IdP configuration)
+        // This allows a single redirect URI to serve all tenants
+        String callbackUrl = "{baseUrl}/login/oauth2/code/" + baseProviderId;
 
-        ClientRegistration.Builder builder = ClientRegistration.withRegistrationId(uniqueRegistrationId)
+        log.debug("Building ClientRegistration - RegID: '{}', RedirectURI pattern: '{}'",
+                registrationId, callbackUrl);
+
+        ClientRegistration.Builder builder = ClientRegistration.withRegistrationId(registrationId)
                 .clientId(config.getClientId())
                 .clientSecret(config.getClientSecret())
                 .clientName(config.getDisplayName())
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(callbackUrl) // Force the URL to match the IdP setting
+                .redirectUri(callbackUrl) // Uses base provider ID (no tenant suffix)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
 
         if (StringUtils.hasText(config.getIssuerUri())) {
@@ -112,14 +127,23 @@ public class DynamicClientRegistrationRepository implements ClientRegistrationRe
         }
 
         // Default to 'sub' if not configured
-        String nameAttr = StringUtils.hasText(config.getUserNameAttribute()) ? config.getUserNameAttribute() : "sub";
+        String nameAttr = StringUtils.hasText(config.getUserNameAttribute())
+                ? config.getUserNameAttribute() : "sub";
         builder.userNameAttributeName(nameAttr);
 
         // Endpoint Overrides
-        if (StringUtils.hasText(config.getAuthorizationUri())) builder.authorizationUri(config.getAuthorizationUri());
-        if (StringUtils.hasText(config.getTokenUri())) builder.tokenUri(config.getTokenUri());
-        if (StringUtils.hasText(config.getUserInfoUri())) builder.userInfoUri(config.getUserInfoUri());
-        if (StringUtils.hasText(config.getJwkSetUri())) builder.jwkSetUri(config.getJwkSetUri());
+        if (StringUtils.hasText(config.getAuthorizationUri())) {
+            builder.authorizationUri(config.getAuthorizationUri());
+        }
+        if (StringUtils.hasText(config.getTokenUri())) {
+            builder.tokenUri(config.getTokenUri());
+        }
+        if (StringUtils.hasText(config.getUserInfoUri())) {
+            builder.userInfoUri(config.getUserInfoUri());
+        }
+        if (StringUtils.hasText(config.getJwkSetUri())) {
+            builder.jwkSetUri(config.getJwkSetUri());
+        }
 
         return builder.build();
     }

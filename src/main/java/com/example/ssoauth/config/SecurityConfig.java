@@ -137,7 +137,7 @@ public class SecurityConfig {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
 
-            // ✅ FIX: Extract registrationId from OAuth2AuthenticationToken
+            // Extract registrationId from OAuth2AuthenticationToken
             String registrationId = null;
             OidcUser oidcUser = null;
 
@@ -146,28 +146,41 @@ public class SecurityConfig {
                 registrationId = oauth2Token.getAuthorizedClientRegistrationId();
                 oidcUser = (OidcUser) oauth2Token.getPrincipal();
 
-                log.info("OIDC callback received for registrationId: {}", registrationId);
+                log.info("✅ OIDC callback SUCCESS - RegistrationId: '{}', Tenant: {}",
+                        registrationId, TenantContext.getCurrentTenant());
             } else {
-                log.error("Authentication is not OAuth2AuthenticationToken: {}",
+                log.error("❌ Authentication is not OAuth2AuthenticationToken: {}",
                         authentication.getClass().getName());
                 throw new SSOAuthenticationException("Invalid authentication type for OIDC");
             }
 
             // Check if this is an attribute test
             if (testProviderId != null) {
-                log.info("OIDC login is an attribute test for: {}", testProviderId);
-                Map<String, String> attributes = new HashMap<>();
-                oidcUser.getClaims().forEach((key, value) -> {
-                    attributes.put(key, value.toString());
-                });
+                // Extract base provider ID for comparison
+                String baseTestId = testProviderId;
+                Long tenantId = TenantContext.getCurrentTenant();
+                if (tenantId != null) {
+                    String suffix = "-" + tenantId;
+                    if (testProviderId.endsWith(suffix)) {
+                        baseTestId = testProviderId.substring(0, testProviderId.length() - suffix.length());
+                    }
+                }
 
-                session.setAttribute("sso_test_attributes", attributes);
-                response.sendRedirect("/admin/sso-test-result");
-                return;
+                // Check if current registration matches test provider
+                if (registrationId != null && registrationId.contains(baseTestId)) {
+                    log.info("🧪 OIDC login is an attribute test for: {}", testProviderId);
+                    Map<String, String> attributes = new HashMap<>();
+                    oidcUser.getClaims().forEach((key, value) -> {
+                        attributes.put(key, value.toString());
+                    });
+
+                    session.setAttribute("sso_test_attributes", attributes);
+                    response.sendRedirect("/admin/sso-test-result");
+                    return;
+                }
             }
 
-            // --- Normal Login Flow ---
-            // ✅ Pass registrationId explicitly
+            // Normal Login Flow
             User appUser = authService.processOidcLogin(oidcUser, registrationId);
             String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
@@ -180,6 +193,7 @@ public class SecurityConfig {
             }
 
             String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+            log.info("✅ OIDC login complete - Redirecting to: {}", targetUrl);
             response.sendRedirect(redirectUrl);
         };
     }

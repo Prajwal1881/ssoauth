@@ -63,25 +63,35 @@ public class TenantIdentificationFilter implements Filter {
                 if (tenantOpt.isPresent()) {
                     Long tenantId = tenantOpt.get().getId();
 
-                    // ✅ NEW: Check if tenant has changed in the session
+                    // Get or create session
                     HttpSession session = httpRequest.getSession(false);
                     if (session != null) {
                         Long sessionTenantId = (Long) session.getAttribute(SESSION_TENANT_ID_ATTR);
 
+                        // CRITICAL: Check if we're in an OAuth2 callback
+                        boolean isOAuth2Callback = requestUri.startsWith("/login/oauth2/code/") ||
+                                requestUri.startsWith("/login/saml2/sso/");
+
                         if (sessionTenantId != null && !sessionTenantId.equals(tenantId)) {
-                            // ✅ CRITICAL FIX: Tenant has changed! Clear OAuth2 state
-                            log.warn("⚠️ Tenant switch detected! Session had tenant {}, now accessing tenant {}. Invalidating session.",
-                                    sessionTenantId, tenantId);
-
-                            // Clear security context
-                            SecurityContextHolder.clearContext();
-
-                            // Invalidate the old session to clear OAuth2 authorization requests
-                            session.invalidate();
-
-                            // Create new session
-                            session = httpRequest.getSession(true);
-                            log.info("✓ New session created for tenant switch: {}", tenantId);
+                            // Tenant switch detected
+                            if (isOAuth2Callback) {
+                                // CRITICAL: Don't invalidate session during OAuth2 callback!
+                                // This would lose the authorization request state
+                                log.error("❌ CRITICAL: Tenant mismatch during OAuth2 callback! " +
+                                                "Session tenant: {}, Current tenant: {}. This indicates a security issue or misconfiguration.",
+                                        sessionTenantId, tenantId);
+                                httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN,
+                                        "Tenant mismatch during authentication");
+                                return;
+                            } else {
+                                // Normal tenant switch - safe to invalidate
+                                log.warn("⚠️ Tenant switch detected! Session had tenant {}, now accessing tenant {}. Invalidating session.",
+                                        sessionTenantId, tenantId);
+                                SecurityContextHolder.clearContext();
+                                session.invalidate();
+                                session = httpRequest.getSession(true);
+                                log.info("✓ New session created for tenant switch: {}", tenantId);
+                            }
                         }
                     } else {
                         // No session yet, create one
@@ -92,33 +102,29 @@ public class TenantIdentificationFilter implements Filter {
                     session.setAttribute(SESSION_TENANT_ID_ATTR, tenantId);
 
                     TenantContext.setCurrentTenant(tenantId);
-                    log.info("✓ Tenant context set: subdomain='{}', tenantId={}, uri='{}'",
+                    log.debug("✓ Tenant context set: subdomain='{}', tenantId={}, uri='{}'",
                             subdomain, tenantId, requestUri);
                 } else {
                     // CRITICAL: Invalid subdomain - return 404
                     log.error("✗ INVALID SUBDOMAIN: '{}' does not exist in database", subdomain);
                     httpResponse.sendError(HttpServletResponse.SC_NOT_FOUND,
                             "Organization not found: " + subdomain);
-                    return; // Stop processing
+                    return;
                 }
 
             } else {
                 // --- ROOT DOMAIN ACCESS ---
                 log.debug("Root domain access detected: host='{}', uri='{}'", host, requestUri);
 
-                // For root domain, also track in session
                 HttpSession session = httpRequest.getSession(false);
                 if (session != null) {
                     Long sessionTenantId = (Long) session.getAttribute(SESSION_TENANT_ID_ATTR);
                     if (sessionTenantId != null) {
-                        // User was on a tenant, now on root - clear their tenant session
                         log.info("⚠️ User moved from tenant {} to root domain. Clearing tenant session.",
                                 sessionTenantId);
                         session.removeAttribute(SESSION_TENANT_ID_ATTR);
                     }
                 }
-
-                // TenantContext remains null (for Super Admin access)
             }
 
             // Proceed with the request
