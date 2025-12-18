@@ -15,7 +15,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -26,7 +25,6 @@ import java.io.StringReader;
 import java.util.Map;
 import java.util.HashMap;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -48,20 +46,27 @@ public class SsoConfigService {
             log.error("SECURITY VIOLATION: Attempted to access SSO config without tenant context");
             throw new SecurityException("Tenant context is required for this operation");
         }
+        log.debug("Tenant context validated: {}", tenantId);
         return tenantId;
     }
 
     @Transactional(readOnly = true)
     public List<SsoProviderConfigDto> getAllConfigs() {
         Long tenantId = getTenantIdFromContextOrFail();
-        log.info("→ Fetching ALL SSO configs for tenantId: {}", tenantId);
+        log.info("Fetching all SSO configs for tenantId: {}", tenantId);
 
-        List<SsoProviderConfig> configs = configRepository.findByTenantId(tenantId);
+        try {
+            List<SsoProviderConfig> configs = configRepository.findByTenantId(tenantId);
+            log.info("Found {} SSO configs for tenantId: {}", configs.size(), tenantId);
 
-        log.info("← Found {} SSO configs for tenantId: {}", configs.size(), tenantId);
-        return configs.stream()
-                .map(this::mapEntityToDto)
-                .collect(Collectors.toList());
+            return configs.stream()
+                    .map(this::mapEntityToDto)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Failed to fetch SSO configs for tenantId: {}", tenantId, e);
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -69,47 +74,81 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.debug("Fetching SSO config entities for tenantId: {}", tenantId);
 
-        return configRepository.findAll().stream()
-                .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
-                .collect(Collectors.toList());
+        try {
+            List<SsoProviderConfig> configs = configRepository.findAll().stream()
+                    .filter(c -> c.getTenant() != null && c.getTenant().getId().equals(tenantId))
+                    .collect(Collectors.toList());
+
+            log.debug("Retrieved {} config entities for tenant {}", configs.size(), tenantId);
+            return configs;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch config entities for tenantId: {}", tenantId, e);
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)
     public SsoProviderConfigDto getConfigById(Long id) {
         Long tenantId = getTenantIdFromContextOrFail();
-        log.info("→ Fetching SSO config: id={}, tenantId={}", id, tenantId);
+        log.info("Fetching SSO config: id={}, tenantId={}", id, tenantId);
 
-        SsoProviderConfig config = configRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> {
-                    log.error("✗ SSO Config not found: id={}, tenantId={}", id, tenantId);
-                    return new EntityNotFoundException(
-                            String.format("SSO Config not found with ID %d for your organization", id));
-                });
+        try {
+            SsoProviderConfig config = configRepository.findByIdAndTenantId(id, tenantId)
+                    .orElseThrow(() -> {
+                        log.error("SSO Config not found: id={}, tenantId={}", id, tenantId);
+                        return new EntityNotFoundException(
+                                String.format("SSO Config not found with ID %d for your organization", id));
+                    });
 
-        if (!config.getTenant().getId().equals(tenantId)) {
-            log.error("SECURITY VIOLATION: Config {} belongs to tenant {}, but requested by tenant {}",
-                    id, config.getTenant().getId(), tenantId);
-            throw new SecurityException("Access denied to this SSO configuration");
+            if (!config.getTenant().getId().equals(tenantId)) {
+                log.error("SECURITY VIOLATION: Config {} belongs to tenant {}, requested by tenant {}",
+                        id, config.getTenant().getId(), tenantId);
+                throw new SecurityException("Access denied to this SSO configuration");
+            }
+
+            log.debug("Successfully retrieved config id={} for tenant {}", id, tenantId);
+            return mapEntityToDto(config);
+
+        } catch (EntityNotFoundException | SecurityException e) {
+            log.warn("Config retrieval failed: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error fetching config id={} for tenant {}", id, tenantId, e);
+            throw e;
         }
-
-        return mapEntityToDto(config);
     }
 
     @Transactional(readOnly = true)
     public Optional<SsoProviderConfig> getConfigByProviderId(String providerId) {
         Long tenantId = getTenantIdFromContextOrFail();
-        log.debug("Fetching SSO config: providerId='{}', tenantId={}", providerId, tenantId);
+        log.debug("Fetching SSO config by providerId: '{}', tenantId: {}", providerId, tenantId);
 
-        Optional<SsoProviderConfig> configOpt = configRepository.findByProviderIdAndTenantId(providerId, tenantId);
+        try {
+            Optional<SsoProviderConfig> configOpt = configRepository.findByProviderIdAndTenantId(providerId, tenantId);
 
-        configOpt.ifPresent(config -> {
-            if (!config.getTenant().getId().equals(tenantId)) {
-                log.error("SECURITY VIOLATION: Config '{}' belongs to wrong tenant", providerId);
-                throw new SecurityException("Access denied");
+            configOpt.ifPresent(config -> {
+                if (!config.getTenant().getId().equals(tenantId)) {
+                    log.error("SECURITY VIOLATION: Config '{}' belongs to wrong tenant", providerId);
+                    throw new SecurityException("Access denied");
+                }
+            });
+
+            if (configOpt.isEmpty()) {
+                log.debug("No config found for providerId: '{}' in tenant: {}", providerId, tenantId);
+            } else {
+                log.debug("Successfully found config for providerId: '{}'", providerId);
             }
-        });
 
-        return configOpt;
+            return configOpt;
+
+        } catch (SecurityException e) {
+            log.warn("Security violation during config lookup: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error fetching config by providerId: '{}' for tenant: {}", providerId, tenantId, e);
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -117,114 +156,161 @@ public class SsoConfigService {
         Long tenantId = getTenantIdFromContextOrFail();
         log.debug("Fetching enabled SSO providers for tenantId: {}", tenantId);
 
-        List<SsoProviderConfig> enabledConfigs = configRepository.findByTenantIdAndEnabledTrue(tenantId);
+        try {
+            List<SsoProviderConfig> enabledConfigs = configRepository.findByTenantIdAndEnabledTrue(tenantId);
+            log.info("Found {} enabled providers for tenant: {}", enabledConfigs.size(), tenantId);
 
-        List<EnabledProviderDto> providerDtos = new ArrayList<>();
-        for (SsoProviderConfig config : enabledConfigs) {
-            if (!config.getTenant().getId().equals(tenantId)) {
-                continue;
+            List<EnabledProviderDto> providerDtos = new ArrayList<>();
+            for (SsoProviderConfig config : enabledConfigs) {
+                if (!config.getTenant().getId().equals(tenantId)) {
+                    log.warn("Skipping config {} due to tenant mismatch", config.getProviderId());
+                    continue;
+                }
+
+                String ssoUrl = buildSsoUrl(config);
+                if (ssoUrl != null) {
+                    providerDtos.add(new EnabledProviderDto(
+                            config.getProviderId(),
+                            config.getDisplayName(),
+                            ssoUrl
+                    ));
+                    log.debug("Added enabled provider: {} ({})", config.getDisplayName(), config.getProviderId());
+                } else {
+                    log.warn("Failed to build SSO URL for provider: {}", config.getProviderId());
+                }
             }
 
-            String ssoUrl = buildSsoUrl(config);
-            if (ssoUrl != null) {
-                providerDtos.add(new EnabledProviderDto(
-                        config.getProviderId(),
-                        config.getDisplayName(),
-                        ssoUrl
-                ));
-            }
+            return providerDtos;
+
+        } catch (Exception e) {
+            log.error("Failed to fetch enabled providers for tenant: {}", tenantId, e);
+            throw e;
         }
-        return providerDtos;
     }
 
     @Transactional
     public SsoProviderConfigDto updateConfig(Long id, SsoProviderConfigUpdateRequest dto) {
         Long tenantId = getTenantIdFromContextOrFail();
-        log.info("→ Updating SSO config: id={}, tenantId={}", id, tenantId);
+        log.info("Updating SSO config: id={}, tenantId={}, providerId='{}'", id, tenantId, dto.getProviderId());
 
-        SsoProviderConfig existingConfig = configRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> {
-                    log.error("✗ Update failed - Config not found: id={}, tenantId={}", id, tenantId);
-                    return new EntityNotFoundException(
-                            String.format("SSO Config not found with ID %d for your organization", id));
-                });
+        try {
+            SsoProviderConfig existingConfig = configRepository.findByIdAndTenantId(id, tenantId)
+                    .orElseThrow(() -> {
+                        log.error("Update failed - Config not found: id={}, tenantId={}", id, tenantId);
+                        return new EntityNotFoundException(
+                                String.format("SSO Config not found with ID %d for your organization", id));
+                    });
 
-        if (!existingConfig.getTenant().getId().equals(tenantId)) {
-            throw new SecurityException("Access denied to this SSO configuration");
+            if (!existingConfig.getTenant().getId().equals(tenantId)) {
+                log.error("SECURITY VIOLATION: Attempted to update config {} belonging to different tenant", id);
+                throw new SecurityException("Access denied to this SSO configuration");
+            }
+
+            if (!existingConfig.getProviderId().equals(dto.getProviderId()) ||
+                    !existingConfig.getProviderType().equals(dto.getProviderType())) {
+                log.error("Attempt to change providerId or providerType for config {}", id);
+                throw new IllegalArgumentException("Provider ID and Type cannot be changed");
+            }
+
+            log.debug("Sanitizing config DTO");
+            sanitizeDto(dto);
+
+            BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant", "ldapBindPassword");
+
+            if (StringUtils.hasText(dto.getClientSecret())) {
+                existingConfig.setClientSecret(dto.getClientSecret().trim());
+                log.debug("Updated client secret for config {}", id);
+            }
+
+            if (StringUtils.hasText(dto.getLdapBindPassword())) {
+                existingConfig.setLdapBindPassword(dto.getLdapBindPassword());
+                log.debug("Updated LDAP bind password for config {}", id);
+            }
+
+            SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
+            log.info("Successfully updated config: id={}, providerId='{}'", id, dto.getProviderId());
+
+            return mapEntityToDto(updatedConfig);
+
+        } catch (EntityNotFoundException | SecurityException | IllegalArgumentException e) {
+            log.warn("Config update failed: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error updating config id={} for tenant {}", id, tenantId, e);
+            throw e;
         }
-
-        if (!existingConfig.getProviderId().equals(dto.getProviderId()) ||
-                !existingConfig.getProviderType().equals(dto.getProviderType())) {
-            throw new IllegalArgumentException("Provider ID and Type cannot be changed");
-        }
-        sanitizeDto(dto);
-        BeanUtils.copyProperties(dto, existingConfig, "id", "createdAt", "updatedAt", "clientSecret", "tenant", "ldapBindPassword");
-
-        if (StringUtils.hasText(dto.getClientSecret())) {
-            existingConfig.setClientSecret(dto.getClientSecret().trim()); // Explicit trim on secret
-        }
-
-        if (StringUtils.hasText(dto.getLdapBindPassword())) {
-            existingConfig.setLdapBindPassword(dto.getLdapBindPassword());
-        }
-
-        SsoProviderConfig updatedConfig = configRepository.save(existingConfig);
-        return mapEntityToDto(updatedConfig);
     }
 
     @Transactional
     public SsoProviderConfigDto createConfig(SsoProviderConfigUpdateRequest dto) {
         Long tenantId = getTenantIdFromContextOrFail();
-        log.info("→ Creating SSO config: providerId='{}', tenantId={}", dto.getProviderId(), tenantId);
+        log.info("Creating new SSO config: providerId='{}', type={}, tenantId={}",
+                dto.getProviderId(), dto.getProviderType(), tenantId);
 
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
+        try {
+            Tenant tenant = tenantRepository.findById(tenantId)
+                    .orElseThrow(() -> {
+                        log.error("Tenant not found: {}", tenantId);
+                        return new EntityNotFoundException("Tenant not found: " + tenantId);
+                    });
 
-        if (configRepository.existsByProviderIdAndTenantId(dto.getProviderId(), tenantId)) {
-            throw new IllegalArgumentException(
-                    "Provider ID '" + dto.getProviderId() + "' already exists for your organization");
+            if (configRepository.existsByProviderIdAndTenantId(dto.getProviderId(), tenantId)) {
+                log.warn("Config creation failed - providerId '{}' already exists for tenant {}",
+                        dto.getProviderId(), tenantId);
+                throw new IllegalArgumentException(
+                        "Provider ID '" + dto.getProviderId() + "' already exists for your organization");
+            }
+
+            log.debug("Sanitizing new config DTO");
+            sanitizeDto(dto);
+
+            SsoProviderConfig newConfig = new SsoProviderConfig();
+            BeanUtils.copyProperties(dto, newConfig, "id", "createdAt", "updatedAt");
+            newConfig.setTenant(tenant);
+
+            SsoProviderConfig savedConfig = configRepository.save(newConfig);
+            log.info("Successfully created config: id={}, providerId='{}', type={}",
+                    savedConfig.getId(), savedConfig.getProviderId(), savedConfig.getProviderType());
+
+            return mapEntityToDto(savedConfig);
+
+        } catch (EntityNotFoundException | IllegalArgumentException e) {
+            log.warn("Config creation failed: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error creating config providerId='{}' for tenant {}",
+                    dto.getProviderId(), tenantId, e);
+            throw e;
         }
-        sanitizeDto(dto);
-        SsoProviderConfig newConfig = new SsoProviderConfig();
-        BeanUtils.copyProperties(dto, newConfig, "id", "createdAt", "updatedAt");
-        newConfig.setTenant(tenant);
-
-        SsoProviderConfig savedConfig = configRepository.save(newConfig);
-        return mapEntityToDto(savedConfig);
     }
 
-    // --- Helper Methods ---
-
     private String buildSsoUrl(SsoProviderConfig config) {
-        switch (config.getProviderType()) {
-            case OIDC:
-                return "/oauth2/authorization/" + config.getProviderId();
-            case SAML:
-                return "/saml2/authenticate/" + config.getProviderId();
-            case JWT:
-                try {
-                    String ssoUrl = config.getJwtSsoUrl() != null ? config.getJwtSsoUrl() : "#";
+        log.debug("Building SSO URL for provider: {} (type: {})", config.getProviderId(), config.getProviderType());
 
-                    // --- UPDATED LOGIC ---
-                    // If the URL already contains parameters (like the full MiniOrange URL), use it as is.
+        try {
+            switch (config.getProviderType()) {
+                case OIDC:
+                    return "/oauth2/authorization/" + config.getProviderId();
+                case SAML:
+                    return "/saml2/authenticate/" + config.getProviderId();
+                case JWT:
+                    String ssoUrl = config.getJwtSsoUrl() != null ? config.getJwtSsoUrl() : "#";
                     if (ssoUrl.contains("?") && ssoUrl.contains("client_id=")) {
                         return ssoUrl;
                     }
-
-                    // Otherwise, construct it manually (Legacy support)
                     String clientId = config.getClientId() != null ? config.getClientId() : "";
                     String redirectUri = config.getJwtRedirectUri() != null ? config.getJwtRedirectUri() : "";
                     String encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
                     return ssoUrl + "?client_id=" + clientId + "&redirect_uri=" + encodedRedirectUri;
-                } catch (Exception e) {
-                    log.error("Failed to build JWT URL for {}: {}", config.getProviderId(), e.getMessage());
+                case AD_LDAP:
+                    return "/login/ad/" + config.getProviderId();
+                default:
+                    log.warn("Unknown provider type for buildSsoUrl: {}", config.getProviderType());
                     return null;
-                }
-            case AD_LDAP:
-                // Points to the local login page with the provider ID
-                return "/login/ad/" + config.getProviderId();
-            default:
-                return null;
+            }
+        } catch (Exception e) {
+            log.error("Failed to build JWT URL for provider {}", config.getProviderId(), e);
+            return null;
         }
     }
 
@@ -234,29 +320,28 @@ public class SsoConfigService {
         return dto;
     }
 
-    // --- NEW: SAML Metadata Handling ---
-
     public Map<String, String> parseSamlMetadata(MultipartFile file) {
+        log.info("Parsing SAML metadata from uploaded file");
         Map<String, String> result = new HashMap<>();
+
         try {
             String xmlContent = new String(file.getBytes(), StandardCharsets.UTF_8);
+            log.debug("SAML metadata file size: {} bytes", xmlContent.length());
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true); // Important for SAML namespaces
+            factory.setNamespaceAware(true);
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(new InputSource(new StringReader(xmlContent)));
 
-            // 1. Get Entity ID
             Element root = doc.getDocumentElement();
             String entityId = root.getAttribute("entityID");
             result.put("entityId", entityId);
+            log.debug("Parsed SAML entityId: {}", entityId);
 
-            // 2. Find IDPSSODescriptor
             NodeList idpDescriptors = root.getElementsByTagNameNS("*", "IDPSSODescriptor");
             if (idpDescriptors.getLength() > 0) {
                 Element idpDescriptor = (Element) idpDescriptors.item(0);
 
-                // 3. Find SingleSignOnService (HTTP-Redirect preferred, else HTTP-POST)
                 NodeList ssoServices = idpDescriptor.getElementsByTagNameNS("*", "SingleSignOnService");
                 String ssoUrl = "";
                 for (int i = 0; i < ssoServices.getLength(); i++) {
@@ -266,35 +351,37 @@ public class SsoConfigService {
 
                     if (binding.contains("HTTP-Redirect")) {
                         ssoUrl = location;
-                        break; // Prefer Redirect
+                        break;
                     } else if (ssoUrl.isEmpty()) {
-                        ssoUrl = location; // Fallback
+                        ssoUrl = location;
                     }
                 }
                 result.put("ssoUrl", ssoUrl);
+                log.debug("Parsed SAML SSO URL: {}", ssoUrl);
 
-                // 4. Find X.509 Certificate (Signing)
                 NodeList keyDescriptors = idpDescriptor.getElementsByTagNameNS("*", "KeyDescriptor");
                 for (int i = 0; i < keyDescriptors.getLength(); i++) {
                     Element keyDesc = (Element) keyDescriptors.item(i);
                     String use = keyDesc.getAttribute("use");
 
-                    // If 'use' is missing, it applies to both. If 'use' is 'signing', take it.
                     if (use == null || use.isEmpty() || "signing".equals(use)) {
                         NodeList certs = keyDesc.getElementsByTagNameNS("*", "X509Certificate");
                         if (certs.getLength() > 0) {
                             String rawCert = certs.item(0).getTextContent().replaceAll("\\s+", "");
-                            // Format as PEM
                             String pemCert = "-----BEGIN CERTIFICATE-----\n" +
                                     chunkString(rawCert, 64) +
                                     "\n-----END CERTIFICATE-----";
                             result.put("certificate", pemCert);
+                            log.debug("Successfully parsed SAML certificate");
                             break;
                         }
                     }
                 }
             }
+
+            log.info("SAML metadata parsed successfully, extracted {} fields", result.size());
             return result;
+
         } catch (Exception e) {
             log.error("Error parsing SAML Metadata", e);
             throw new IllegalArgumentException("Invalid SAML Metadata file: " + e.getMessage());
@@ -302,17 +389,28 @@ public class SsoConfigService {
     }
 
     public String generateSpMetadata(String providerId, String baseUrl) {
-        String entityId = baseUrl + "/saml2/service-provider-metadata/" + providerId;
-        String acsUrl = baseUrl + "/login/saml2/sso/" + providerId;
+        log.info("Generating SP metadata for providerId: {}, baseUrl: {}", providerId, baseUrl);
 
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"" + entityId + "\">\n" +
-                "    <md:SPSSODescriptor AuthnRequestsSigned=\"false\" WantAssertionsSigned=\"true\" protocolSupportEnumeration=\"urn:oasis:names:tc:SAML:2.0:protocol\">\n" +
-                "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat>\n" +
-                "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>\n" +
-                "        <md:AssertionConsumerService Binding=\"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST\" Location=\"" + acsUrl + "\" index=\"0\" isDefault=\"true\"/>\n" +
-                "    </md:SPSSODescriptor>\n" +
-                "</md:EntityDescriptor>";
+        try {
+            String entityId = baseUrl + "/saml2/service-provider-metadata/" + providerId;
+            String acsUrl = baseUrl + "/login/saml2/sso/" + providerId;
+
+            String metadata = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                    "<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"" + entityId + "\">\n" +
+                    "    <md:SPSSODescriptor AuthnRequestsSigned=\"false\" WantAssertionsSigned=\"true\" protocolSupportEnumeration=\"urn:oasis:names:tc:SAML:2.0:protocol\">\n" +
+                    "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat>\n" +
+                    "        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>\n" +
+                    "        <md:AssertionConsumerService Binding=\"urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST\" Location=\"" + acsUrl + "\" index=\"0\" isDefault=\"true\"/>\n" +
+                    "    </md:SPSSODescriptor>\n" +
+                    "</md:EntityDescriptor>";
+
+            log.debug("Generated SP metadata successfully");
+            return metadata;
+
+        } catch (Exception e) {
+            log.error("Failed to generate SP metadata for providerId: {}", providerId, e);
+            throw e;
+        }
     }
 
     private String chunkString(String str, int chunkSize) {
@@ -324,10 +422,8 @@ public class SsoConfigService {
         return sb.toString().trim();
     }
 
-    /**
-     * Helper to trim whitespace from critical configuration fields.
-     */
     private void sanitizeDto(SsoProviderConfigUpdateRequest dto) {
+        log.debug("Sanitizing SSO config DTO fields");
         if (dto.getClientId() != null) dto.setClientId(dto.getClientId().trim());
         if (dto.getClientSecret() != null) dto.setClientSecret(dto.getClientSecret().trim());
         if (dto.getIssuerUri() != null) dto.setIssuerUri(dto.getIssuerUri().trim());
