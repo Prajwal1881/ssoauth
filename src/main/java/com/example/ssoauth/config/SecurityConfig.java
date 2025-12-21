@@ -74,7 +74,9 @@ public class SecurityConfig {
                                 "/login/jwt/callback/**", // Existing JWT Callback
                                 "/login/sso/direct/**",   // NEW: Unified Direct Token Endpoint
                                 "/api/auth/**", // Allow Login/Signup API without CSRF
-                                "/api/public/**"   // Public APIs
+                                "/api/public/**",   // Public APIs
+                                "/api/super-admin/**",
+                                "/api/admin/**"  //OPTIONAL: if Admin APIs also fail
                         )
                 )
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))

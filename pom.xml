@@ -76,12 +76,6 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.30</version>
-            <optional>true</optional>
-        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -125,7 +119,8 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <scope>provided</scope>
+            <version>1.18.30</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.session</groupId>
