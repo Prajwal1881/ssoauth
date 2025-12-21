@@ -68,7 +68,15 @@ public class SecurityConfig {
                                                           AuthenticationSuccessHandler samlLoginSuccessHandler
     ) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers(
+                                "/login/saml2/sso/**",    // Standard Spring SAML ACS
+                                "/login/jwt/callback/**", // Existing JWT Callback
+                                "/login/sso/direct/**",   // NEW: Unified Direct Token Endpoint
+                                "/api/auth/**", // Allow Login/Signup API without CSRF
+                                "/api/public/**"   // Public APIs
+                        )
+                )
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint))
@@ -90,17 +98,13 @@ public class SecurityConfig {
                                 "/dashboard",
                                 "/admin/dashboard",
                                 "/admin/sso-test-result",
-                                "/super-admin/dashboard"
+                                "/super-admin/dashboard",
+                                "/login/sso/direct/**",
+                                "/login/saml2/sso/**"
                         ).permitAll()
-                        .requestMatchers(
-                                "/api/admin/**"
-                        ).hasRole("ADMIN")
-                        .requestMatchers(
-                                "/api/super-admin/**"
-                        ).hasRole("SUPER_ADMIN")
-                        .requestMatchers(
-                                "/api/user/**"
-                        ).hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/super-admin/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -220,12 +224,16 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider
     ) {
         return (request, response, authentication) -> {
-            HttpSession session = request.getSession();
-            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
-            Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
+            log.info("📢 Processing SAML Login Success");
 
-            if (testProviderId != null && testProviderId.equals(samlUser.getRelyingPartyRegistrationId())) {
-                log.info("SAML login is an attribute test for: {}", testProviderId);
+            HttpSession session = request.getSession();
+            Saml2AuthenticatedPrincipal samlUser = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
+            String registrationId = samlUser.getRelyingPartyRegistrationId();
+
+            // 1. Check for Test Mode (IdP-Initiated or SP-Initiated)
+            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
+            if (testProviderId != null && testProviderId.equals(registrationId)) {
+                log.info("🧪 SAML login detected as Attribute Test for: {}", registrationId);
                 Map<String, String> attributes = new HashMap<>();
                 attributes.put("NameID", samlUser.getName());
                 samlUser.getAttributes().forEach((key, value) -> {
@@ -234,24 +242,36 @@ public class SecurityConfig {
                             .collect(Collectors.joining(", "));
                     attributes.put(key, aValue);
                 });
-
                 session.setAttribute("sso_test_attributes", attributes);
                 response.sendRedirect("/admin/sso-test-result");
                 return;
             }
 
-            User appUser = authService.processSamlLogin(samlUser);
-            String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
+            try {
+                // 2. Process User (Create or Update)
+                User appUser = authService.processSamlLogin(samlUser);
 
-            String targetUrl = "/dashboard";
-            if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
-                targetUrl = "/super-admin/dashboard";
-            } else if (appUser.hasRole("ROLE_ADMIN")) {
-                targetUrl = "/admin/dashboard";
+                // 3. Generate Local JWT
+                String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
+
+                // 4. Determine Target URL (Handle Unsolicited Responses)
+                // In IdP-initiated flow, RelayState might be missing or empty. Default to dashboards.
+                String targetUrl = "/dashboard";
+                if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
+                    targetUrl = "/super-admin/dashboard";
+                } else if (appUser.hasRole("ROLE_ADMIN")) {
+                    targetUrl = "/admin/dashboard";
+                }
+
+                log.info("✅ SAML IdP-Initiated Login Success. User: {}, Redirecting to: {}", appUser.getUsername(), targetUrl);
+
+                String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+                response.sendRedirect(redirectUrl);
+
+            } catch (Exception e) {
+                log.error("❌ SAML Post-Login Processing Failed", e);
+                response.sendRedirect("/login?error=saml_processing_failed");
             }
-
-            String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
-            response.sendRedirect(redirectUrl);
         };
     }
 
