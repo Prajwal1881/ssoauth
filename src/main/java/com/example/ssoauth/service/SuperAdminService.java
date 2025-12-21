@@ -48,6 +48,50 @@ public class SuperAdminService {
         return mapToTenantDto(savedTenant);
     }
 
+
+    @Transactional
+    public void deleteTenant(Long id) {
+        log.info("Super Admin initiating deletion of tenant ID: {}", id);
+
+        Tenant tenant = tenantRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + id));
+
+        String tenantName = tenant.getName();
+        String subdomain = tenant.getSubdomain();
+
+        // Log deletion details for audit trail
+        log.info("Deleting tenant: {} (subdomain: {})", tenantName, subdomain);
+
+        // Step 1: Count and log associated data for audit
+        Long userCount = userRepository.countByTenant(tenant);
+        List<SsoProviderConfig> ssoConfigs = ssoConfigRepository.findByTenantId(tenant.getId());
+
+        log.info("Tenant {} has {} users and {} SSO configurations to be deleted",
+                tenantName, userCount, ssoConfigs.size());
+
+        // Step 2: Delete associated SSO configurations first
+        if (!ssoConfigs.isEmpty()) {
+            ssoConfigRepository.deleteAll(ssoConfigs);
+            log.info("Deleted {} SSO configurations for tenant {}", ssoConfigs.size(), tenantName);
+        }
+
+        // Step 3: Delete associated users
+        // We need to fetch users explicitly since we need the tenant filter disabled
+        List<User> tenantUsers = userRepository.findAll().stream()
+                .filter(u -> u.getTenant() != null && u.getTenant().getId().equals(id))
+                .collect(Collectors.toList());
+
+        if (!tenantUsers.isEmpty()) {
+            userRepository.deleteAll(tenantUsers);
+            log.info("Deleted {} users for tenant {}", tenantUsers.size(), tenantName);
+        }
+
+        // Step 4: Finally delete the tenant itself
+        tenantRepository.delete(tenant);
+        log.info("Successfully deleted tenant: {} (ID: {})", tenantName, id);
+    }
+
+
     /**
      * UPDATED: This method now returns the enhanced DTO with stats.
      */

@@ -146,6 +146,27 @@
     </div>
 </div>
 
+<!-- Delete Tenant Confirmation Modal -->
+<div id="deleteTenantModal" class="modal">
+    <div class="modal-content" style="max-width: 450px; text-align: center;">
+        <span class="close" onclick="closeModal('deleteTenantModal')">&times;</span>
+        <div style="margin-bottom: 20px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: var(--error-color);"></i>
+        </div>
+        <h3>Delete Tenant</h3>
+        <p style="color: #666; margin-bottom: 15px; line-height: 1.6;">
+            Are you sure you want to delete <strong id="deleteTenantName" style="color: var(--primary-orange);"></strong>?
+        </p>
+        <p style="color: var(--error-color); font-size: 0.9em; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            ⚠️ This action cannot be undone. All associated end users and SSO configurations will be permanently deleted.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn-edit" onclick="closeModal('deleteTenantModal')" style="background-color: #6c757d; color: white;">Cancel</button>
+            <button type="button" class="btn-save" style="background-color: var(--error-color);" onclick="executeTenantDeletion()">Delete Tenant</button>
+        </div>
+    </div>
+</div>
+
 
 <script>
     const token = localStorage.getItem('accessToken');
@@ -196,29 +217,41 @@
         }
     }
 
-    // --- Render Tenant Table (UPDATED) ---
-    function renderTenantTable(tenants) {
-        tenantTableBody.innerHTML = '';
-        if (!tenants || tenants.length === 0) {
-            tenantTableBody.innerHTML = '<tr><td colspan="6">No tenants found. Create one above.</td></tr>'; // UPDATED COLSPAN
-            return;
+   // --- Render Tenant Table (UPDATED with Delete Button) ---
+        function renderTenantTable(tenants) {
+            tenantTableBody.innerHTML = '';
+            if (!tenants || tenants.length === 0) {
+                tenantTableBody.innerHTML = '<tr><td colspan="6">No tenants found. Create one above.</td></tr>';
+                return;
+            }
+            tenants.forEach(tenant => {
+                const row = tenantTableBody.insertRow();
+                row.insertCell().textContent = tenant.id;
+                row.insertCell().textContent = tenant.name;
+                row.insertCell().textContent = tenant.subdomain;
+                row.insertCell().textContent = tenant.userCount;
+                row.insertCell().textContent = tenant.enabledProviders.join(', ') || 'None';
+
+                // UPDATED: Added Delete button
+                row.insertCell().innerHTML = `
+                    <button onclick="openEditTenantModal(${tenant.id})" class="btn-edit">Edit</button>
+                    <button onclick="openOnboardAdminModal(${tenant.id}, '${tenant.name}')" class="btn-onboard">Onboard Admin</button>
+                    <button onclick="openDeleteTenantModal(${tenant.id}, '${escapeHtml(tenant.name)}')" class="btn-save" style="background-color: var(--error-color);">Delete</button>
+                `;
+            });
         }
-        tenants.forEach(tenant => {
-            const row = tenantTableBody.insertRow();
-            row.insertCell().textContent = tenant.id;
-            row.insertCell().textContent = tenant.name;
-            row.insertCell().textContent = tenant.subdomain;
 
-            // NEW: Add stats data
-            row.insertCell().textContent = tenant.userCount;
-            row.insertCell().textContent = tenant.enabledProviders.join(', ') || 'None';
-
-            row.insertCell().innerHTML = `
-                <button onclick="openEditTenantModal(${tenant.id})" class="btn-edit">Edit</button>
-                <button onclick="openOnboardAdminModal(${tenant.id}, '${tenant.name}')" class="btn-onboard">Onboard Admin</button>
-            `;
-        });
-    }
+        // Helper function to escape HTML in tenant names
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
 
     // --- Create Tenant ---
     tenantForm.addEventListener('submit', async (event) => {
@@ -343,6 +376,61 @@
         }
     });
 
+    // --- Delete Tenant Functionality ---
+        let tenantToDelete = { id: null, name: '' };
+
+        function openDeleteTenantModal(tenantId, tenantName) {
+            tenantToDelete = { id: tenantId, name: tenantName };
+            document.getElementById('deleteTenantName').textContent = tenantName;
+            document.getElementById('deleteTenantModal').style.display = "block";
+        }
+
+        async function executeTenantDeletion() {
+            if (!tenantToDelete.id) return;
+
+            const tenantId = tenantToDelete.id;
+            const tenantName = tenantToDelete.name;
+
+            closeModal('deleteTenantModal');
+            clearErrors();
+
+            // Show loading state
+            const loadingRow = document.createElement('tr');
+            loadingRow.innerHTML = '<td colspan="6" style="text-align:center; color: var(--primary-orange);">Deleting tenant and associated data...</td>';
+            tenantTableBody.innerHTML = '';
+            tenantTableBody.appendChild(loadingRow);
+
+            try {
+                const response = await fetch(`/api/super-admin/tenants/${tenantId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    // Show success message
+                    const successRow = document.createElement('tr');
+                    successRow.innerHTML = `<td colspan="6" style="text-align:center; color: var(--success-color); padding: 20px;">
+                        ✓ Tenant "${tenantName}" and all associated data deleted successfully!
+                    </td>`;
+                    tenantTableBody.innerHTML = '';
+                    tenantTableBody.appendChild(successRow);
+
+                    // Reload the table after 2 seconds
+                    setTimeout(() => {
+                        loadTenants();
+                    }, 2000);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to delete tenant');
+                }
+            } catch (error) {
+                console.error('Delete tenant error:', error);
+                showError(`Failed to delete tenant: ${error.message}`);
+                loadTenants(); // Reload to show current state
+            } finally {
+                tenantToDelete = { id: null, name: '' };
+            }
+        }
     // --- Modal Helpers ---
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = "none";
@@ -350,6 +438,7 @@
     window.onclick = function(event) {
         if (event.target == editTenantModal) closeModal('editTenantModal');
         if (event.target == onboardAdminModal) closeModal('onboardAdminModal');
+        if (event.target == document.getElementById('deleteTenantModal')) closeModal('deleteTenantModal');
     }
 
     // --- Error Handling Helpers ---

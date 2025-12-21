@@ -1,9 +1,6 @@
 package com.example.ssoauth.controller;
 
-import com.example.ssoauth.dto.SignUpRequest;
-import com.example.ssoauth.dto.TenantDetailDto; // UPDATED DTO
-import com.example.ssoauth.dto.TenantDto;
-import com.example.ssoauth.dto.UserInfo;
+import com.example.ssoauth.dto.*;
 import com.example.ssoauth.service.SuperAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +42,20 @@ public class SuperAdminController {
     public ResponseEntity<TenantDto> updateTenant(@PathVariable Long id, @Valid @RequestBody TenantDto tenantDto) {
         TenantDto updatedTenant = superAdminService.updateTenant(id, tenantDto);
         return ResponseEntity.ok(updatedTenant);
+    }
+
+    /**
+     * NEW: Delete tenant endpoint with cascade deletion
+     */
+    @DeleteMapping("/tenants/{id}")
+    public ResponseEntity<ApiResponse> deleteTenant(@PathVariable Long id) {
+        superAdminService.deleteTenant(id);
+
+        ApiResponse response = ApiResponse.builder()
+                .success(true)
+                .message("Tenant and all associated data deleted successfully")
+                .build();
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/tenants/{tenantId}/admin")

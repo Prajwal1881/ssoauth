@@ -82,11 +82,46 @@
         h2 { margin-top: 0; color: #333; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
         h4 { color: #333; font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .form-row { display: flex; align-items: center; margin-bottom: 15px; }
-        .form-row label { width: 220px; text-align: right; margin-right: 25px; font-weight: 500; font-size: 0.9rem; color: #555; flex-shrink: 0; }
-        .form-row input[type=text], .form-row input[type=email], .form-row input[type=password], .form-row input[type=url], .form-row textarea, .form-row select {
-            width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;
+        /* --- FIXED FORM LAYOUT --- */
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
         }
+        .form-row label {
+            width: 220px;
+            text-align: right;
+            margin-right: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #555;
+            flex-shrink: 0;
+        }
+
+        .form-row input[type=text],
+        .form-row input[type=email],
+        .form-row input[type=password],
+        .form-row input[type=url],
+        .form-row textarea,
+        .form-row select,
+        .password-wrapper,
+        .input-group-wrapper {
+            flex-grow: 1;
+            width: auto;
+            min-width: 280px;
+            max-width: 600px;
+        }
+
+        .form-row input, .form-row select, .form-row textarea {
+            padding: 8px 12px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
         .form-row input:focus, .form-row textarea:focus, .form-row select:focus { outline: none; border-color: var(--primary-orange); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
         textarea { min-height: 80px; resize: vertical; }
 
@@ -106,9 +141,9 @@
         .btn-test:hover { background-color: #f8f8f8; }
         .btn-create { background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
 
-        .password-wrapper { position: relative; width: 100%; max-width: 350px; }
-        .password-wrapper input { width: 100%; padding-right: 60px; }
-        .toggle-password { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-orange); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+        .password-wrapper { position: relative; display: flex; align-items: center; }
+        .password-wrapper input { width: 100% !important; padding-right: 60px; }
+        .toggle-password { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-orange); font-size: 0.8rem; font-weight: 600; cursor: pointer; z-index: 2;}
 
         .url-display-box { background-color: #f8f9fa; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-top: 20px; }
         .url-display-box label { font-weight: 600; color: #333; display: block; margin-bottom: 5px; font-size: 0.85rem; }
@@ -139,34 +174,14 @@
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
 
-        /* Success Card Styles */
         .success-card {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 400px;
-            margin: 15% auto; /* Center in modal overlay */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            animation: popIn 0.3s ease-out;
-            position: relative;
+            background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px; margin: 15% auto; box-shadow: 0 10px 30px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out; position: relative;
         }
         .success-icon {
-            width: 60px; height: 60px;
-            background: var(--success-color);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            margin: 0 auto 20px auto;
+            width: 60px; height: 60px; background: var(--success-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 20px auto;
         }
         .success-card h3 { margin: 0 0 15px 0; color: var(--primary-orange); }
-        @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -303,7 +318,6 @@
                     <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/sso/initiate/oidc_miniorange</code>
                     <small style="color: #666; font-size: 0.8rem;">* Use this URL for the "App Icon" in your Identity Provider dashboard to support IdP-initiated login.</small>
                 </div>
-                </div>
             </div>
 
             <div id="jwtConfig" class="tab-content">
@@ -317,7 +331,7 @@
                     <div class="form-row"><label for="jwtSsoUrl">JWT SSO URL (Full Link)</label><input type="url" id="jwtSsoUrl" placeholder="https://idp.example.com/jwtsso/...?client_id=..."></div>
                     <div class="form-row"><label for="jwtClientId">Client ID</label><input type="text" id="jwtClientId"></div>
 
-                    <div class="form-row">
+                    <div class="form-row" id="jwtSecretRow">
                         <label for="jwtClientSecret">Client Secret</label>
                         <div class="password-wrapper">
                             <input type="password" id="jwtClientSecret" placeholder="Leave blank if unchanged">
@@ -328,7 +342,7 @@
 
                     <div class="form-row">
                         <label for="jwtSignatureAlgorithm">Signature Algorithm</label>
-                        <select id="jwtSignatureAlgorithm" style="width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px;">
+                        <select id="jwtSignatureAlgorithm">
                             <option value="RS256">RSA-SHA256 (Certificate)</option>
                             <option value="HS256">HS256 (Client Secret)</option>
                         </select>
@@ -336,8 +350,8 @@
 
                     <div class="form-row" id="jwtCertRow">
                         <label for="jwtCertificate">Certificate (PEM)</label>
-                        <div style="width: 100%; max-width: 350px;">
-                            <textarea id="jwtCertificate" placeholder="-----BEGIN CERTIFICATE----- ..."></textarea>
+                        <div class="input-group-wrapper" style="width: 100%; max-width: 500px;">
+                            <textarea id="jwtCertificate" placeholder="-----BEGIN CERTIFICATE----- ..." style="width: 100%;"></textarea>
                             <div style="margin-top: 5px; text-align: right;">
                                 <input type="file" id="jwtCertFile" accept=".cer,.crt,.pem" style="display: none;" onchange="loadJwtCertFile(this)">
                                 <button type="button" class="btn-save" style="background-color: #17a2b8; font-size: 0.8rem; padding: 4px 10px;" onclick="document.getElementById('jwtCertFile').click()">
@@ -381,7 +395,7 @@
 
                     <div class="form-row">
                         <label for="adDirectoryType">Directory Type <i class="fas fa-info-circle" title="Select your directory server type"></i></label>
-                        <select id="adDirectoryType" style="width: 100%; max-width: 350px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px;">
+                        <select id="adDirectoryType">
                             <option value="Active Directory">Active Directory</option>
                             <option value="OpenLDAP">OpenLDAP</option>
                             <option value="AD LDS">AD LDS</option>
@@ -392,8 +406,8 @@
 
                     <div class="form-row">
                         <label for="adServerHost">LDAP Server URL</label>
-                        <div style="display: flex; gap: 10px; width: 100%; max-width: 350px;">
-                            <select id="adProtocol" style="width: 100px; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px;">
+                        <div class="input-group-wrapper" style="display: flex; gap: 10px; width: 100%; max-width: 500px;">
+                            <select id="adProtocol" style="width: 100px; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px; flex-shrink: 0;">
                                 <option value="ldap://">ldap://</option>
                                 <option value="ldaps://">ldaps://</option>
                             </select>
@@ -438,7 +452,7 @@
 
                     <div class="form-row" style="align-items: flex-start; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #eee;">
                         <label style="padding-top: 5px;">User Provisioning</label>
-                        <div style="width: 100%; max-width: 450px;">
+                        <div style="width: 100%; max-width: 500px;">
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
                                 <div>
                                     <strong style="display: block; color: #333; margin-bottom: 5px;">Import Users from AD</strong>
@@ -592,24 +606,19 @@
         }, 3000);
     }
 
-    // --- NEW: Centralized Fetch Wrapper to Handle 401s ---
     async function fetchWithAuth(url, options = {}) {
-        // Ensure headers exist
         options.headers = options.headers || {};
-        // Add Authorization header
         if (token) {
             options.headers['Authorization'] = 'Bearer ' + token;
         }
 
         const response = await fetch(url, options);
 
-        // Check for 401 Unauthorized (Expired Token)
         if (response.status === 401) {
             console.warn("Session expired. Redirecting to login.");
             localStorage.removeItem('accessToken');
             localStorage.removeItem('userInfo');
             window.location.href = '/login?error=session_expired';
-            // Throw error to stop further execution in the calling function
             throw new Error("Session Expired");
         }
 
@@ -629,7 +638,6 @@
         if (!token) { window.location.href = '/login'; return; }
 
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/branding');
             if (res.ok) {
                 const b = await res.json();
@@ -648,10 +656,8 @@
 
         await loadBrandingSettings();
 
-        // Init JWT UI State
-        if (typeof updateJwtUi === 'function') {
-            updateJwtUi();
-        }
+        // Initial UI Update
+        updateJwtUi();
     })();
 
     window.openTab = function(evt, tabName) {
@@ -677,7 +683,6 @@
 
     async function loadBrandingSettings() {
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/branding');
             if (res.ok) {
                 const b = await res.json();
@@ -694,7 +699,6 @@
     brandingForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/branding', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -716,7 +720,6 @@
     async function loadUsers() {
         userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/users');
             if (res.ok) {
                 const users = await res.json();
@@ -747,7 +750,6 @@
 
     window.openEditModal = async function(id) {
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth(`/api/admin/users/${id}`);
             if (res.ok) {
                 const u = await res.json();
@@ -766,11 +768,9 @@
         }
     };
 
-    // --- New: Delete User UI Popup Logic ---
     let userToDeleteId = null;
 
     window.deleteUser = function(id) {
-        // Open the custom delete modal instead of browser confirm
         userToDeleteId = id;
         document.getElementById('deleteConfirmModal').style.display = 'block';
     };
@@ -780,7 +780,6 @@
         closeModal('deleteConfirmModal');
 
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth(`/api/admin/users/${userToDeleteId}`, {
                 method: 'DELETE'
             });
@@ -815,7 +814,6 @@
         };
         if (document.getElementById('password').value) data.password = document.getElementById('password').value;
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth(id ? `/api/admin/users/${id}` : '/api/admin/users', {
                 method: id ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -828,39 +826,45 @@
         }
     });
 
-    // --- JWT UI Logic ---
-    const jwtAlgoSelect = document.getElementById('jwtSignatureAlgorithm');
-    // Ensure we are selecting by ID 'jwtCertRow' which MUST exist in HTML
-    const jwtCertRow = document.getElementById('jwtCertRow');
-    const jwtCertInput = document.getElementById('jwtCertificate');
-    const jwtSecretInput = document.getElementById('jwtClientSecret');
-    const jwtSecretHelp = document.getElementById('jwtSecretHelp');
-
+    // --- CLEAN JWT UI LOGIC (Validation Fixed) ---
     function updateJwtUi() {
-        const algo = jwtAlgoSelect.value;
+        const algoSelect = document.getElementById('jwtSignatureAlgorithm');
+        const certRow = document.getElementById('jwtCertRow');
+        const certInput = document.getElementById('jwtCertificate');
+        const secretInput = document.getElementById('jwtClientSecret');
+        const secretHelp = document.getElementById('jwtSecretHelp');
+
+        if (!algoSelect || !certRow) return;
+
+        const algo = algoSelect.value;
+
         if (algo === 'HS256') {
-            // HS256: Secret is Mandatory, Cert is Optional/Hidden
-            if (jwtCertRow) jwtCertRow.style.display = 'none'; // Hide Cert
-            if (jwtCertInput) jwtCertInput.required = false;
+            // HS256: Hide Certificate Row, Show Secret Help
+            certRow.style.display = 'none';
+            if (certInput) certInput.required = false;
 
-            if (jwtSecretInput) jwtSecretInput.required = true;
-            if (jwtSecretHelp) jwtSecretHelp.style.display = 'block';
+            // FIX: Don't force require on secret (let backend handle empty check if creating new)
+            // This prevents "Please fill out this field" when editing with existing secret.
+            if (secretInput) secretInput.required = false;
+
+            if (secretHelp) secretHelp.style.display = 'block';
         } else {
-            // RS256: Cert is Mandatory, Secret is Optional
-            if (jwtCertRow) jwtCertRow.style.display = 'flex'; // Show Cert (using flex to match .form-row)
-            if (jwtCertInput) jwtCertInput.required = true;
+            // RS256: Show Certificate Row, Hide Secret Help
+            certRow.style.display = 'flex';
+            if (certInput) certInput.required = true; // Cert IS required for RS256
 
-            if (jwtSecretInput) jwtSecretInput.required = false;
-            if (jwtSecretHelp) jwtSecretHelp.style.display = 'none';
+            if (secretInput) secretInput.required = false;
+            if (secretHelp) secretHelp.style.display = 'none';
         }
     }
 
-    // Attach listener
-    if(jwtAlgoSelect) {
-        jwtAlgoSelect.addEventListener('change', updateJwtUi);
-    }
+    // Event Delegation: Handle change on #jwtSignatureAlgorithm even if element is replaced
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'jwtSignatureAlgorithm') {
+            updateJwtUi();
+        }
+    });
 
-    // Function to read uploaded certificate file
     window.loadJwtCertFile = function(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -873,7 +877,6 @@
 
     async function loadSsoConfigurations() {
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/sso-config');
             if (res.ok) {
                 const configs = await res.json();
@@ -923,7 +926,6 @@
             if(document.getElementById('adSearchBase')) document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
             if(document.getElementById('adUserSearchFilter')) document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
             if(document.getElementById('adFallbackAuth')) document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
-            // NOTE: adSyncUsers checkbox is REMOVED from the UI, so we don't populate it.
 
         } else if (p === 'jwt') {
             document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
@@ -931,10 +933,9 @@
             if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
             if (c.clientId) document.getElementById('jwtClientId').value = c.clientId;
 
-            // Populate Algorithm
             document.getElementById('jwtSignatureAlgorithm').value = c.signatureAlgorithm || 'RS256';
 
-            // Trigger UI update
+            // Trigger UI Update based on loaded algo
             updateJwtUi();
         } else {
             if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
@@ -992,7 +993,6 @@
                 data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
                 data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
 
-                // Force sync to true implicitly as we want JIT provisioning by default
                 data.ldapSyncUsers = true;
 
                 const pass = document.getElementById('adBindPassword').value;
@@ -1002,9 +1002,8 @@
                 data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
                 data.jwtCertificate = document.getElementById('jwtCertificate').value;
                 data.clientId = document.getElementById('jwtClientId').value;
-                data.issuerUri = document.getElementById('jwtClientId').value; // Mapping issuer to ClientID for this flow
+                data.issuerUri = document.getElementById('jwtClientId').value;
 
-                // NEW: Add Signature Algorithm
                 data.signatureAlgorithm = document.getElementById('jwtSignatureAlgorithm').value;
 
                 const sub = document.getElementById('brandingSubdomain').value || 'example';
@@ -1031,7 +1030,6 @@
             if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
 
             try {
-                // Updated to use fetchWithAuth
                 const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
                 const method = cfgId ? 'PUT' : 'POST';
 
@@ -1056,14 +1054,11 @@
         });
     });
 
-    // --- Import Functions ---
     function importAdUsers() {
-        // Open the confirmation modal instead of browser confirm()
         document.getElementById('importConfirmModal').style.display = 'block';
     }
 
     async function executeAdImport() {
-        // Close confirm modal immediately
         closeModal('importConfirmModal');
 
         const btn = document.getElementById('btnImportAd');
@@ -1072,7 +1067,6 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
 
         try {
-            // Updated to use fetchWithAuth
             const response = await fetchWithAuth('/api/admin/sso-config/ad/import', {
                 method: 'POST',
                 headers: {
@@ -1084,11 +1078,8 @@
             const res = await response.json();
 
             if (response.ok && res.success) {
-                // Show Success Modal
                 document.getElementById('importSuccessMessage').textContent = res.message;
                 document.getElementById('importSuccessModal').style.display = 'block';
-                // Optional: reload user table if we are looking at it
-                // loadUsers();
             } else {
                 showToast("Import Failed: " + (res.message || 'Unknown Error'), 'error');
             }
@@ -1103,7 +1094,6 @@
         }
     }
 
-    // --- Test Connection & Modal Logic ---
     window.testAttributes = function(pid) {
         if (pid === 'ad_ldap') {
             openTestAdModal();
@@ -1141,7 +1131,6 @@
             ldapBindPassword: document.getElementById('testAdPassword').value
         };
 
-        // Updated to use fetchWithAuth
         fetchWithAuth('/api/admin/sso-config/test-connection', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1178,7 +1167,6 @@
         window.location.href = '/login';
     });
 
-    // --- SAML Metadata Functions ---
     function openImportSamlModal() {
         document.getElementById('metadataFile').value = '';
         document.getElementById('importSamlModal').style.display = 'block';
@@ -1200,10 +1188,9 @@
         importBtn.disabled = true;
 
         try {
-            // Updated to use fetchWithAuth
             const res = await fetchWithAuth('/api/admin/sso-config/saml/import-metadata', {
                 method: 'POST',
-                headers: {}, // Do NOT set Content-Type, let browser set it for FormData
+                headers: {},
                 body: formData
             });
 
@@ -1235,7 +1222,6 @@
         const form = document.getElementById('samlConfigForm');
         const providerId = form.dataset.providerId || 'saml';
 
-        // Updated to use fetchWithAuth
         fetchWithAuth(`/api/admin/sso-config/saml/download-metadata/${providerId}`)
         .then(response => {
             if(response.ok) return response.blob();
