@@ -153,6 +153,7 @@ public class SuperAdminService {
         Tenant tenant = Tenant.builder()
                 .name(request.getTenantName())
                 .subdomain(request.getSubdomain().toLowerCase())
+                .apiKey(java.util.UUID.randomUUID().toString()) // Generate API Key
                 .build();
         Tenant savedTenant = tenantRepository.save(tenant);
 
@@ -222,6 +223,7 @@ public class SuperAdminService {
                 .subdomain(tenant.getSubdomain())
                 .brandingLogoUrl(tenant.getBrandingLogoUrl())
                 .brandingPrimaryColor(tenant.getBrandingPrimaryColor())
+                .apiKey(tenant.getApiKey())
                 .build();
     }
 

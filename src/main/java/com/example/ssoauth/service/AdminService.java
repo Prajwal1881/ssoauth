@@ -90,6 +90,30 @@ public class AdminService {
                 .build();
     }
 
+    // --- Tenant Settings ---
+    @Transactional
+    public com.example.ssoauth.dto.TenantDto getCurrentTenantSettings() {
+        Long tenantId = getTenantIdFromContextOrFail();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+
+        // Lazy generation for existing tenants
+        if (!StringUtils.hasText(tenant.getApiKey())) {
+            log.info("Generating missing API Key for tenant {}", tenant.getId());
+            tenant.setApiKey(java.util.UUID.randomUUID().toString());
+            tenant = tenantRepository.save(tenant);
+        }
+
+        return com.example.ssoauth.dto.TenantDto.builder()
+                .id(tenant.getId())
+                .name(tenant.getName())
+                .subdomain(tenant.getSubdomain())
+                .brandingLogoUrl(tenant.getBrandingLogoUrl())
+                .brandingPrimaryColor(tenant.getBrandingPrimaryColor())
+                .apiKey(tenant.getApiKey())
+                .build();
+    }
+
     // --- User Management Methods ---
 
     @Transactional(readOnly = true)

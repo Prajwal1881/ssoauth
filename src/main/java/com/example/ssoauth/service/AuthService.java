@@ -464,6 +464,96 @@ public class AuthService {
                 .build();
     }
 
+    public ExternalAuthResponse authenticateExternal(ExternalAuthRequest request) {
+        log.debug("External auth attempt for user: {}", request.getUsername());
+
+        // 1. Resolve Tenant and API Key
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
+            log.warn("External auth failed - No tenant context resolved (likely root domain access)");
+            return ExternalAuthResponse.builder()
+                    .status("ERROR")
+                    .error("Invalid Tenant Context")
+                    .build();
+        }
+
+        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+        if (tenant == null) {
+            log.warn("External auth failed - Tenant ID {} not found in database", tenantId);
+            return ExternalAuthResponse.builder()
+                    .status("ERROR")
+                    .error("Tenant Not Found")
+                    .build();
+        }
+
+        // 2. Validate API Key
+        String tenantApiKey = tenant.getApiKey();
+        if (!StringUtils.hasText(tenantApiKey) || !tenantApiKey.equals(request.getApi_key())) {
+            log.warn("External auth failed - Invalid API Key for user: {} in tenant: {}", request.getUsername(),
+                    tenantId);
+            return ExternalAuthResponse.builder()
+                    .status("ERROR")
+                    .error("Invalid API Key")
+                    .build();
+        }
+
+        // 2. Validate User
+        // We rely on the existing TenantContext functionality.
+        // If the request comes to a tenant subdomain, TenantContext should be set.
+        // If the request comes to a tenant subdomain, TenantContext should be set.
+        // Long tenantId = TenantContext.getCurrentTenant(); // Already resolved above
+        String username = request.getUsername();
+
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            username,
+                            request.getPassword()));
+
+            // If we are here, authentication was successful
+            log.info("External auth successful for user: {}", username);
+
+            // Retrieve User details to return attributes
+            User user = null;
+            if (tenantId != null) {
+                user = userRepository
+                        .findByTenantIdAndUsernameOrTenantIdAndEmail(tenantId, username, tenantId, username)
+                        .orElse(null);
+            } else {
+                user = userRepository.findByUsernameOrEmailAndTenantIsNull(username, username)
+                        .orElse(null);
+            }
+
+            Map<String, Object> attributes = new java.util.HashMap<>();
+            if (user != null) {
+                attributes.put("id", user.getId());
+                attributes.put("username", user.getUsername());
+                attributes.put("email", user.getEmail());
+                attributes.put("firstName", user.getFirstName());
+                attributes.put("lastName", user.getLastName());
+                attributes.put("roles", user.getRoles());
+            }
+
+            return ExternalAuthResponse.builder()
+                    .status("SUCCESS")
+                    .attributes(attributes)
+                    .build();
+
+        } catch (BadCredentialsException e) {
+            log.warn("External auth failed - Bad validation for user: {}", username);
+            return ExternalAuthResponse.builder()
+                    .status("ERROR")
+                    .error("Invalid Credentials: " + e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            log.error("External auth failed with unexpected error", e);
+            return ExternalAuthResponse.builder()
+                    .status("ERROR")
+                    .error("An unexpected error occurred.")
+                    .build();
+        }
+    }
+
     private String generateUniqueUsername(String email, Long tenantId) {
         log.debug("Generating unique username for email: {}", email);
 

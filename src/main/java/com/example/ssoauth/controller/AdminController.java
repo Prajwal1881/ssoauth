@@ -37,6 +37,12 @@ public class AdminController {
         return ResponseEntity.ok(updatedBranding);
     }
 
+    // --- NEW Settings Endpoint ---
+    @GetMapping("/settings")
+    public ResponseEntity<com.example.ssoauth.dto.TenantDto> getSettings() {
+        return ResponseEntity.ok(adminService.getCurrentTenantSettings());
+    }
+
     // --- (All other User Management endpoints are unchanged) ---
 
     @GetMapping("/users")
@@ -59,7 +65,7 @@ public class AdminController {
 
     @PutMapping("/users/{id}")
     public ResponseEntity<UserInfo> updateUser(@PathVariable Long id,
-                                               @Valid @RequestBody UserUpdateRequest updateRequest) {
+            @Valid @RequestBody UserUpdateRequest updateRequest) {
         UserInfo updatedUser = adminService.updateUser(id, updateRequest);
         return ResponseEntity.ok(updatedUser);
     }

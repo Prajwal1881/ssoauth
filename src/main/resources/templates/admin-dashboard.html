@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
@@ -32,55 +33,185 @@
         }
 
         /* --- LAYOUT --- */
-        .dashboard-container { display: flex; height: 100vh; width: 100%; }
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
 
         /* --- SIDEBAR --- */
         .sidebar {
-            width: 260px; background-color: var(--sidebar-bg); display: flex; flex-direction: column; flex-shrink: 0; color: #fff;
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            color: #fff;
         }
+
         .sidebar-header {
-            height: 70px; display: flex; align-items: center; padding: 0 20px;
-            background-color: var(--header-bg); border-bottom: 3px solid var(--primary-orange);
-            color: var(--primary-orange); font-size: 1.3rem; font-weight: 700;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background-color: var(--header-bg);
+            border-bottom: 3px solid var(--primary-orange);
+            color: var(--primary-orange);
+            font-size: 1.3rem;
+            font-weight: 700;
         }
-        .header-logo-img { max-height: 32px; margin-right: 10px; display: none; }
-        .sidebar-menu { list-style: none; padding: 0; margin: 20px 0 0 0; flex-grow: 1; overflow-y: auto; }
-        .sidebar-menu li { width: 100%; }
+
+        .header-logo-img {
+            max-height: 32px;
+            margin-right: 10px;
+            display: none;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0 0 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu li {
+            width: 100%;
+        }
+
         .nav-btn {
-            width: 100%; text-align: left; background: transparent; border: none; color: var(--sidebar-text);
-            padding: 12px 25px; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: var(--sidebar-text);
+            padding: 12px 25px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
         }
-        .nav-btn i { width: 20px; text-align: center; }
-        .nav-btn:hover { background-color: rgba(255, 255, 255, 0.05); color: #fff; }
-        .nav-btn.active { background-color: var(--primary-orange); color: #fff; font-weight: 500; }
-        .sidebar-footer { padding: 20px; }
+
+        .nav-btn i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        .nav-btn.active {
+            background-color: var(--primary-orange);
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+        }
+
         .btn-logout-sidebar {
-            width: 100%; background-color: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: 500;
+            width: 100%;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
         }
-        .btn-logout-sidebar:hover { background-color: #c82333; }
+
+        .btn-logout-sidebar:hover {
+            background-color: #c82333;
+        }
 
         /* --- MAIN CONTENT --- */
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
         .top-header {
-            height: 70px; background-color: var(--header-bg); border-bottom: 3px solid var(--primary-orange);
-            display: flex; align-items: center; justify-content: space-between; padding: 0 30px; flex-shrink: 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
+            height: 70px;
+            background-color: var(--header-bg);
+            border-bottom: 3px solid var(--primary-orange);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            z-index: 10;
         }
-        .admin-title { font-size: 1.2rem; font-weight: 600; color: #333; margin: 0; }
+
+        .admin-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
         .btn-dashboard {
-            background-color: #6c757d; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; font-weight: 500;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
-        .btn-dashboard:hover { background-color: #5a6268; }
+
+        .btn-dashboard:hover {
+            background-color: #5a6268;
+        }
 
         /* --- CONTENT --- */
-        .content-area { padding: 30px; overflow-y: auto; height: 100%; }
-        .tab-content {
-            display: none; background-color: #fff; border: 1px solid var(--border-color); border-radius: 6px;
-            padding: 40px; max-width: 900px; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        .content-area {
+            padding: 30px;
+            overflow-y: auto;
+            height: 100%;
         }
-        .tab-content.active { display: block; }
-        h2 { margin-top: 0; color: #333; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
-        h4 { color: #333; font-weight: 600; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .tab-content {
+            display: none;
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        h4 {
+            color: #333;
+            font-weight: 600;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
         /* --- FIXED FORM LAYOUT --- */
         .form-row {
@@ -89,6 +220,7 @@
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
+
         .form-row label {
             width: 220px;
             text-align: right;
@@ -113,7 +245,9 @@
             max-width: 600px;
         }
 
-        .form-row input, .form-row select, .form-row textarea {
+        .form-row input,
+        .form-row select,
+        .form-row textarea {
             padding: 8px 12px;
             border: 1px solid var(--input-border);
             border-radius: 4px;
@@ -122,1141 +256,1630 @@
             width: 100%;
         }
 
-        .form-row input:focus, .form-row textarea:focus, .form-row select:focus { outline: none; border-color: var(--primary-orange); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
-        textarea { min-height: 80px; resize: vertical; }
+        .form-row input:focus,
+        .form-row textarea:focus,
+        .form-row select:focus {
+            outline: none;
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 2px var(--input-focus-shadow);
+        }
 
-        .toggle-row { display: flex; align-items: center; margin-bottom: 15px; }
-        .toggle-row label.main-lbl { width: 220px; text-align: right; margin-right: 25px; font-weight: 500; font-size: 0.9rem; color: #555; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary-orange); }
-        input:checked + .slider:before { transform: translateX(18px); }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
 
-        .btn-container { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: right; }
-        .btn-save { background-color: var(--primary-orange); color: white; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-        .btn-save:hover { background-color: #e65c00; }
-        .btn-test { background-color: #fff; border: 1px solid #ddd; color: #333; padding: 8px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-weight: 500; font-size: 0.9rem; }
-        .btn-test:hover { background-color: #f8f8f8; }
-        .btn-create { background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
 
-        .password-wrapper { position: relative; display: flex; align-items: center; }
-        .password-wrapper input { width: 100% !important; padding-right: 60px; }
-        .toggle-password { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-orange); font-size: 0.8rem; font-weight: 600; cursor: pointer; z-index: 2;}
+        .toggle-row label.main-lbl {
+            width: 220px;
+            text-align: right;
+            margin-right: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #555;
+        }
 
-        .url-display-box { background-color: #f8f9fa; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-top: 20px; }
-        .url-display-box label { font-weight: 600; color: #333; display: block; margin-bottom: 5px; font-size: 0.85rem; }
-        .url-display-box code { display: block; background-color: #fff; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem; color: #e83e8c; word-break: break-all; margin-bottom: 10px; }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--primary-orange);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(18px);
+        }
+
+        .btn-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: right;
+        }
+
+        .btn-save {
+            background-color: var(--primary-orange);
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .btn-save:hover {
+            background-color: #e65c00;
+        }
+
+        .btn-test {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            color: #333;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .btn-test:hover {
+            background-color: #f8f8f8;
+        }
+
+        .btn-create {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            width: 100% !important;
+            padding-right: 60px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--primary-orange);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .url-display-box {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .url-display-box label {
+            font-weight: 600;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .url-display-box code {
+            display: block;
+            background-color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 0.85rem;
+            color: #e83e8c;
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
 
         /* User Table */
-        .user-management-container { padding: 0; border: none; background: transparent; box-shadow: none; max-width: 100%; }
-        .table-wrapper { background-color: #fff; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin: 0; }
-        th { background-color: #f9fafb; color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; padding: 16px 24px; text-align: left; border-bottom: 1px solid var(--border-color); }
-        td { padding: 16px 24px; border-bottom: 1px solid #f3f4f6; color: #374151; font-size: 0.9rem; vertical-align: middle; }
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background-color: #f9fafb; }
-        .action-cell { display: flex; gap: 8px; }
-        .btn-icon { width: 32px; height: 32px; border-radius: 4px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; background: transparent; }
-        .btn-icon.edit { color: var(--primary-orange); background-color: #fff7ed; border-color: #ffedd5; }
-        .btn-icon.delete { color: #ef4444; background-color: #fef2f2; border-color: #fee2e2; }
+        .user-management-container {
+            padding: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            max-width: 100%;
+        }
+
+        .table-wrapper {
+            background-color: #fff;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+
+        th {
+            background-color: #f9fafb;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            padding: 16px 24px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #374151;
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .action-cell {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .btn-icon.edit {
+            color: var(--primary-orange);
+            background-color: #fff7ed;
+            border-color: #ffedd5;
+        }
+
+        .btn-icon.delete {
+            color: #ef4444;
+            background-color: #fef2f2;
+            border-color: #fee2e2;
+        }
 
         /* Modal & Toast */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: #fff; margin: 10% auto; padding: 25px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 8px; position: relative; }
-        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
 
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: #fff; color: #333; padding: 15px 25px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease-out forwards; border-left: 4px solid #ccc; min-width: 300px; font-size: 0.95rem; }
-        .toast.success { border-left-color: var(--success-color); }
-        .toast.error { border-left-color: var(--error-color); }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 25px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: #fff;
+            color: #333;
+            padding: 15px 25px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out forwards;
+            border-left: 4px solid #ccc;
+            min-width: 300px;
+            font-size: 0.95rem;
+        }
+
+        .toast.success {
+            border-left-color: var(--success-color);
+        }
+
+        .toast.error {
+            border-left-color: var(--error-color);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
 
         .success-card {
-            background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 400px; margin: 15% auto; box-shadow: 0 10px 30px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out; position: relative;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            margin: 15% auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            animation: popIn 0.3s ease-out;
+            position: relative;
         }
+
         .success-icon {
-            width: 60px; height: 60px; background: var(--success-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 20px auto;
+            width: 60px;
+            height: 60px;
+            background: var(--success-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 20px auto;
         }
-        .success-card h3 { margin: 0 0 15px 0; color: var(--primary-orange); }
-        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .success-card h3 {
+            margin: 0 0 15px 0;
+            color: var(--primary-orange);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
+
 <body>
 
-<div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container"></div>
 
-<div class="dashboard-container">
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="" alt="Logo" class="header-logo-img" id="header-logo" />
-            <span id="header-logo-text">Admin Panel</span>
-        </div>
-        <ul class="sidebar-menu">
-            <li><button class="nav-btn active" onclick="openTab(event, 'welcome')"><i class="fas fa-home"></i> Welcome</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'brandingConfig')"><i class="fas fa-paint-brush"></i> Branding & Domain</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'userManagement')"><i class="fas fa-users"></i> User Management</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'samlConfig')"><i class="fas fa-key"></i> SAML Config</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'oidcConfig')"><i class="fab fa-openid"></i> OIDC Config</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'jwtConfig')"><i class="fas fa-shield-alt"></i> JWT Config</button></li>
-            <li><button class="nav-btn" onclick="openTab(event, 'adConfig')"><i class="fas fa-network-wired"></i> AD Config</button></li>
-        </ul>
-        <div class="sidebar-footer">
-            <button id="logout-button" class="btn-logout-sidebar">Logout</button>
-        </div>
-    </div>
-
-    <div class="main-content">
-        <div class="top-header">
-            <div class="admin-title">Configuration Dashboard</div>
-            <a href="/dashboard" class="btn-dashboard">Go to User Dashboard</a>
-        </div>
-
-        <div class="content-area">
-            <div id="welcome" class="tab-content active">
-                <h2>Welcome, Customer Admin!</h2>
-                <p>Use the sidebar to manage your organization's users, configure Single Sign-On providers, or set up your branding.</p>
-                <h4 style="margin-top: 30px;">How to Test Your SSO Configuration:</h4>
-                <ol style="line-height: 1.8; color: #555; margin-left: 20px; padding: 0;">
-                    <li>Go to the "Branding & Domain" tab and set your unique subdomain.</li>
-                    <li>Configure and save an SSO provider (e.g., OIDC, SAML, JWT, or AD).</li>
-                    <li>Click the <strong>"Test Connection"</strong> button. This will check the connection.</li>
-                    <li>For SSO types (OIDC/SAML), perform a real login in the popup window.</li>
-                </ol>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <img src="" alt="Logo" class="header-logo-img" id="header-logo" />
+                <span id="header-logo-text">Admin Panel</span>
             </div>
+            <ul class="sidebar-menu">
+                <li><button class="nav-btn active" onclick="openTab(event, 'welcome')"><i class="fas fa-home"></i>
+                        Welcome</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'brandingConfig')"><i
+                            class="fas fa-paint-brush"></i> Branding & Domain</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'userManagement')"><i class="fas fa-users"></i> User
+                        Management</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'samlConfig')"><i class="fas fa-key"></i> SAML
+                        Config</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'oidcConfig')"><i class="fab fa-openid"></i> OIDC
+                        Config</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'jwtConfig')"><i class="fas fa-shield-alt"></i> JWT
+                        Config</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'adConfig')"><i class="fas fa-network-wired"></i> AD
+                        Config</button></li>
 
-            <div id="brandingConfig" class="tab-content">
-                <h2>Branding & Domain</h2>
-                <form id="brandingConfigForm">
-                    <div class="form-row"><label for="brandingSubdomain">Branding Name (Subdomain)</label><input type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required></div>
-                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.85rem; color: #888; margin-bottom: 15px;">
-                        Login URL: <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code>
-                    </div>
-                    <div class="form-row"><label for="brandingLogoUrl">Logo URL (Optional)</label><input type="url" id="brandingLogoUrl" placeholder="https://example.com/logo.png"></div>
-                    <div class="form-row"><label for="brandingPrimaryColor">Primary Color (Hex)</label><input type="text" id="brandingPrimaryColor" placeholder="#FF6600"></div>
-                    <div class="btn-container"><button type="submit" class="btn-save">Save Branding Settings</button></div>
-                </form>
+            </ul>
+            <div class="sidebar-footer">
+                <button id="logout-button" class="btn-logout-sidebar">Logout</button>
             </div>
+        </div>
 
-            <div id="userManagement" class="user-management-container" style="display: none; padding: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0; color: #333;">User Management</h2>
-                    <button onclick="openCreateModal()" class="btn-create"><i class="fas fa-plus"></i> Create New User</button>
-                </div>
-                <div class="table-wrapper">
-                    <table id="user-table">
-                        <thead>
-                        <tr><th style="width: 5%;">ID</th> <th style="width: 15%;">Username</th> <th style="width: 25%;">Email</th> <th style="width: 15%;">Name</th> <th style="width: 15%;">Roles</th> <th style="width: 10%;">Provider</th> <th style="width: 15%;">Actions</th></tr>
-                        </thead>
-                        <tbody><tr><td colspan="7" style="text-align:center;">Loading users...</td></tr></tbody>
-                    </table>
+        <div class="main-content">
+            <div class="top-header">
+                <div class="admin-title">Configuration Dashboard</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="btn-dashboard" onclick="openTab(event, 'settingsConfig')"
+                        style="border: none; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                        <i class="fas fa-cogs"></i> Settings
+                    </button>
+                    <a href="/dashboard" class="btn-dashboard">Go to User Dashboard</a>
                 </div>
             </div>
 
-            <div id="samlConfig" class="tab-content">
-                <h2>SAML Configuration</h2>
-                <form id="samlConfigForm" class="sso-form" data-provider-type="SAML" data-provider-id="saml_miniorange">
-                    <input type="hidden" id="samlConfigId">
-                    <div class="toggle-row"><label class="main-lbl" for="samlEnable">Enable SAML Provider</label><label class="switch"><input type="checkbox" id="samlEnable"><span class="slider"></span></label></div>
-                    <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text" id="samlDisplayName" placeholder="e.g., miniOrange SAML"></div>
+            <div class="content-area">
+                <div id="welcome" class="tab-content active">
+                    <h2>Welcome, Customer Admin!</h2>
+                    <p>Use the sidebar to manage your organization's users, configure Single Sign-On providers, or set
+                        up your branding.</p>
+                    <h4 style="margin-top: 30px;">How to Test Your SSO Configuration:</h4>
+                    <ol style="line-height: 1.8; color: #555; margin-left: 20px; padding: 0;">
+                        <li>Go to the "Branding & Domain" tab and set your unique subdomain.</li>
+                        <li>Configure and save an SSO provider (e.g., OIDC, SAML, JWT, or AD).</li>
+                        <li>Click the <strong>"Test Connection"</strong> button. This will check the connection.</li>
+                        <li>For SSO types (OIDC/SAML), perform a real login in the popup window.</li>
+                    </ol>
+                </div>
 
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
-                        <h4 style="margin: 0; border: none; padding: 0;">Identity Provider Details</h4>
-                        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                            <button type="button" class="btn-save" style="background-color: #6c757d; font-size: 0.8rem; padding: 6px 12px; margin:0;" onclick="openImportSamlModal()">
-                                <i class="fas fa-file-upload"></i> Import IDP Metadata
-                            </button>
-                            <button type="button" class="btn-save" style="background-color: #17a2b8; font-size: 0.8rem; padding: 6px 12px; margin:0;" onclick="downloadSpMetadata()">
-                                <i class="fas fa-file-download"></i> Download SP Metadata
-                            </button>
+                <div id="brandingConfig" class="tab-content">
+                    <h2>Branding & Domain</h2>
+                    <form id="brandingConfigForm">
+                        <div class="form-row"><label for="brandingSubdomain">Branding Name (Subdomain)</label><input
+                                type="text" id="brandingSubdomain" placeholder="e.g., acme-corp" required></div>
+                        <div
+                            style="margin-left: 245px; margin-top: -10px; font-size: 0.85rem; color: #888; margin-bottom: 15px;">
+                            Login URL:
+                            <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code>
                         </div>
-                    </div>
-
-                    <div class="form-row"><label for="samlEntityId">IdP Entity ID</label><input type="text" id="samlEntityId" placeholder="https://idp.example.com/entityid"></div>
-                    <div class="form-row"><label for="samlSsoUrl">SSO URL</label><input type="url" id="samlSsoUrl" placeholder="https://idp.example.com/sso"></div>
-                    <div class="form-row"><label for="samlCertificate">X.509 Certificate</label><textarea id="samlCertificate" placeholder="Paste certificate here..."></textarea></div>
-                    <div class="btn-container">
-                        <button type="button" class="btn-test" onclick="testAttributes('saml_miniorange')">Test Connection</button>
-                        <button type="submit" class="btn-save">Save SAML Config</button>
-                    </div>
-                </form>
-                <div class="url-display-box">
-                    <h4>Your Service Provider (SP) URLs</h4>
-                    <label>SP Entity ID:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
-                    <label>ACS URL:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
+                        <div class="form-row"><label for="brandingLogoUrl">Logo URL (Optional)</label><input type="url"
+                                id="brandingLogoUrl" placeholder="https://example.com/logo.png"></div>
+                        <div class="form-row"><label for="brandingPrimaryColor">Primary Color (Hex)</label><input
+                                type="text" id="brandingPrimaryColor" placeholder="#FF6600"></div>
+                        <div class="btn-container"><button type="submit" class="btn-save">Save Branding
+                                Settings</button></div>
+                    </form>
                 </div>
-            </div>
 
-            <div id="oidcConfig" class="tab-content">
-                <h2>OIDC Configuration</h2>
-                <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC" data-provider-id="oidc_miniorange">
-                    <input type="hidden" id="oidcConfigId">
-                    <div class="toggle-row"><label class="main-lbl" for="oidcEnable">Enable OIDC Provider</label><label class="switch"><input type="checkbox" id="oidcEnable"><span class="slider"></span></label></div>
-                    <div class="form-row"><label for="oidcDisplayName">Display Name</label><input type="text" id="oidcDisplayName" placeholder="e.g., miniOrange, Google Workspace"></div>
-                    <h4>Identity Provider Details</h4>
-                    <div class="form-row"><label for="oidcIssuerUri">Issuer URI</label><input type="url" id="oidcIssuerUri" placeholder="Leave blank to use discovery"></div>
-                    <div class="form-row"><label for="oidcClientId">Client ID</label><input type="text" id="oidcClientId"></div>
-                    <div class="form-row" ><label for="oidcClientSecret">Client Secret</label><div class="password-wrapper"><input type="password" id="oidcClientSecret" placeholder="Leave blank if unchanged"><button type="button" class="toggle-password">Show</button></div></div>
-                    <div class="form-row"><label for="oidcScopes">Scopes</label><input type="text" id="oidcScopes" value="openid, profile, email"></div>
-                    <div class="form-row"><label for="oidcUserNameAttribute">User Name Attribute</label><input type="text" id="oidcUserNameAttribute" value="email"></div>
-                    <h4>Endpoint Overrides</h4>
-                    <div class="form-row"><label for="oidcAuthorizationUri">Auth Endpoint</label><input type="url" id="oidcAuthorizationUri"></div>
-                    <div class="form-row"><label for="oidcTokenUri">Token Endpoint</label><input type="url" id="oidcTokenUri"></div>
-                    <div class="form-row"><label for="oidcUserInfoUri">UserInfo Endpoint</label><input type="url" id="oidcUserInfoUri"></div>
-                    <div class="form-row"><label for="oidcJwkSetUri">JWK Set URI</label><input type="url" id="oidcJwkSetUri"></div>
-                    <div class="btn-container">
-                        <button type="button" class="btn-test" onclick="testAttributes('oidc_miniorange')">Test Connection</button>
-                        <button type="submit" class="btn-save">Save OIDC Config</button>
+                <div id="userManagement" class="user-management-container" style="display: none; padding: 30px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0; color: #333;">User Management</h2>
+                        <button onclick="openCreateModal()" class="btn-create"><i class="fas fa-plus"></i> Create New
+                            User</button>
                     </div>
-                </form>
-                <div class="url-display-box">
-                    <h4>Your OIDC Redirect URI</h4>
-                    <label>Redirect URI:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
-                    <label style="margin-top: 15px;">Login URL / App Launch URL:</label>
-                    <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/sso/initiate/oidc_miniorange</code>
-                    <small style="color: #666; font-size: 0.8rem;">* Use this URL for the "App Icon" in your Identity Provider dashboard to support IdP-initiated login.</small>
+                    <div class="table-wrapper">
+                        <table id="user-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">ID</th>
+                                    <th style="width: 15%;">Username</th>
+                                    <th style="width: 25%;">Email</th>
+                                    <th style="width: 15%;">Name</th>
+                                    <th style="width: 15%;">Roles</th>
+                                    <th style="width: 10%;">Provider</th>
+                                    <th style="width: 15%;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" style="text-align:center;">Loading users...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <div id="jwtConfig" class="tab-content">
-                <h2>JWT Configuration</h2>
-                <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT" data-provider-id="jwt_miniorange">
-                    <input type="hidden" id="jwtConfigId">
-                    <div class="toggle-row"><label class="main-lbl" for="jwtEnable">Enable JWT Provider</label><label class="switch"><input type="checkbox" id="jwtEnable"><span class="slider"></span></label></div>
-                    <div class="form-row"><label for="jwtDisplayName">Display Name</label><input type="text" id="jwtDisplayName" placeholder="e.g., MiniOrange JWT"></div>
+                <div id="samlConfig" class="tab-content">
+                    <h2>SAML Configuration</h2>
+                    <form id="samlConfigForm" class="sso-form" data-provider-type="SAML"
+                        data-provider-id="saml_miniorange">
+                        <input type="hidden" id="samlConfigId">
+                        <div class="toggle-row"><label class="main-lbl" for="samlEnable">Enable SAML
+                                Provider</label><label class="switch"><input type="checkbox" id="samlEnable"><span
+                                    class="slider"></span></label></div>
+                        <div class="form-row"><label for="samlDisplayName">Display Name</label><input type="text"
+                                id="samlDisplayName" placeholder="e.g., miniOrange SAML"></div>
 
-                    <h4>Identity Provider Details</h4>
-                    <div class="form-row"><label for="jwtSsoUrl">JWT SSO URL (Full Link)</label><input type="url" id="jwtSsoUrl" placeholder="https://idp.example.com/jwtsso/...?client_id=..."></div>
-                    <div class="form-row"><label for="jwtClientId">Client ID</label><input type="text" id="jwtClientId"></div>
-
-                    <div class="form-row" id="jwtSecretRow">
-                        <label for="jwtClientSecret">Client Secret</label>
-                        <div class="password-wrapper">
-                            <input type="password" id="jwtClientSecret" placeholder="Leave blank if unchanged">
-                            <button type="button" class="toggle-password">Show</button>
-                        </div>
-                    </div>
-                    <small id="jwtSecretHelp" style="display:none; color:#666; margin-left: 245px; margin-bottom: 10px;">* Must be at least 32 characters for HS256</small>
-
-                    <div class="form-row">
-                        <label for="jwtSignatureAlgorithm">Signature Algorithm</label>
-                        <select id="jwtSignatureAlgorithm">
-                            <option value="RS256">RSA-SHA256 (Certificate)</option>
-                            <option value="HS256">HS256 (Client Secret)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-row" id="jwtCertRow">
-                        <label for="jwtCertificate">Certificate (PEM)</label>
-                        <div class="input-group-wrapper" style="width: 100%; max-width: 500px;">
-                            <textarea id="jwtCertificate" placeholder="-----BEGIN CERTIFICATE----- ..." style="width: 100%;"></textarea>
-                            <div style="margin-top: 5px; text-align: right;">
-                                <input type="file" id="jwtCertFile" accept=".cer,.crt,.pem" style="display: none;" onchange="loadJwtCertFile(this)">
-                                <button type="button" class="btn-save" style="background-color: #17a2b8; font-size: 0.8rem; padding: 4px 10px;" onclick="document.getElementById('jwtCertFile').click()">
-                                    <i class="fas fa-upload"></i> Upload Certificate
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
+                            <h4 style="margin: 0; border: none; padding: 0;">Identity Provider Details</h4>
+                            <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                                <button type="button" class="btn-save"
+                                    style="background-color: #6c757d; font-size: 0.8rem; padding: 6px 12px; margin:0;"
+                                    onclick="openImportSamlModal()">
+                                    <i class="fas fa-file-upload"></i> Import IDP Metadata
+                                </button>
+                                <button type="button" class="btn-save"
+                                    style="background-color: #17a2b8; font-size: 0.8rem; padding: 6px 12px; margin:0;"
+                                    onclick="downloadSpMetadata()">
+                                    <i class="fas fa-file-download"></i> Download SP Metadata
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="btn-container">
-                        <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">Test Connection</button>
-                        <button type="submit" class="btn-save">Save JWT Config</button>
+                        <div class="form-row"><label for="samlEntityId">IdP Entity ID</label><input type="text"
+                                id="samlEntityId" placeholder="https://idp.example.com/entityid"></div>
+                        <div class="form-row"><label for="samlSsoUrl">SSO URL</label><input type="url" id="samlSsoUrl"
+                                placeholder="https://idp.example.com/sso"></div>
+                        <div class="form-row"><label for="samlCertificate">X.509 Certificate</label><textarea
+                                id="samlCertificate" placeholder="Paste certificate here..."></textarea></div>
+                        <div class="btn-container">
+                            <button type="button" class="btn-test" onclick="testAttributes('saml_miniorange')">Test
+                                Connection</button>
+                            <button type="submit" class="btn-save">Save SAML Config</button>
+                        </div>
+                    </form>
+                    <div class="url-display-box">
+                        <h4>Your Service Provider (SP) URLs</h4>
+                        <label>SP Entity
+                            ID:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
+                        <label>ACS
+                            URL:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
                     </div>
-                </form>
-                <div class="url-display-box">
-                    <h4>Service Provider (SP) / Redirect URL</h4>
-                    <label>Redirect URI:</label>
-                    <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
                 </div>
-            </div>
 
-            <div id="adConfig" class="tab-content">
-                <h2>Active Directory Configuration</h2>
-                <form id="adConfigForm" class="sso-form" data-provider-type="AD_LDAP" data-provider-id="ad_ldap">
-                    <input type="hidden" id="adConfigId">
-
-                    <div class="toggle-row">
-                        <label class="main-lbl" for="adEnable">Enable AD Provider</label>
-                        <label class="switch">
-                            <input type="checkbox" id="adEnable">
-                            <span class="slider"></span>
-                        </label>
+                <div id="oidcConfig" class="tab-content">
+                    <h2>OIDC Configuration</h2>
+                    <form id="oidcConfigForm" class="sso-form" data-provider-type="OIDC"
+                        data-provider-id="oidc_miniorange">
+                        <input type="hidden" id="oidcConfigId">
+                        <div class="toggle-row"><label class="main-lbl" for="oidcEnable">Enable OIDC
+                                Provider</label><label class="switch"><input type="checkbox" id="oidcEnable"><span
+                                    class="slider"></span></label></div>
+                        <div class="form-row"><label for="oidcDisplayName">Display Name</label><input type="text"
+                                id="oidcDisplayName" placeholder="e.g., miniOrange, Google Workspace"></div>
+                        <h4>Identity Provider Details</h4>
+                        <div class="form-row"><label for="oidcIssuerUri">Issuer URI</label><input type="url"
+                                id="oidcIssuerUri" placeholder="Leave blank to use discovery"></div>
+                        <div class="form-row"><label for="oidcClientId">Client ID</label><input type="text"
+                                id="oidcClientId"></div>
+                        <div class="form-row"><label for="oidcClientSecret">Client Secret</label>
+                            <div class="password-wrapper"><input type="password" id="oidcClientSecret"
+                                    placeholder="Leave blank if unchanged"><button type="button"
+                                    class="toggle-password">Show</button></div>
+                        </div>
+                        <div class="form-row"><label for="oidcScopes">Scopes</label><input type="text" id="oidcScopes"
+                                value="openid, profile, email"></div>
+                        <div class="form-row"><label for="oidcUserNameAttribute">User Name Attribute</label><input
+                                type="text" id="oidcUserNameAttribute" value="email"></div>
+                        <h4>Endpoint Overrides</h4>
+                        <div class="form-row"><label for="oidcAuthorizationUri">Auth Endpoint</label><input type="url"
+                                id="oidcAuthorizationUri"></div>
+                        <div class="form-row"><label for="oidcTokenUri">Token Endpoint</label><input type="url"
+                                id="oidcTokenUri"></div>
+                        <div class="form-row"><label for="oidcUserInfoUri">UserInfo Endpoint</label><input type="url"
+                                id="oidcUserInfoUri"></div>
+                        <div class="form-row"><label for="oidcJwkSetUri">JWK Set URI</label><input type="url"
+                                id="oidcJwkSetUri"></div>
+                        <div class="btn-container">
+                            <button type="button" class="btn-test" onclick="testAttributes('oidc_miniorange')">Test
+                                Connection</button>
+                            <button type="submit" class="btn-save">Save OIDC Config</button>
+                        </div>
+                    </form>
+                    <div class="url-display-box">
+                        <h4>Your OIDC Redirect URI</h4>
+                        <label>Redirect
+                            URI:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
+                        <label style="margin-top: 15px;">Login URL / App Launch URL:</label>
+                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/sso/initiate/oidc_miniorange</code>
+                        <small style="color: #666; font-size: 0.8rem;">* Use this URL for the "App Icon" in your
+                            Identity Provider dashboard to support IdP-initiated login.</small>
                     </div>
+                </div>
 
-                    <div class="form-row">
-                        <label for="adDisplayName">Display Name</label>
-                        <input type="text" id="adDisplayName" placeholder="e.g., Corporate AD">
-                    </div>
+                <div id="jwtConfig" class="tab-content">
+                    <h2>JWT Configuration</h2>
+                    <form id="jwtConfigForm" class="sso-form" data-provider-type="JWT"
+                        data-provider-id="jwt_miniorange">
+                        <input type="hidden" id="jwtConfigId">
+                        <div class="toggle-row"><label class="main-lbl" for="jwtEnable">Enable JWT
+                                Provider</label><label class="switch"><input type="checkbox" id="jwtEnable"><span
+                                    class="slider"></span></label></div>
+                        <div class="form-row"><label for="jwtDisplayName">Display Name</label><input type="text"
+                                id="jwtDisplayName" placeholder="e.g., MiniOrange JWT"></div>
 
-                    <h4 style="margin-top: 20px;">Connection Details</h4>
+                        <h4>Identity Provider Details</h4>
+                        <div class="form-row"><label for="jwtSsoUrl">JWT SSO URL (Full Link)</label><input type="url"
+                                id="jwtSsoUrl" placeholder="https://idp.example.com/jwtsso/...?client_id=..."></div>
+                        <div class="form-row"><label for="jwtClientId">Client ID</label><input type="text"
+                                id="jwtClientId"></div>
 
-                    <div class="form-row">
-                        <label for="adDirectoryType">Directory Type <i class="fas fa-info-circle" title="Select your directory server type"></i></label>
-                        <select id="adDirectoryType">
-                            <option value="Active Directory">Active Directory</option>
-                            <option value="OpenLDAP">OpenLDAP</option>
-                            <option value="AD LDS">AD LDS</option>
-                            <option value="OpenDS">OpenDS</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
+                        <div class="form-row" id="jwtSecretRow">
+                            <label for="jwtClientSecret">Client Secret</label>
+                            <div class="password-wrapper">
+                                <input type="password" id="jwtClientSecret" placeholder="Leave blank if unchanged">
+                                <button type="button" class="toggle-password">Show</button>
+                            </div>
+                        </div>
+                        <small id="jwtSecretHelp"
+                            style="display:none; color:#666; margin-left: 245px; margin-bottom: 10px;">* Must be at
+                            least 32 characters for HS256</small>
 
-                    <div class="form-row">
-                        <label for="adServerHost">LDAP Server URL</label>
-                        <div class="input-group-wrapper" style="display: flex; gap: 10px; width: 100%; max-width: 500px;">
-                            <select id="adProtocol" style="width: 100px; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px; flex-shrink: 0;">
-                                <option value="ldap://">ldap://</option>
-                                <option value="ldaps://">ldaps://</option>
+                        <div class="form-row">
+                            <label for="jwtSignatureAlgorithm">Signature Algorithm</label>
+                            <select id="jwtSignatureAlgorithm">
+                                <option value="RS256">RSA-SHA256 (Certificate)</option>
+                                <option value="HS256">HS256 (Client Secret)</option>
                             </select>
-                            <input type="text" id="adServerHost" placeholder="192.168.1.100:389" style="flex-grow: 1;">
                         </div>
-                    </div>
 
-                    <div class="form-row">
-                        <label for="adBindDn">Bind Account DN</label>
-                        <input type="text" id="adBindDn" placeholder="User credentials for searching">
-                    </div>
-
-                    <div class="form-row">
-                        <label for="adBindPassword">Bind Password</label>
-                        <div class="password-wrapper">
-                            <input type="password" id="adBindPassword" placeholder="Leave blank if unchanged">
-                            <button type="button" class="toggle-password">Show</button>
-                        </div>
-                    </div>
-
-                    <h4 style="margin-top: 20px;">User Search Settings</h4>
-
-                    <div class="form-row">
-                        <label for="adSearchBase">Search Base</label>
-                        <input type="text" id="adSearchBase" placeholder="ou=users,dc=example,dc=com">
-                    </div>
-
-                    <div class="form-row">
-                        <label for="adUserSearchFilter">Search Filter</label>
-                        <input type="text" id="adUserSearchFilter" placeholder="(&(objectClass=user)(sAMAccountName={0}))">
-                    </div>
-
-                    <h4 style="margin-top: 20px;">Options</h4>
-
-                    <div class="toggle-row" style="margin-bottom: 10px;">
-                        <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Fallback Authentication</label>
-                        <input type="checkbox" id="adFallbackAuth">
-                    </div>
-                    <div style="margin-left: 245px; margin-top: -10px; font-size: 0.8rem; color: #888; margin-bottom: 15px;">
-                        If LDAP fails, try local DB password.
-                    </div>
-
-                    <div class="form-row" style="align-items: flex-start; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #eee;">
-                        <label style="padding-top: 5px;">User Provisioning</label>
-                        <div style="width: 100%; max-width: 500px;">
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
-                                <div>
-                                    <strong style="display: block; color: #333; margin-bottom: 5px;">Import Users from AD</strong>
-                                    <p style="margin: 0; font-size: 0.85rem; color: #666;">
-                                        Fetch all users from the configured OU and create accounts locally.
-                                    </p>
+                        <div class="form-row" id="jwtCertRow">
+                            <label for="jwtCertificate">Certificate (PEM)</label>
+                            <div class="input-group-wrapper" style="width: 100%; max-width: 500px;">
+                                <textarea id="jwtCertificate" placeholder="-----BEGIN CERTIFICATE----- ..."
+                                    style="width: 100%;"></textarea>
+                                <div style="margin-top: 5px; text-align: right;">
+                                    <input type="file" id="jwtCertFile" accept=".cer,.crt,.pem" style="display: none;"
+                                        onchange="loadJwtCertFile(this)">
+                                    <button type="button" class="btn-save"
+                                        style="background-color: #17a2b8; font-size: 0.8rem; padding: 4px 10px;"
+                                        onclick="document.getElementById('jwtCertFile').click()">
+                                        <i class="fas fa-upload"></i> Upload Certificate
+                                    </button>
                                 </div>
-                                <button type="button" class="btn-create" onclick="importAdUsers()" id="btnImportAd" style="margin-left: 15px; white-space: nowrap;">
-                                    <i class="fas fa-file-import"></i> Import Users
-                                </button>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="btn-container">
-                        <button type="button" class="btn-test" onclick="testAttributes('ad_ldap')">Test Connection</button>
-                        <button type="submit" class="btn-save">Save AD Config</button>
+                        <div class="btn-container">
+                            <button type="button" class="btn-test" onclick="testAttributes('jwt_miniorange')">Test
+                                Connection</button>
+                            <button type="submit" class="btn-save">Save JWT Config</button>
+                        </div>
+                    </form>
+                    <div class="url-display-box">
+                        <h4>Service Provider (SP) / Redirect URL</h4>
+                        <label>Redirect URI:</label>
+                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
                     </div>
-                </form>
-
-                <div class="url-display-box">
-                    <h4>AD Login URL</h4>
-                    <label>Direct Login Link:</label>
-                    <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/ad/ad_ldap</code>
                 </div>
+
+                <div id="adConfig" class="tab-content">
+                    <h2>Active Directory Configuration</h2>
+                    <form id="adConfigForm" class="sso-form" data-provider-type="AD_LDAP" data-provider-id="ad_ldap">
+                        <input type="hidden" id="adConfigId">
+
+                        <div class="toggle-row">
+                            <label class="main-lbl" for="adEnable">Enable AD Provider</label>
+                            <label class="switch">
+                                <input type="checkbox" id="adEnable">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="adDisplayName">Display Name</label>
+                            <input type="text" id="adDisplayName" placeholder="e.g., Corporate AD">
+                        </div>
+
+                        <h4 style="margin-top: 20px;">Connection Details</h4>
+
+                        <div class="form-row">
+                            <label for="adDirectoryType">Directory Type <i class="fas fa-info-circle"
+                                    title="Select your directory server type"></i></label>
+                            <select id="adDirectoryType">
+                                <option value="Active Directory">Active Directory</option>
+                                <option value="OpenLDAP">OpenLDAP</option>
+                                <option value="AD LDS">AD LDS</option>
+                                <option value="OpenDS">OpenDS</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="adServerHost">LDAP Server URL</label>
+                            <div class="input-group-wrapper"
+                                style="display: flex; gap: 10px; width: 100%; max-width: 500px;">
+                                <select id="adProtocol"
+                                    style="width: 100px; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px; flex-shrink: 0;">
+                                    <option value="ldap://">ldap://</option>
+                                    <option value="ldaps://">ldaps://</option>
+                                </select>
+                                <input type="text" id="adServerHost" placeholder="192.168.1.100:389"
+                                    style="flex-grow: 1;">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="adBindDn">Bind Account DN</label>
+                            <input type="text" id="adBindDn" placeholder="User credentials for searching">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="adBindPassword">Bind Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" id="adBindPassword" placeholder="Leave blank if unchanged">
+                                <button type="button" class="toggle-password">Show</button>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-top: 20px;">User Search Settings</h4>
+
+                        <div class="form-row">
+                            <label for="adSearchBase">Search Base</label>
+                            <input type="text" id="adSearchBase" placeholder="ou=users,dc=example,dc=com">
+                        </div>
+
+                        <div class="form-row">
+                            <label for="adUserSearchFilter">Search Filter</label>
+                            <input type="text" id="adUserSearchFilter"
+                                placeholder="(&(objectClass=user)(sAMAccountName={0}))">
+                        </div>
+
+                        <h4 style="margin-top: 20px;">Options</h4>
+
+                        <div class="toggle-row" style="margin-bottom: 10px;">
+                            <label class="main-lbl" style="font-weight: normal; font-size: 0.9rem;">Fallback
+                                Authentication</label>
+                            <input type="checkbox" id="adFallbackAuth">
+                        </div>
+                        <div
+                            style="margin-left: 245px; margin-top: -10px; font-size: 0.8rem; color: #888; margin-bottom: 15px;">
+                            If LDAP fails, try local DB password.
+                        </div>
+
+                        <div class="form-row"
+                            style="align-items: flex-start; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #eee;">
+                            <label style="padding-top: 5px;">User Provisioning</label>
+                            <div style="width: 100%; max-width: 500px;">
+                                <div
+                                    style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
+                                    <div>
+                                        <strong style="display: block; color: #333; margin-bottom: 5px;">Import Users
+                                            from AD</strong>
+                                        <p style="margin: 0; font-size: 0.85rem; color: #666;">
+                                            Fetch all users from the configured OU and create accounts locally.
+                                        </p>
+                                    </div>
+                                    <button type="button" class="btn-create" onclick="importAdUsers()" id="btnImportAd"
+                                        style="margin-left: 15px; white-space: nowrap;">
+                                        <i class="fas fa-file-import"></i> Import Users
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="btn-container">
+                            <button type="button" class="btn-test" onclick="testAttributes('ad_ldap')">Test
+                                Connection</button>
+                            <button type="submit" class="btn-save">Save AD Config</button>
+                        </div>
+                    </form>
+
+                    <div class="url-display-box">
+                        <h4>AD Login URL</h4>
+                        <label>Direct Login Link:</label>
+                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/ad/ad_ldap</code>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="settingsConfig" class="tab-content">
+                    <h2>Tenant Settings</h2>
+                    <div class="url-display-box" style="margin-top: 0; background: #fff; border: none; padding: 0;">
+                        <div
+                            style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <h4 style="margin-top: 0;">API Configuration</h4>
+                            <div class="form-row">
+                                <label>Tenant Name</label>
+                                <input type="text" id="settingsTenantName" readonly style="background-color: #e9ecef;">
+                            </div>
+                            <div class="form-row">
+                                <label>Subdomain</label>
+                                <input type="text" id="settingsSubdomain" readonly style="background-color: #e9ecef;">
+                            </div>
+                            <div class="form-row">
+                                <label>API Key</label>
+                                <div class="input-group-wrapper"
+                                    style="display: flex; gap: 10px; width: 100%; max-width: 600px;">
+                                    <input type="text" id="settingsApiKey" readonly
+                                        style="font-family: monospace; background-color: #fff; color: #d63384; font-weight: bold;">
+                                    <button type="button" class="btn-save" style="background-color: #6c757d; margin: 0;"
+                                        onclick="copyApiKey()">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.85rem; color: #666; margin-top: 5px; margin-left: 245px;">
+                                Use this API Key to authenticate external requests to the
+                                <code>/api/auth/external</code> endpoint.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('userModal')">&times;</span>
+            <h2 id="modalTitle">User Form</h2>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-row"><label>Username</label><input type="text" id="username" required></div>
+                <div class="form-row"><label>Email</label><input type="email" id="email" required></div>
+                <div class="form-row"><label>Password</label>
+                    <div class="password-wrapper"><input type="password" id="password"><button type="button"
+                            class="toggle-password" id="toggleUserPassword">Show</button></div>
+                </div>
+                <div class="form-row"><label>First Name</label><input type="text" id="firstName"></div>
+                <div class="form-row"><label>Last Name</label><input type="text" id="lastName"></div>
+                <div class="form-row"><label>Roles</label><input type="text" id="roles"
+                        placeholder="ROLE_USER,ROLE_ADMIN"></div>
+                <div class="btn-container"><button type="submit" class="btn-save">Save User</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="importSamlModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('importSamlModal')">&times;</span>
+            <h2>Import IDP Metadata</h2>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Upload the XML metadata file provided by your Identity Provider (e.g., miniOrange, Azure AD).
+                This will auto-fill the configuration fields.
+            </p>
+            <div class="form-row">
+                <label for="metadataFile" style="width: auto; margin-right: 10px;">Metadata XML File:</label>
+                <input type="file" id="metadataFile" accept=".xml" style="padding: 5px; max-width: 100%;">
+            </div>
+            <div class="btn-container">
+                <button type="button" class="btn-test" onclick="closeModal('importSamlModal')">Cancel</button>
+                <button type="button" class="btn-save" onclick="processSamlImport()">Import Metadata</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="testAdConnectionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('testAdConnectionModal')">&times;</span>
+            <h2>Test AD Connection</h2>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
+                Please enter your Active Directory credentials to verify the connection.
+            </p>
+
+            <div class="form-row">
+                <label for="testAdServerUrl">Server URL</label>
+                <input type="text" id="testAdServerUrl" placeholder="ldaps://ad.example.com:636">
             </div>
 
+            <div class="form-row">
+                <label for="testAdBindDn">Bind DN / Username</label>
+                <input type="text" id="testAdBindDn" placeholder="cn=admin,dc=example,dc=com">
+            </div>
+
+            <div class="form-row">
+                <label for="testAdPassword">Bind Password</label>
+                <input type="password" id="testAdPassword" placeholder="Enter password">
+            </div>
+
+            <div class="btn-container">
+                <button type="button" class="btn-test" onclick="closeModal('testAdConnectionModal')">Cancel</button>
+                <button type="button" class="btn-save" onclick="performAdTest()">Verify Connection</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="userModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('userModal')">&times;</span>
-        <h2 id="modalTitle">User Form</h2>
-        <form id="userForm">
-            <input type="hidden" id="userId">
-            <div class="form-row"><label>Username</label><input type="text" id="username" required></div>
-            <div class="form-row"><label>Email</label><input type="email" id="email" required></div>
-            <div class="form-row"><label>Password</label><div class="password-wrapper"><input type="password" id="password"><button type="button" class="toggle-password" id="toggleUserPassword">Show</button></div></div>
-            <div class="form-row"><label>First Name</label><input type="text" id="firstName"></div>
-            <div class="form-row"><label>Last Name</label><input type="text" id="lastName"></div>
-            <div class="form-row"><label>Roles</label><input type="text" id="roles" placeholder="ROLE_USER,ROLE_ADMIN"></div>
-            <div class="btn-container"><button type="submit" class="btn-save">Save User</button></div>
-        </form>
-    </div>
-</div>
-
-<div id="importSamlModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('importSamlModal')">&times;</span>
-        <h2>Import IDP Metadata</h2>
-        <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
-            Upload the XML metadata file provided by your Identity Provider (e.g., miniOrange, Azure AD).
-            This will auto-fill the configuration fields.
-        </p>
-        <div class="form-row">
-            <label for="metadataFile" style="width: auto; margin-right: 10px;">Metadata XML File:</label>
-            <input type="file" id="metadataFile" accept=".xml" style="padding: 5px; max-width: 100%;">
-        </div>
-        <div class="btn-container">
-            <button type="button" class="btn-test" onclick="closeModal('importSamlModal')">Cancel</button>
-            <button type="button" class="btn-save" onclick="processSamlImport()">Import Metadata</button>
+    <div id="importConfirmModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <span class="close" onclick="closeModal('importConfirmModal')">&times;</span>
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-question-circle" style="font-size: 50px; color: var(--primary-orange);"></i>
+            </div>
+            <h3>Confirm Import</h3>
+            <p style="color: #666; margin-bottom: 25px;">
+                This will fetch all users from the configured Active Directory OU and create accounts in the
+                application.
+                <br><br>
+                <strong>Note:</strong> Ensure you have saved your configuration first.
+            </p>
+            <div class="btn-container" style="justify-content: center; border: none;">
+                <button type="button" class="btn-test" onclick="closeModal('importConfirmModal')">Cancel</button>
+                <button type="button" class="btn-save" onclick="executeAdImport()">Yes, Import Users</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="testAdConnectionModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('testAdConnectionModal')">&times;</span>
-        <h2>Test AD Connection</h2>
-        <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">
-            Please enter your Active Directory credentials to verify the connection.
-        </p>
-
-        <div class="form-row">
-            <label for="testAdServerUrl">Server URL</label>
-            <input type="text" id="testAdServerUrl" placeholder="ldaps://ad.example.com:636">
-        </div>
-
-        <div class="form-row">
-            <label for="testAdBindDn">Bind DN / Username</label>
-            <input type="text" id="testAdBindDn" placeholder="cn=admin,dc=example,dc=com">
-        </div>
-
-        <div class="form-row">
-            <label for="testAdPassword">Bind Password</label>
-            <input type="password" id="testAdPassword" placeholder="Enter password">
-        </div>
-
-        <div class="btn-container">
-            <button type="button" class="btn-test" onclick="closeModal('testAdConnectionModal')">Cancel</button>
-            <button type="button" class="btn-save" onclick="performAdTest()">Verify Connection</button>
+    <div id="importSuccessModal" class="modal">
+        <div class="success-card">
+            <div class="success-icon">✓</div>
+            <h3>Import Complete!</h3>
+            <p id="importSuccessMessage">Users imported successfully.</p>
+            <button class="btn-create" onclick="closeModal('importSuccessModal')"
+                style="margin: 20px auto; display: block;">Close</button>
         </div>
     </div>
-</div>
 
-<div id="importConfirmModal" class="modal">
-    <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <span class="close" onclick="closeModal('importConfirmModal')">&times;</span>
-        <div style="margin-bottom: 20px;">
-            <i class="fas fa-question-circle" style="font-size: 50px; color: var(--primary-orange);"></i>
-        </div>
-        <h3>Confirm Import</h3>
-        <p style="color: #666; margin-bottom: 25px;">
-            This will fetch all users from the configured Active Directory OU and create accounts in the application.
-            <br><br>
-            <strong>Note:</strong> Ensure you have saved your configuration first.
-        </p>
-        <div class="btn-container" style="justify-content: center; border: none;">
-            <button type="button" class="btn-test" onclick="closeModal('importConfirmModal')">Cancel</button>
-            <button type="button" class="btn-save" onclick="executeAdImport()">Yes, Import Users</button>
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <span class="close" onclick="closeModal('deleteConfirmModal')">&times;</span>
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
+            </div>
+            <h3>Confirm Deletion</h3>
+            <p style="color: #666; margin-bottom: 25px;">Are you sure you want to delete this user? This action cannot
+                be undone.</p>
+            <div class="btn-container" style="justify-content: center; border: none;">
+                <button type="button" class="btn-test" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+                <button type="button" class="btn-save" style="background-color: #dc3545;"
+                    onclick="executeUserDeletion()">Delete</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="importSuccessModal" class="modal">
-    <div class="success-card">
-        <div class="success-icon">✓</div>
-        <h3>Import Complete!</h3>
-        <p id="importSuccessMessage">Users imported successfully.</p>
-        <button class="btn-create" onclick="closeModal('importSuccessModal')" style="margin: 20px auto; display: block;">Close</button>
-    </div>
-</div>
-
-<div id="deleteConfirmModal" class="modal">
-    <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <span class="close" onclick="closeModal('deleteConfirmModal')">&times;</span>
-        <div style="margin-bottom: 20px;">
-            <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #dc3545;"></i>
-        </div>
-        <h3>Confirm Deletion</h3>
-        <p style="color: #666; margin-bottom: 25px;">Are you sure you want to delete this user? This action cannot be undone.</p>
-        <div class="btn-container" style="justify-content: center; border: none;">
-            <button type="button" class="btn-test" onclick="closeModal('deleteConfirmModal')">Cancel</button>
-            <button type="button" class="btn-save" style="background-color: #dc3545;" onclick="executeUserDeletion()">Delete</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.innerHTML = `<i class="${type==='success'?'fas fa-check-circle':'fas fa-exclamation-circle'}" style="color:${type==='success'?'var(--success-color)':'var(--error-color)'}"></i> <span>${message}</span>`;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.animation = 'fadeOut 0.3s ease-in forwards';
-            toast.addEventListener('animationend', () => toast.remove());
-        }, 3000);
-    }
-
-    async function fetchWithAuth(url, options = {}) {
-        options.headers = options.headers || {};
-        if (token) {
-            options.headers['Authorization'] = 'Bearer ' + token;
+    <script>
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="${type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'}" style="color:${type === 'success' ? 'var(--success-color)' : 'var(--error-color)'}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+                toast.addEventListener('animationend', () => toast.remove());
+            }, 3000);
         }
 
-        const response = await fetch(url, options);
-
-        if (response.status === 401) {
-            console.warn("Session expired. Redirecting to login.");
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('userInfo');
-            window.location.href = '/login?error=session_expired';
-            throw new Error("Session Expired");
-        }
-
-        return response;
-    }
-
-    const token = localStorage.getItem('accessToken');
-    const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
-    const brandingForm = document.getElementById('brandingConfigForm');
-    const brandingSubdomainInput = document.getElementById('brandingSubdomain');
-    const brandingLogoUrlInput = document.getElementById('brandingLogoUrl');
-    const brandingPrimaryColorInput = document.getElementById('brandingPrimaryColor');
-    const subdomainPreview = document.getElementById('subdomain-preview');
-    let configDataStore = {};
-
-    (async function init() {
-        if (!token) { window.location.href = '/login'; return; }
-
-        try {
-            const res = await fetchWithAuth('/api/admin/branding');
-            if (res.ok) {
-                const b = await res.json();
-                brandingSubdomainInput.value = b.subdomain || '';
-                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
-                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
-                updateDynamicSubdomainUrls(b.subdomain);
-
-                if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
-                if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
-                if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
-            }
-        } catch (e) {
-            if (e.message !== "Session Expired") console.error("Branding load failed", e);
-        }
-
-        await loadBrandingSettings();
-
-        // Initial UI Update
-        updateJwtUi();
-    })();
-
-    window.openTab = function(evt, tabName) {
-        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-        document.getElementById("userManagement").style.display = "none";
-        document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabName).style.display = 'block';
-        if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
-
-        if (tabName === 'userManagement') {
-            loadUsers();
-        } else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
-            loadSsoConfigurations();
-            updateDynamicSubdomainUrls(brandingSubdomainInput.value);
-        }
-    };
-
-    function updateDynamicSubdomainUrls(sub) {
-        const txt = sub ? sub.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
-        if(document.getElementById('subdomain-preview')) document.getElementById('subdomain-preview').textContent = txt;
-        document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
-    }
-
-    async function loadBrandingSettings() {
-        try {
-            const res = await fetchWithAuth('/api/admin/branding');
-            if (res.ok) {
-                const b = await res.json();
-                brandingSubdomainInput.value = b.subdomain || '';
-                brandingLogoUrlInput.value = b.brandingLogoUrl || '';
-                brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
-                updateDynamicSubdomainUrls(b.subdomain);
-            }
-        } catch (e) {}
-    }
-
-    brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
-
-    brandingForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        try {
-            const res = await fetchWithAuth('/api/admin/branding', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    subdomain: brandingSubdomainInput.value,
-                    brandingLogoUrl: brandingLogoUrlInput.value,
-                    brandingPrimaryColor: brandingPrimaryColorInput.value
-                })
-            });
-            if (!res.ok) throw new Error((await res.json()).message || 'Failed');
-            const b = await res.json();
-            showToast(`Branding updated!`, 'success');
-            updateDynamicSubdomainUrls(b.subdomain);
-        } catch (e) {
-            if (e.message !== "Session Expired") showToast(e.message, 'error');
-        }
-    });
-
-    async function loadUsers() {
-        userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
-        try {
-            const res = await fetchWithAuth('/api/admin/users');
-            if (res.ok) {
-                const users = await res.json();
-                userTableBody.innerHTML = '';
-                if(!users.length) userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No users found.</td></tr>';
-                users.forEach(u => {
-                    const row = userTableBody.insertRow();
-                    row.innerHTML = `<td><strong>${u.id}</strong></td><td>${u.username}</td><td>${u.email}</td><td>${(u.firstName||'')+' '+(u.lastName||'')}</td><td><span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:10px; font-size:0.75rem;">${u.roles||'USER'}</span></td><td>${u.authProvider}</td><td class="action-cell"><button class="btn-icon edit" onclick="openEditModal(${u.id})"><i class="fas fa-pen"></i></button><button class="btn-icon delete" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button></td>`;
-                });
-            }
-        } catch (e) {
-            if (e.message !== "Session Expired") showToast(e.message, 'error');
-        }
-    }
-
-    const userModal = document.getElementById('userModal');
-    const userForm = document.getElementById('userForm');
-    const userIdInput = document.getElementById('userId');
-    const modalTitle = document.getElementById('modalTitle');
-
-    window.openCreateModal = function() {
-        userForm.reset();
-        userIdInput.value = '';
-        modalTitle.textContent = 'Create New User';
-        document.getElementById('password').placeholder = "Required";
-        userModal.style.display = "block";
-    };
-
-    window.openEditModal = async function(id) {
-        try {
-            const res = await fetchWithAuth(`/api/admin/users/${id}`);
-            if (res.ok) {
-                const u = await res.json();
-                userIdInput.value = u.id;
-                document.getElementById('username').value = u.username;
-                document.getElementById('email').value = u.email;
-                document.getElementById('firstName').value = u.firstName || '';
-                document.getElementById('lastName').value = u.lastName || '';
-                document.getElementById('roles').value = u.roles || '';
-                document.getElementById('password').placeholder = "Leave blank if no change";
-                modalTitle.textContent = 'Edit User: ' + u.username;
-                userModal.style.display = "block";
-            }
-        } catch (e) {
-            if (e.message !== "Session Expired") showToast(e.message, 'error');
-        }
-    };
-
-    let userToDeleteId = null;
-
-    window.deleteUser = function(id) {
-        userToDeleteId = id;
-        document.getElementById('deleteConfirmModal').style.display = 'block';
-    };
-
-    window.executeUserDeletion = async function() {
-        if (!userToDeleteId) return;
-        closeModal('deleteConfirmModal');
-
-        try {
-            const res = await fetchWithAuth(`/api/admin/users/${userToDeleteId}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                showToast('User deleted successfully', 'success');
-                loadUsers();
-            } else {
-                const data = await res.json();
-                showToast(data.message || 'Failed to delete user', 'error');
-            }
-        } catch (e) {
-            if (e.message !== "Session Expired") showToast(e.message, 'error');
-        } finally {
-            userToDeleteId = null;
-        }
-    };
-
-    window.closeModal = function(modalId) {
-        document.getElementById(modalId).style.display = "none";
-    };
-
-    userForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = userIdInput.value;
-        const data = {
-            username: document.getElementById('username').value,
-            email: document.getElementById('email').value,
-            firstName: document.getElementById('firstName').value,
-            lastName: document.getElementById('lastName').value,
-            roles: document.getElementById('roles').value
-        };
-        if (document.getElementById('password').value) data.password = document.getElementById('password').value;
-        try {
-            const res = await fetchWithAuth(id ? `/api/admin/users/${id}` : '/api/admin/users', {
-                method: id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error((await res.json()).message);
-            closeModal('userModal'); showToast('User saved', 'success'); loadUsers();
-        } catch (e) {
-            if (e.message !== "Session Expired") showToast(e.message, 'error');
-        }
-    });
-
-    // --- CLEAN JWT UI LOGIC (Validation Fixed) ---
-    function updateJwtUi() {
-        const algoSelect = document.getElementById('jwtSignatureAlgorithm');
-        const certRow = document.getElementById('jwtCertRow');
-        const certInput = document.getElementById('jwtCertificate');
-        const secretInput = document.getElementById('jwtClientSecret');
-        const secretHelp = document.getElementById('jwtSecretHelp');
-
-        if (!algoSelect || !certRow) return;
-
-        const algo = algoSelect.value;
-
-        if (algo === 'HS256') {
-            // HS256: Hide Certificate Row, Show Secret Help
-            certRow.style.display = 'none';
-            if (certInput) certInput.required = false;
-
-            // FIX: Don't force require on secret (let backend handle empty check if creating new)
-            // This prevents "Please fill out this field" when editing with existing secret.
-            if (secretInput) secretInput.required = false;
-
-            if (secretHelp) secretHelp.style.display = 'block';
-        } else {
-            // RS256: Show Certificate Row, Hide Secret Help
-            certRow.style.display = 'flex';
-            if (certInput) certInput.required = true; // Cert IS required for RS256
-
-            if (secretInput) secretInput.required = false;
-            if (secretHelp) secretHelp.style.display = 'none';
-        }
-    }
-
-    // Event Delegation: Handle change on #jwtSignatureAlgorithm even if element is replaced
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.id === 'jwtSignatureAlgorithm') {
-            updateJwtUi();
-        }
-    });
-
-    window.loadJwtCertFile = function(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('jwtCertificate').value = e.target.result;
-            };
-            reader.readAsText(input.files[0]);
-        }
-    }
-
-    async function loadSsoConfigurations() {
-        try {
-            const res = await fetchWithAuth('/api/admin/sso-config');
-            if (res.ok) {
-                const configs = await res.json();
-                configs.forEach(c => {
-                    try {
-                        configDataStore[c.providerId] = c;
-                        populateSsoForm(c);
-                    } catch (err) { console.error("Error populating", c.providerId, err); }
-                });
-            }
-        } catch (e) {
-            if (e.message !== "Session Expired") console.error("Failed to load SSO configs", e);
-        }
-    }
-
-    function populateSsoForm(c) {
-        let p = c.providerType.toLowerCase();
-        if (p === 'ad_ldap') p = 'ad';
-
-        const idEl = document.getElementById(`${p}ConfigId`);
-        if (!idEl) return;
-
-        idEl.value = c.id || '';
-
-        if(document.getElementById(`${p}Enable`)) document.getElementById(`${p}Enable`).checked = c.enabled;
-        if(document.getElementById(`${p}DisplayName`)) document.getElementById(`${p}DisplayName`).value = c.displayName || '';
-
-        if (p === 'ad') {
-            if(document.getElementById('adDirectoryType')) document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
-
-            const fullUrl = c.ldapServerUrl || '';
-            const protocolEl = document.getElementById('adProtocol');
-            const hostEl = document.getElementById('adServerHost');
-
-            if (protocolEl && hostEl) {
-                if (fullUrl.startsWith('ldaps://')) {
-                    protocolEl.value = 'ldaps://';
-                    hostEl.value = fullUrl.replace('ldaps://', '');
-                } else {
-                    protocolEl.value = 'ldap://';
-                    hostEl.value = fullUrl.replace('ldap://', '');
-                }
+        async function fetchWithAuth(url, options = {}) {
+            options.headers = options.headers || {};
+            if (token) {
+                options.headers['Authorization'] = 'Bearer ' + token;
             }
 
-            if(document.getElementById('adBindDn')) document.getElementById('adBindDn').value = c.ldapBindDn || '';
-            if(document.getElementById('adBindPassword')) document.getElementById('adBindPassword').value = '';
-            if(document.getElementById('adSearchBase')) document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
-            if(document.getElementById('adUserSearchFilter')) document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
-            if(document.getElementById('adFallbackAuth')) document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
+            const response = await fetch(url, options);
 
-        } else if (p === 'jwt') {
-            document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
-            document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
-            if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
-            if (c.clientId) document.getElementById('jwtClientId').value = c.clientId;
-
-            document.getElementById('jwtSignatureAlgorithm').value = c.signatureAlgorithm || 'RS256';
-
-            // Trigger UI Update based on loaded algo
-            updateJwtUi();
-        } else {
-            if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
-            if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
-
-            if (p === 'saml') {
-                document.getElementById('samlEntityId').value = c.samlEntityId||'';
-                document.getElementById('samlSsoUrl').value = c.samlSsoUrl||'';
-                document.getElementById('samlCertificate').value = c.samlCertificate||'';
+            if (response.status === 401) {
+                console.warn("Session expired. Redirecting to login.");
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('userInfo');
+                window.location.href = '/login?error=session_expired';
+                throw new Error("Session Expired");
             }
-            if (p === 'oidc') {
-                document.getElementById('oidcScopes').value = c.scopes||'';
-                document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute||'';
-                if(c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri;
-                if(c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri;
-                if(c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri;
-                if(c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri;
-            }
+
+            return response;
         }
-    }
 
-    ['saml', 'oidc', 'jwt', 'ad'].forEach(type => {
-        const form = document.getElementById(`${type}ConfigForm`);
-        if (!form) return;
+        const token = localStorage.getItem('accessToken');
+        const userTableBody = document.getElementById('user-table').getElementsByTagName('tbody')[0];
+        const brandingForm = document.getElementById('brandingConfigForm');
+        const brandingSubdomainInput = document.getElementById('brandingSubdomain');
+        const brandingLogoUrlInput = document.getElementById('brandingLogoUrl');
+        const brandingPrimaryColorInput = document.getElementById('brandingPrimaryColor');
+        const subdomainPreview = document.getElementById('subdomain-preview');
+        let configDataStore = {};
 
-        const newForm = form.cloneNode(true);
-        form.parentNode.replaceChild(newForm, form);
-
-        newForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const pid = newForm.dataset.providerId;
-
-            let cfgId = configDataStore[pid]?.id;
-            const hiddenIdVal = document.getElementById(`${type}ConfigId`).value;
-            if (!cfgId && hiddenIdVal) {
-                cfgId = hiddenIdVal;
-            }
-
-            const data = {
-                id: cfgId,
-                providerId: pid,
-                providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(),
-                enabled: document.getElementById(`${type}Enable`).checked,
-                displayName: document.getElementById(`${type}DisplayName`).value
-            };
-
-            if (type === 'ad') {
-                data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
-                const protocol = document.getElementById('adProtocol').value;
-                const host = document.getElementById('adServerHost').value.trim();
-                data.ldapServerUrl = protocol + host;
-
-                data.ldapBindDn = document.getElementById('adBindDn').value;
-                data.ldapSearchBase = document.getElementById('adSearchBase').value;
-                data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
-                data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
-
-                data.ldapSyncUsers = true;
-
-                const pass = document.getElementById('adBindPassword').value;
-                if(pass) data.ldapBindPassword = pass;
-
-            } else if (type === 'jwt') {
-                data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
-                data.jwtCertificate = document.getElementById('jwtCertificate').value;
-                data.clientId = document.getElementById('jwtClientId').value;
-                data.issuerUri = document.getElementById('jwtClientId').value;
-
-                data.signatureAlgorithm = document.getElementById('jwtSignatureAlgorithm').value;
-
-                const sub = document.getElementById('brandingSubdomain').value || 'example';
-                data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
-            } else {
-                if(document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
-                if(document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;
-                if(type==='saml') {
-                    data.samlEntityId=document.getElementById('samlEntityId').value;
-                    data.samlSsoUrl=document.getElementById('samlSsoUrl').value;
-                    data.samlCertificate=document.getElementById('samlCertificate').value;
-                }
-                if(type==='oidc') {
-                    data.scopes=document.getElementById('oidcScopes').value;
-                    data.userNameAttribute=document.getElementById('oidcUserNameAttribute').value;
-                    data.authorizationUri=document.getElementById('oidcAuthorizationUri').value;
-                    data.tokenUri=document.getElementById('oidcTokenUri').value;
-                    data.userInfoUri=document.getElementById('oidcUserInfoUri').value;
-                    data.jwkSetUri=document.getElementById('oidcJwkSetUri').value;
-                }
-            }
-
-            const secretEl = document.getElementById(`${type}ClientSecret`);
-            if(secretEl && secretEl.value) data.clientSecret = secretEl.value;
+        (async function init() {
+            if (!token) { window.location.href = '/login'; return; }
 
             try {
-                const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
-                const method = cfgId ? 'PUT' : 'POST';
+                const res = await fetchWithAuth('/api/admin/branding');
+                if (res.ok) {
+                    const b = await res.json();
+                    brandingSubdomainInput.value = b.subdomain || '';
+                    brandingLogoUrlInput.value = b.brandingLogoUrl || '';
+                    brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
+                    updateDynamicSubdomainUrls(b.subdomain);
 
-                console.log(`Submitting ${type} (${method}) to ${url}`, data);
+                    if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
+                    if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
+                    if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") console.error("Branding load failed", e);
+            }
 
-                const res = await fetchWithAuth(url, {
-                    method: method,
+            await loadBrandingSettings();
+
+            // Initial UI Update
+            updateJwtUi();
+        })();
+
+        window.openTab = function (evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.getElementById("userManagement").style.display = "none";
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).style.display = 'block';
+            if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+
+            if (tabName === 'userManagement') {
+                loadUsers();
+            } else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
+                loadSsoConfigurations();
+                updateDynamicSubdomainUrls(brandingSubdomainInput.value);
+            } else if (tabName === 'settingsConfig') {
+                loadSettings();
+            }
+        };
+
+        function updateDynamicSubdomainUrls(sub) {
+            const txt = sub ? sub.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
+            if (document.getElementById('subdomain-preview')) document.getElementById('subdomain-preview').textContent = txt;
+            document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
+        }
+
+        async function loadBrandingSettings() {
+            try {
+                const res = await fetchWithAuth('/api/admin/branding');
+                if (res.ok) {
+                    const b = await res.json();
+                    brandingSubdomainInput.value = b.subdomain || '';
+                    brandingLogoUrlInput.value = b.brandingLogoUrl || '';
+                    brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
+                    updateDynamicSubdomainUrls(b.subdomain);
+                }
+            } catch (e) { }
+        }
+
+        brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
+
+        brandingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await fetchWithAuth('/api/admin/branding', {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({
+                        subdomain: brandingSubdomainInput.value,
+                        brandingLogoUrl: brandingLogoUrlInput.value,
+                        brandingPrimaryColor: brandingPrimaryColorInput.value
+                    })
                 });
-
-                if (!res.ok) throw new Error((await res.json()).message);
-
-                const updated = await res.json();
-                configDataStore[pid] = updated;
-                populateSsoForm(updated);
-
-                showToast(`${type.toUpperCase()} Saved!`, 'success');
+                if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+                const b = await res.json();
+                showToast(`Branding updated!`, 'success');
+                updateDynamicSubdomainUrls(b.subdomain);
             } catch (e) {
                 if (e.message !== "Session Expired") showToast(e.message, 'error');
             }
         });
-    });
 
-    function importAdUsers() {
-        document.getElementById('importConfirmModal').style.display = 'block';
-    }
-
-    async function executeAdImport() {
-        closeModal('importConfirmModal');
-
-        const btn = document.getElementById('btnImportAd');
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
-
-        try {
-            const response = await fetchWithAuth('/api/admin/sso-config/ad/import', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ providerId: 'ad_ldap' })
-            });
-
-            const res = await response.json();
-
-            if (response.ok && res.success) {
-                document.getElementById('importSuccessMessage').textContent = res.message;
-                document.getElementById('importSuccessModal').style.display = 'block';
-            } else {
-                showToast("Import Failed: " + (res.message || 'Unknown Error'), 'error');
+        async function loadUsers() {
+            userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+            try {
+                const res = await fetchWithAuth('/api/admin/users');
+                if (res.ok) {
+                    const users = await res.json();
+                    userTableBody.innerHTML = '';
+                    if (!users.length) userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No users found.</td></tr>';
+                    users.forEach(u => {
+                        const row = userTableBody.insertRow();
+                        row.innerHTML = `<td><strong>${u.id}</strong></td><td>${u.username}</td><td>${u.email}</td><td>${(u.firstName || '') + ' ' + (u.lastName || '')}</td><td><span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:10px; font-size:0.75rem;">${u.roles || 'USER'}</span></td><td>${u.authProvider}</td><td class="action-cell"><button class="btn-icon edit" onclick="openEditModal(${u.id})"><i class="fas fa-pen"></i></button><button class="btn-icon delete" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button></td>`;
+                    });
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast(e.message, 'error');
             }
-        } catch (error) {
-            if (error.message !== "Session Expired") {
-                console.error(error);
-                showToast("Network Error during import", 'error');
-            }
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
         }
-    }
 
-    window.testAttributes = function(pid) {
-        if (pid === 'ad_ldap') {
-            openTestAdModal();
-        } else {
-            const c = configDataStore[pid];
-            if (!c || !c.enabled) {
-                 showToast("Please save and enable configuration first.", 'error');
-                 return;
-            }
-            window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
-        }
-    };
+        const userModal = document.getElementById('userModal');
+        const userForm = document.getElementById('userForm');
+        const userIdInput = document.getElementById('userId');
+        const modalTitle = document.getElementById('modalTitle');
 
-    function openTestAdModal() {
-        const protocol = document.getElementById('adProtocol').value;
-        const host = document.getElementById('adServerHost').value.trim();
-        document.getElementById('testAdServerUrl').value = protocol + host;
-
-        document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
-        document.getElementById('testAdPassword').value = '';
-        document.getElementById('testAdConnectionModal').style.display = 'block';
-    }
-
-    function performAdTest() {
-        const btn = document.querySelector('#testAdConnectionModal .btn-save');
-        const originalText = btn.textContent;
-        btn.textContent = 'Testing...';
-        btn.disabled = true;
-
-        const testData = {
-            providerId: 'ad_ldap',
-            providerType: 'AD_LDAP',
-            ldapServerUrl: document.getElementById('testAdServerUrl').value,
-            ldapBindDn: document.getElementById('testAdBindDn').value,
-            ldapBindPassword: document.getElementById('testAdPassword').value
+        window.openCreateModal = function () {
+            userForm.reset();
+            userIdInput.value = '';
+            modalTitle.textContent = 'Create New User';
+            document.getElementById('password').placeholder = "Required";
+            userModal.style.display = "block";
         };
 
-        fetchWithAuth('/api/admin/sso-config/test-connection', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testData)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                showToast("Connection to LDAP was successful.", 'success');
-                closeModal('testAdConnectionModal');
+        window.openEditModal = async function (id) {
+            try {
+                const res = await fetchWithAuth(`/api/admin/users/${id}`);
+                if (res.ok) {
+                    const u = await res.json();
+                    userIdInput.value = u.id;
+                    document.getElementById('username').value = u.username;
+                    document.getElementById('email').value = u.email;
+                    document.getElementById('firstName').value = u.firstName || '';
+                    document.getElementById('lastName').value = u.lastName || '';
+                    document.getElementById('roles').value = u.roles || '';
+                    document.getElementById('password').placeholder = "Leave blank if no change";
+                    modalTitle.textContent = 'Edit User: ' + u.username;
+                    userModal.style.display = "block";
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast(e.message, 'error');
+            }
+        };
+
+        let userToDeleteId = null;
+
+        window.deleteUser = function (id) {
+            userToDeleteId = id;
+            document.getElementById('deleteConfirmModal').style.display = 'block';
+        };
+
+        window.executeUserDeletion = async function () {
+            if (!userToDeleteId) return;
+            closeModal('deleteConfirmModal');
+
+            try {
+                const res = await fetchWithAuth(`/api/admin/users/${userToDeleteId}`, {
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    showToast('User deleted successfully', 'success');
+                    loadUsers();
+                } else {
+                    const data = await res.json();
+                    showToast(data.message || 'Failed to delete user', 'error');
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast(e.message, 'error');
+            } finally {
+                userToDeleteId = null;
+            }
+        };
+
+        window.closeModal = function (modalId) {
+            document.getElementById(modalId).style.display = "none";
+        };
+
+        userForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = userIdInput.value;
+            const data = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                roles: document.getElementById('roles').value
+            };
+            if (document.getElementById('password').value) data.password = document.getElementById('password').value;
+            try {
+                const res = await fetchWithAuth(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error((await res.json()).message);
+                closeModal('userModal'); showToast('User saved', 'success'); loadUsers();
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast(e.message, 'error');
+            }
+        });
+
+        // --- CLEAN JWT UI LOGIC (Validation Fixed) ---
+        function updateJwtUi() {
+            const algoSelect = document.getElementById('jwtSignatureAlgorithm');
+            const certRow = document.getElementById('jwtCertRow');
+            const certInput = document.getElementById('jwtCertificate');
+            const secretInput = document.getElementById('jwtClientSecret');
+            const secretHelp = document.getElementById('jwtSecretHelp');
+
+            if (!algoSelect || !certRow) return;
+
+            const algo = algoSelect.value;
+
+            if (algo === 'HS256') {
+                // HS256: Hide Certificate Row, Show Secret Help
+                certRow.style.display = 'none';
+                if (certInput) certInput.required = false;
+
+                // FIX: Don't force require on secret (let backend handle empty check if creating new)
+                // This prevents "Please fill out this field" when editing with existing secret.
+                if (secretInput) secretInput.required = false;
+
+                if (secretHelp) secretHelp.style.display = 'block';
             } else {
-                showToast("Connection failed: " + data.message, 'error');
+                // RS256: Show Certificate Row, Hide Secret Help
+                certRow.style.display = 'flex';
+                if (certInput) certInput.required = true; // Cert IS required for RS256
+
+                if (secretInput) secretInput.required = false;
+                if (secretHelp) secretHelp.style.display = 'none';
             }
-        })
-        .catch(e => {
-            if (e.message !== "Session Expired") showToast("Network error: " + e.message, 'error');
-        })
-        .finally(() => {
-            btn.textContent = originalText;
-            btn.disabled = false;
-        });
-    }
-
-    document.querySelectorAll('.toggle-password').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const inp = e.target.previousElementSibling;
-            inp.type = inp.type === 'password' ? 'text' : 'password';
-            e.target.textContent = inp.type === 'password' ? 'Show' : 'Hide';
-        });
-    });
-
-    document.getElementById('logout-button').addEventListener('click', () => {
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
-    });
-
-    function openImportSamlModal() {
-        document.getElementById('metadataFile').value = '';
-        document.getElementById('importSamlModal').style.display = 'block';
-    }
-
-    async function processSamlImport() {
-        const fileInput = document.getElementById('metadataFile');
-        if (!fileInput.files || fileInput.files.length === 0) {
-            showToast('Please select a file first.', 'error');
-            return;
         }
 
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+        // Event Delegation: Handle change on #jwtSignatureAlgorithm even if element is replaced
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.id === 'jwtSignatureAlgorithm') {
+                updateJwtUi();
+            }
+        });
 
-        const importBtn = document.querySelector('#importSamlModal .btn-save');
-        const originalText = importBtn.textContent;
-        importBtn.textContent = 'Parsing...';
-        importBtn.disabled = true;
+        window.loadJwtCertFile = function (input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('jwtCertificate').value = e.target.result;
+                };
+                reader.readAsText(input.files[0]);
+            }
+        }
 
-        try {
-            const res = await fetchWithAuth('/api/admin/sso-config/saml/import-metadata', {
-                method: 'POST',
-                headers: {},
-                body: formData
+        async function loadSsoConfigurations() {
+            try {
+                const res = await fetchWithAuth('/api/admin/sso-config');
+                if (res.ok) {
+                    const configs = await res.json();
+                    configs.forEach(c => {
+                        try {
+                            configDataStore[c.providerId] = c;
+                            populateSsoForm(c);
+                        } catch (err) { console.error("Error populating", c.providerId, err); }
+                    });
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") console.error("Failed to load SSO configs", e);
+            }
+        }
+
+        function populateSsoForm(c) {
+            let p = c.providerType.toLowerCase();
+            if (p === 'ad_ldap') p = 'ad';
+
+            const idEl = document.getElementById(`${p}ConfigId`);
+            if (!idEl) return;
+
+            idEl.value = c.id || '';
+
+            if (document.getElementById(`${p}Enable`)) document.getElementById(`${p}Enable`).checked = c.enabled;
+            if (document.getElementById(`${p}DisplayName`)) document.getElementById(`${p}DisplayName`).value = c.displayName || '';
+
+            if (p === 'ad') {
+                if (document.getElementById('adDirectoryType')) document.getElementById('adDirectoryType').value = c.ldapDirectoryType || 'Active Directory';
+
+                const fullUrl = c.ldapServerUrl || '';
+                const protocolEl = document.getElementById('adProtocol');
+                const hostEl = document.getElementById('adServerHost');
+
+                if (protocolEl && hostEl) {
+                    if (fullUrl.startsWith('ldaps://')) {
+                        protocolEl.value = 'ldaps://';
+                        hostEl.value = fullUrl.replace('ldaps://', '');
+                    } else {
+                        protocolEl.value = 'ldap://';
+                        hostEl.value = fullUrl.replace('ldap://', '');
+                    }
+                }
+
+                if (document.getElementById('adBindDn')) document.getElementById('adBindDn').value = c.ldapBindDn || '';
+                if (document.getElementById('adBindPassword')) document.getElementById('adBindPassword').value = '';
+                if (document.getElementById('adSearchBase')) document.getElementById('adSearchBase').value = c.ldapSearchBase || '';
+                if (document.getElementById('adUserSearchFilter')) document.getElementById('adUserSearchFilter').value = c.ldapUserSearchFilter || '';
+                if (document.getElementById('adFallbackAuth')) document.getElementById('adFallbackAuth').checked = c.ldapFallbackAuth || false;
+
+            } else if (p === 'jwt') {
+                document.getElementById('jwtSsoUrl').value = c.jwtSsoUrl || '';
+                document.getElementById('jwtCertificate').value = c.jwtCertificate || '';
+                if (c.issuerUri) document.getElementById('jwtClientId').value = c.issuerUri;
+                if (c.clientId) document.getElementById('jwtClientId').value = c.clientId;
+
+                document.getElementById('jwtSignatureAlgorithm').value = c.signatureAlgorithm || 'RS256';
+
+                // Trigger UI Update based on loaded algo
+                updateJwtUi();
+            } else {
+                if (document.getElementById(`${p}ClientId`)) document.getElementById(`${p}ClientId`).value = c.clientId || '';
+                if (document.getElementById(`${p}IssuerUri`)) document.getElementById(`${p}IssuerUri`).value = c.issuerUri || '';
+
+                if (p === 'saml') {
+                    document.getElementById('samlEntityId').value = c.samlEntityId || '';
+                    document.getElementById('samlSsoUrl').value = c.samlSsoUrl || '';
+                    document.getElementById('samlCertificate').value = c.samlCertificate || '';
+                }
+                if (p === 'oidc') {
+                    document.getElementById('oidcScopes').value = c.scopes || '';
+                    document.getElementById('oidcUserNameAttribute').value = c.userNameAttribute || '';
+                    if (c.authorizationUri) document.getElementById('oidcAuthorizationUri').value = c.authorizationUri;
+                    if (c.tokenUri) document.getElementById('oidcTokenUri').value = c.tokenUri;
+                    if (c.userInfoUri) document.getElementById('oidcUserInfoUri').value = c.userInfoUri;
+                    if (c.jwkSetUri) document.getElementById('oidcJwkSetUri').value = c.jwkSetUri;
+                }
+            }
+        }
+
+        ['saml', 'oidc', 'jwt', 'ad'].forEach(type => {
+            const form = document.getElementById(`${type}ConfigForm`);
+            if (!form) return;
+
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+
+            newForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const pid = newForm.dataset.providerId;
+
+                let cfgId = configDataStore[pid]?.id;
+                const hiddenIdVal = document.getElementById(`${type}ConfigId`).value;
+                if (!cfgId && hiddenIdVal) {
+                    cfgId = hiddenIdVal;
+                }
+
+                const data = {
+                    id: cfgId,
+                    providerId: pid,
+                    providerType: type === 'ad' ? 'AD_LDAP' : type.toUpperCase(),
+                    enabled: document.getElementById(`${type}Enable`).checked,
+                    displayName: document.getElementById(`${type}DisplayName`).value
+                };
+
+                if (type === 'ad') {
+                    data.ldapDirectoryType = document.getElementById('adDirectoryType').value;
+                    const protocol = document.getElementById('adProtocol').value;
+                    const host = document.getElementById('adServerHost').value.trim();
+                    data.ldapServerUrl = protocol + host;
+
+                    data.ldapBindDn = document.getElementById('adBindDn').value;
+                    data.ldapSearchBase = document.getElementById('adSearchBase').value;
+                    data.ldapUserSearchFilter = document.getElementById('adUserSearchFilter').value;
+                    data.ldapFallbackAuth = document.getElementById('adFallbackAuth').checked;
+
+                    data.ldapSyncUsers = true;
+
+                    const pass = document.getElementById('adBindPassword').value;
+                    if (pass) data.ldapBindPassword = pass;
+
+                } else if (type === 'jwt') {
+                    data.jwtSsoUrl = document.getElementById('jwtSsoUrl').value;
+                    data.jwtCertificate = document.getElementById('jwtCertificate').value;
+                    data.clientId = document.getElementById('jwtClientId').value;
+                    data.issuerUri = document.getElementById('jwtClientId').value;
+
+                    data.signatureAlgorithm = document.getElementById('jwtSignatureAlgorithm').value;
+
+                    const sub = document.getElementById('brandingSubdomain').value || 'example';
+                    data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
+                } else {
+                    if (document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
+                    if (document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;
+                    if (type === 'saml') {
+                        data.samlEntityId = document.getElementById('samlEntityId').value;
+                        data.samlSsoUrl = document.getElementById('samlSsoUrl').value;
+                        data.samlCertificate = document.getElementById('samlCertificate').value;
+                    }
+                    if (type === 'oidc') {
+                        data.scopes = document.getElementById('oidcScopes').value;
+                        data.userNameAttribute = document.getElementById('oidcUserNameAttribute').value;
+                        data.authorizationUri = document.getElementById('oidcAuthorizationUri').value;
+                        data.tokenUri = document.getElementById('oidcTokenUri').value;
+                        data.userInfoUri = document.getElementById('oidcUserInfoUri').value;
+                        data.jwkSetUri = document.getElementById('oidcJwkSetUri').value;
+                    }
+                }
+
+                const secretEl = document.getElementById(`${type}ClientSecret`);
+                if (secretEl && secretEl.value) data.clientSecret = secretEl.value;
+
+                try {
+                    const url = cfgId ? `/api/admin/sso-config/${cfgId}` : '/api/admin/sso-config';
+                    const method = cfgId ? 'PUT' : 'POST';
+
+                    console.log(`Submitting ${type} (${method}) to ${url}`, data);
+
+                    const res = await fetchWithAuth(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!res.ok) throw new Error((await res.json()).message);
+
+                    const updated = await res.json();
+                    configDataStore[pid] = updated;
+                    populateSsoForm(updated);
+
+                    showToast(`${type.toUpperCase()} Saved!`, 'success');
+                } catch (e) {
+                    if (e.message !== "Session Expired") showToast(e.message, 'error');
+                }
             });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Failed to parse metadata');
-            }
-
-            const data = await res.json();
-            if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
-            if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
-            if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
-
-            showToast('Metadata imported successfully!', 'success');
-            closeModal('importSamlModal');
-
-        } catch (e) {
-            if (e.message !== "Session Expired") {
-                console.error("Import error:", e);
-                showToast('Error: ' + e.message, 'error');
-            }
-        } finally {
-            importBtn.textContent = originalText;
-            importBtn.disabled = false;
-        }
-    }
-
-    function downloadSpMetadata() {
-        const form = document.getElementById('samlConfigForm');
-        const providerId = form.dataset.providerId || 'saml';
-
-        fetchWithAuth(`/api/admin/sso-config/saml/download-metadata/${providerId}`)
-        .then(response => {
-            if(response.ok) return response.blob();
-            throw new Error('Download failed');
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `sp-metadata-${providerId}.xml`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        })
-        .catch(err => {
-            if (err.message !== "Session Expired") showToast("Failed to download metadata: " + err.message, 'error');
         });
-    }
 
-    window.onclick = function(event) {
-        const userModal = document.getElementById('userModal');
-        const importModal = document.getElementById('importSamlModal');
-        const adTestModal = document.getElementById('testAdConnectionModal');
-        const confirmModal = document.getElementById('importConfirmModal');
-        const successModal = document.getElementById('importSuccessModal');
-        const deleteModal = document.getElementById('deleteConfirmModal');
+        function importAdUsers() {
+            document.getElementById('importConfirmModal').style.display = 'block';
+        }
 
-        if (event.target == userModal) closeModal('userModal');
-        if (event.target == importModal) closeModal('importSamlModal');
-        if (event.target == adTestModal) closeModal('testAdConnectionModal');
-        if (event.target == confirmModal) closeModal('importConfirmModal');
-        if (event.target == successModal) closeModal('importSuccessModal');
-        if (event.target == deleteModal) closeModal('deleteConfirmModal');
-    }
-</script>
+        async function executeAdImport() {
+            closeModal('importConfirmModal');
+
+            const btn = document.getElementById('btnImportAd');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+
+            try {
+                const response = await fetchWithAuth('/api/admin/sso-config/ad/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ providerId: 'ad_ldap' })
+                });
+
+                const res = await response.json();
+
+                if (response.ok && res.success) {
+                    document.getElementById('importSuccessMessage').textContent = res.message;
+                    document.getElementById('importSuccessModal').style.display = 'block';
+                } else {
+                    showToast("Import Failed: " + (res.message || 'Unknown Error'), 'error');
+                }
+            } catch (error) {
+                if (error.message !== "Session Expired") {
+                    console.error(error);
+                    showToast("Network Error during import", 'error');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        window.testAttributes = function (pid) {
+            if (pid === 'ad_ldap') {
+                openTestAdModal();
+            } else {
+                const c = configDataStore[pid];
+                if (!c || !c.enabled) {
+                    showToast("Please save and enable configuration first.", 'error');
+                    return;
+                }
+                window.open(`/api/sso/test-attributes/${pid}`, 'test', 'width=600,height=700');
+            }
+        };
+
+        function openTestAdModal() {
+            const protocol = document.getElementById('adProtocol').value;
+            const host = document.getElementById('adServerHost').value.trim();
+            document.getElementById('testAdServerUrl').value = protocol + host;
+
+            document.getElementById('testAdBindDn').value = document.getElementById('adBindDn').value;
+            document.getElementById('testAdPassword').value = '';
+            document.getElementById('testAdConnectionModal').style.display = 'block';
+        }
+
+        function performAdTest() {
+            const btn = document.querySelector('#testAdConnectionModal .btn-save');
+            const originalText = btn.textContent;
+            btn.textContent = 'Testing...';
+            btn.disabled = true;
+
+            const testData = {
+                providerId: 'ad_ldap',
+                providerType: 'AD_LDAP',
+                ldapServerUrl: document.getElementById('testAdServerUrl').value,
+                ldapBindDn: document.getElementById('testAdBindDn').value,
+                ldapBindPassword: document.getElementById('testAdPassword').value
+            };
+
+            fetchWithAuth('/api/admin/sso-config/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast("Connection to LDAP was successful.", 'success');
+                        closeModal('testAdConnectionModal');
+                    } else {
+                        showToast("Connection failed: " + data.message, 'error');
+                    }
+                })
+                .catch(e => {
+                    if (e.message !== "Session Expired") showToast("Network error: " + e.message, 'error');
+                })
+                .finally(() => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                });
+        }
+
+        document.querySelectorAll('.toggle-password').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const inp = e.target.previousElementSibling;
+                inp.type = inp.type === 'password' ? 'text' : 'password';
+                e.target.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+            });
+        });
+
+        document.getElementById('logout-button').addEventListener('click', () => {
+            localStorage.removeItem('accessToken');
+            window.location.href = '/login';
+        });
+
+        function openImportSamlModal() {
+            document.getElementById('metadataFile').value = '';
+            document.getElementById('importSamlModal').style.display = 'block';
+        }
+
+        async function processSamlImport() {
+            const fileInput = document.getElementById('metadataFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Please select a file first.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const importBtn = document.querySelector('#importSamlModal .btn-save');
+            const originalText = importBtn.textContent;
+            importBtn.textContent = 'Parsing...';
+            importBtn.disabled = true;
+
+            try {
+                const res = await fetchWithAuth('/api/admin/sso-config/saml/import-metadata', {
+                    method: 'POST',
+                    headers: {},
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || 'Failed to parse metadata');
+                }
+
+                const data = await res.json();
+                if (data.entityId) document.getElementById('samlEntityId').value = data.entityId;
+                if (data.ssoUrl) document.getElementById('samlSsoUrl').value = data.ssoUrl;
+                if (data.certificate) document.getElementById('samlCertificate').value = data.certificate;
+
+                showToast('Metadata imported successfully!', 'success');
+                closeModal('importSamlModal');
+
+            } catch (e) {
+                if (e.message !== "Session Expired") {
+                    console.error("Import error:", e);
+                    showToast('Error: ' + e.message, 'error');
+                }
+            } finally {
+                importBtn.textContent = originalText;
+                importBtn.disabled = false;
+            }
+        }
+
+        function downloadSpMetadata() {
+            const form = document.getElementById('samlConfigForm');
+            const providerId = form.dataset.providerId || 'saml';
+
+            fetchWithAuth(`/api/admin/sso-config/saml/download-metadata/${providerId}`)
+                .then(response => {
+                    if (response.ok) return response.blob();
+                    throw new Error('Download failed');
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `sp-metadata-${providerId}.xml`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(err => {
+                    if (err.message !== "Session Expired") showToast("Failed to download metadata: " + err.message, 'error');
+                });
+        }
+
+        window.onclick = function (event) {
+            const userModal = document.getElementById('userModal');
+            const importModal = document.getElementById('importSamlModal');
+            const adTestModal = document.getElementById('testAdConnectionModal');
+            const confirmModal = document.getElementById('importConfirmModal');
+            const successModal = document.getElementById('importSuccessModal');
+            const deleteModal = document.getElementById('deleteConfirmModal');
+
+            if (event.target == userModal) closeModal('userModal');
+            if (event.target == importModal) closeModal('importSamlModal');
+            if (event.target == adTestModal) closeModal('testAdConnectionModal');
+            if (event.target == confirmModal) closeModal('importConfirmModal');
+            if (event.target == successModal) closeModal('importSuccessModal');
+            if (event.target == deleteModal) closeModal('deleteConfirmModal');
+        }
+
+
+        async function loadSettings() {
+            try {
+                const res = await fetchWithAuth('/api/admin/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('settingsTenantName').value = data.name || '';
+                    document.getElementById('settingsSubdomain').value = data.subdomain || '';
+                    document.getElementById('settingsApiKey').value = data.apiKey || '';
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast('Failed to load settings', 'error');
+            }
+        }
+
+        window.copyApiKey = function () {
+            const apiKeyInput = document.getElementById("settingsApiKey");
+            apiKeyInput.select();
+            apiKeyInput.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(apiKeyInput.value).then(() => {
+                showToast("API Key copied to clipboard!", "success");
+            });
+        };
+    </script>
 </body>
+
 </html>

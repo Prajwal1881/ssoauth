@@ -36,6 +36,9 @@ public class Tenant {
     @Column(name = "branding_primary_color", length = 20)
     private String brandingPrimaryColor;
 
+    @Column(name = "api_key", length = 100)
+    private String apiKey;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
