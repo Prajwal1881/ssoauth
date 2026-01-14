@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Virtual Router Terminal</title>
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #terminal-container {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="terminal-container"></div>
+
+    <!-- Replace with CSRF token for AJAX -->
+    <meta name="_csrf" th:content="${_csrf.token}" />
+    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
+
+    <!-- xterm.js Lib -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize xterm
+            const term = new Terminal({
+                cursorBlink: true,
+                theme: {
+                    background: '#000000',
+                    foreground: '#ffffff'
+                }
+            });
+
+            // Fit addon
+            const fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+
+            window.onresize = function () {
+                fitAddon.fit();
+            };
+
+            const prompt = '\r\nVirtualRouter# ';
+            term.write('Connecting to Virtual Router...');
+            term.write(prompt);
+
+            let cmdBuffer = '';
+
+            term.onData(e => {
+                switch (e) {
+                    case '\u000d': // Enter
+                        term.write('\r\n');
+                        if (cmdBuffer.trim().length > 0) {
+                            sendCommand(cmdBuffer.trim());
+                        } else {
+                            term.write(prompt);
+                        }
+                        cmdBuffer = '';
+                        break;
+                    case '\u007F': // Backspace (DEL)
+                        if (cmdBuffer.length > 0) {
+                            term.write('\b \b');
+                            cmdBuffer = cmdBuffer.substring(0, cmdBuffer.length - 1);
+                        }
+                        break;
+                    default:
+                        // Echo and buffer
+                        if (e >= String.fromCharCode(0x20) && e <= String.fromCharCode(0x7E) || e >= '\u00a0') {
+                            term.write(e);
+                            cmdBuffer += e;
+                        }
+                }
+            });
+
+            function sendCommand(command) {
+                const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+                const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+                fetch('/virtual-router/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [csrfHeader]: csrfToken
+                    },
+                    body: JSON.stringify({ command: command })
+                })
+                    .then(response => response.text())
+                    .then(data => {
+                        // Convert newlines to CRLF for terminal
+                        const formatted = data.replace(/\n/g, '\r\n');
+                        term.write(formatted);
+                        term.write(prompt);
+                    })
+                    .catch(error => {
+                        term.write('\r\nError: ' + error + '\r\n');
+                        term.write(prompt);
+                    });
+            }
+        });
+    </script>
+
+</body>
+
+</html>

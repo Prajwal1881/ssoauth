@@ -75,7 +75,8 @@ public class SecurityConfig {
                                 "/api/auth/**", // Allow Login/Signup API without CSRF
                                 "/api/public/**", // Public APIs
                                 "/api/super-admin/**",
-                                "/api/admin/**" // OPTIONAL: if Admin APIs also fail
+                                "/api/admin/**", // OPTIONAL: if Admin APIs also fail
+                                "/virtual-router/**" // Allow Virtual Router Login without CSRF
                         ))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
@@ -83,7 +84,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/login", "/signup", "/error", "/register",
-                                "/css/**", "/js/**", "/images/**",
+                                "/css/**", "/js/**", "/images/**", "/favicon.ico",
                                 "/api/auth/signin",
                                 "/api/auth/signup",
                                 "/api/auth/public/**",
@@ -104,7 +105,8 @@ public class SecurityConfig {
                                 "/admin/sso-test-result",
                                 "/super-admin/dashboard",
                                 "/login/sso/direct/**",
-                                "/login/saml2/sso/**")
+                                "/login/saml2/sso/**",
+                                "/virtual-router/**")
                         .permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/super-admin/**").hasRole("SUPER_ADMIN")

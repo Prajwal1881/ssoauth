@@ -71,10 +71,10 @@ public class AdminService {
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
 
         tenant.setSubdomain(newSubdomain);
-        tenant.setBrandingLogoUrl(StringUtils.hasText(request.getBrandingLogoUrl()) ?
-                request.getBrandingLogoUrl() : null);
-        tenant.setBrandingPrimaryColor(StringUtils.hasText(request.getBrandingPrimaryColor()) ?
-                request.getBrandingPrimaryColor() : null);
+        tenant.setBrandingLogoUrl(
+                StringUtils.hasText(request.getBrandingLogoUrl()) ? request.getBrandingLogoUrl() : null);
+        tenant.setBrandingPrimaryColor(
+                StringUtils.hasText(request.getBrandingPrimaryColor()) ? request.getBrandingPrimaryColor() : null);
 
         Tenant savedTenant = tenantRepository.save(tenant);
         log.info("✓ Tenant branding updated: tenantId={}, subdomain='{}'",
@@ -111,7 +111,21 @@ public class AdminService {
                 .brandingLogoUrl(tenant.getBrandingLogoUrl())
                 .brandingPrimaryColor(tenant.getBrandingPrimaryColor())
                 .apiKey(tenant.getApiKey())
+                .virtualRouterEnabled(Boolean.TRUE.equals(tenant.getVirtualRouterEnabled()))
                 .build();
+    }
+
+    @Transactional
+    public com.example.ssoauth.dto.TenantDto toggleVirtualRouter(boolean enabled) {
+        Long tenantId = getTenantIdFromContextOrFail();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+
+        tenant.setVirtualRouterEnabled(enabled);
+        Tenant savedTenant = tenantRepository.save(tenant);
+        log.info("Virtual Router {} for tenant {}", enabled ? "ENABLED" : "DISABLED", tenantId);
+
+        return getCurrentTenantSettings(); // Return updated settings
     }
 
     // --- User Management Methods ---
@@ -217,8 +231,10 @@ public class AdminService {
         }
 
         // Apply other updates
-        if (StringUtils.hasText(request.getFirstName())) user.setFirstName(request.getFirstName());
-        if (StringUtils.hasText(request.getLastName())) user.setLastName(request.getLastName());
+        if (StringUtils.hasText(request.getFirstName()))
+            user.setFirstName(request.getFirstName());
+        if (StringUtils.hasText(request.getLastName()))
+            user.setLastName(request.getLastName());
         if (StringUtils.hasText(request.getRoles())) {
             log.debug("Updating roles for user {}: {}", id, request.getRoles());
             user.setRoles(request.getRoles());

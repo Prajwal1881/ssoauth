@@ -39,6 +39,9 @@ public class Tenant {
     @Column(name = "api_key", length = 100)
     private String apiKey;
 
+    @Column(name = "virtual_router_enabled")
+    private Boolean virtualRouterEnabled;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

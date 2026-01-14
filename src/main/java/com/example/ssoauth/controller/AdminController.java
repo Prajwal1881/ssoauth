@@ -43,6 +43,11 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getCurrentTenantSettings());
     }
 
+    @PostMapping("/settings/virtual-router")
+    public ResponseEntity<com.example.ssoauth.dto.TenantDto> toggleVirtualRouter(@RequestParam boolean enabled) {
+        return ResponseEntity.ok(adminService.toggleVirtualRouter(enabled));
+    }
+
     // --- (All other User Management endpoints are unchanged) ---
 
     @GetMapping("/users")

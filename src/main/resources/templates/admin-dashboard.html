@@ -668,6 +668,8 @@
                         Config</button></li>
                 <li><button class="nav-btn" onclick="openTab(event, 'adConfig')"><i class="fas fa-network-wired"></i> AD
                         Config</button></li>
+                <li><button class="nav-btn" onclick="openTab(event, 'virtualRouterConfig')"><i
+                            class="fas fa-terminal"></i> Virtual Router</button></li>
 
             </ul>
             <div class="sidebar-footer">
@@ -1033,43 +1035,73 @@
                     </div>
                 </div>
 
-                <!-- Settings Tab -->
-                <div id="settingsConfig" class="tab-content">
-                    <h2>Tenant Settings</h2>
-                    <div class="url-display-box" style="margin-top: 0; background: #fff; border: none; padding: 0;">
-                        <div
-                            style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
-                            <h4 style="margin-top: 0;">API Configuration</h4>
-                            <div class="form-row">
-                                <label>Tenant Name</label>
-                                <input type="text" id="settingsTenantName" readonly style="background-color: #e9ecef;">
-                            </div>
-                            <div class="form-row">
-                                <label>Subdomain</label>
-                                <input type="text" id="settingsSubdomain" readonly style="background-color: #e9ecef;">
-                            </div>
-                            <div class="form-row">
-                                <label>API Key</label>
-                                <div class="input-group-wrapper"
-                                    style="display: flex; gap: 10px; width: 100%; max-width: 600px;">
-                                    <input type="text" id="settingsApiKey" readonly
-                                        style="font-family: monospace; background-color: #fff; color: #d63384; font-weight: bold;">
-                                    <button type="button" class="btn-save" style="background-color: #6c757d; margin: 0;"
-                                        onclick="copyApiKey()">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <p style="font-size: 0.85rem; color: #666; margin-top: 5px; margin-left: 245px;">
-                                Use this API Key to authenticate external requests to the
-                                <code>/api/auth/external</code> endpoint.
-                            </p>
+            </div>
+
+            <!-- Virtual Router Tab -->
+            <div id="virtualRouterConfig" class="tab-content">
+                <h2>Virtual Router Configuration</h2>
+                <div class="url-display-box" style="background: #fff; border: none; padding: 0;">
+                    <div
+                        style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div class="toggle-row">
+                            <label class="main-lbl" style="width: auto; margin-right: 20px;">Enable Virtual Router
+                                Feature</label>
+                            <label class="switch">
+                                <input type="checkbox" id="virtualRouterEnable"
+                                    onchange="window.toggleVirtualRouter(this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">
+                            When enabled, users will see a "Virtual Router" option in their dashboard to access the
+                            TACACS+ terminal simulation.
+                        </p>
+                        <div id="vr-links" style="margin-top: 20px; display: none;">
+                            <h4>Access Links</h4>
+                            <label>Login Page:</label>
+                            <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/virtual-router/login</code>
                         </div>
                     </div>
                 </div>
-
             </div>
+
+            <!-- Settings Tab -->
+            <div id="settingsConfig" class="tab-content">
+                <h2>Tenant Settings</h2>
+                <div class="url-display-box" style="margin-top: 0; background: #fff; border: none; padding: 0;">
+                    <div
+                        style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h4 style="margin-top: 0;">API Configuration</h4>
+                        <div class="form-row">
+                            <label>Tenant Name</label>
+                            <input type="text" id="settingsTenantName" readonly style="background-color: #e9ecef;">
+                        </div>
+                        <div class="form-row">
+                            <label>Subdomain</label>
+                            <input type="text" id="settingsSubdomain" readonly style="background-color: #e9ecef;">
+                        </div>
+                        <div class="form-row">
+                            <label>API Key</label>
+                            <div class="input-group-wrapper"
+                                style="display: flex; gap: 10px; width: 100%; max-width: 600px;">
+                                <input type="text" id="settingsApiKey" readonly
+                                    style="font-family: monospace; background-color: #fff; color: #d63384; font-weight: bold;">
+                                <button type="button" class="btn-save" style="background-color: #6c757d; margin: 0;"
+                                    onclick="copyApiKey()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p style="font-size: 0.85rem; color: #666; margin-top: 5px; margin-left: 245px;">
+                            Use this API Key to authenticate external requests to the
+                            <code>/api/auth/external</code> endpoint.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
         </div>
+    </div>
     </div>
 
     <div id="userModal" class="modal">
@@ -1268,7 +1300,7 @@
             } else if (['samlConfig', 'oidcConfig', 'jwtConfig', 'adConfig'].includes(tabName)) {
                 loadSsoConfigurations();
                 updateDynamicSubdomainUrls(brandingSubdomainInput.value);
-            } else if (tabName === 'settingsConfig') {
+            } else if (tabName === 'settingsConfig' || tabName === 'virtualRouterConfig') {
                 loadSettings();
             }
         };
@@ -1865,6 +1897,13 @@
                     document.getElementById('settingsTenantName').value = data.name || '';
                     document.getElementById('settingsSubdomain').value = data.subdomain || '';
                     document.getElementById('settingsApiKey').value = data.apiKey || '';
+
+                    // Update Virtual Router Toggle Logic
+                    const vrToggle = document.getElementById('virtualRouterEnable');
+                    if (vrToggle) {
+                        vrToggle.checked = data.virtualRouterEnabled;
+                        updateVrLinks(data.virtualRouterEnabled);
+                    }
                 }
             } catch (e) {
                 if (e.message !== "Session Expired") showToast('Failed to load settings', 'error');
@@ -1879,6 +1918,30 @@
                 showToast("API Key copied to clipboard!", "success");
             });
         };
+
+        window.toggleVirtualRouter = async function (enabled) {
+            try {
+                const res = await fetchWithAuth(`/api/admin/settings/virtual-router?enabled=${enabled}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast(`Virtual Router ${enabled ? 'Enabled' : 'Disabled'}`, 'success');
+                    updateVrLinks(enabled);
+                } else {
+                    showToast('Failed to update setting', 'error');
+                    document.getElementById('virtualRouterEnable').checked = !enabled;
+                }
+            } catch (e) {
+                if (e.message !== "Session Expired") showToast('Error updating setting', 'error');
+                document.getElementById('virtualRouterEnable').checked = !enabled;
+            }
+        };
+
+        function updateVrLinks(enabled) {
+            const linkBox = document.getElementById('vr-links');
+            if (linkBox) linkBox.style.display = enabled ? 'block' : 'none';
+        }
     </script>
 </body>
 

@@ -27,9 +27,12 @@ public class TenantDto {
 
     private String brandingLogoUrl;
 
-    // --- FIX: Updated pattern to match BrandingRequestDto (allows empty string) ---
+    // --- FIX: Updated pattern to match BrandingRequestDto (allows empty string)
+    // ---
     @Pattern(regexp = "^$|^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$", message = "Color must be a valid hex code (e.g., #FF6600)")
     private String brandingPrimaryColor;
 
     private String apiKey;
+
+    private boolean virtualRouterEnabled;
 }

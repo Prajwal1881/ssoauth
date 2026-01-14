@@ -127,6 +127,7 @@
             <artifactId>spring-session-core</artifactId>
         </dependency>
 
+
     </dependencies>
     <repositories>
         <repository>
