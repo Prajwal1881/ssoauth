@@ -8,16 +8,24 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class TacacsService {
 
+    @org.springframework.beans.factory.annotation.Value("${tacacs.remote-address:localhost}")
+    private String tacacsRemoteAddress;
+
     public boolean authenticate(String host, int port, String secret, String username, String password) {
         TacacsClient client = null;
         try {
             client = new TacacsClient(host, secret); // Port is handled in newSession if standard, or via other
-                                                     // constructor?
+            // constructor?
             // Actually TacacsClient only takes host and secret in constructor.
 
             // newSession(TAC_PLUS.AUTHEN.SVC svc, String port, String rem_addr, byte
             // priv_lvl)
-            SessionClient session = client.newSession(TAC_PLUS.AUTHEN.SVC.LOGIN, String.valueOf(port), "localhost",
+            // Use configured remote address or default to "localhost" if not set
+            String remoteAddr = tacacsRemoteAddress != null && !tacacsRemoteAddress.isEmpty()
+                    ? tacacsRemoteAddress
+                    : "localhost";
+
+            SessionClient session = client.newSession(TAC_PLUS.AUTHEN.SVC.LOGIN, String.valueOf(port), remoteAddr,
                     TAC_PLUS.PRIV_LVL.USER.code());
 
             AuthenReply reply = session.authenticate_ASCII(username, password);
@@ -37,7 +45,12 @@ public class TacacsService {
         TacacsClient client = null;
         try {
             client = new TacacsClient(host, secret);
-            SessionClient session = client.newSession(TAC_PLUS.AUTHEN.SVC.LOGIN, String.valueOf(port), "localhost",
+            // Use configured remote address or default to "localhost" if not set
+            String remoteAddr = tacacsRemoteAddress != null && !tacacsRemoteAddress.isEmpty()
+                    ? tacacsRemoteAddress
+                    : "localhost";
+
+            SessionClient session = client.newSession(TAC_PLUS.AUTHEN.SVC.LOGIN, String.valueOf(port), remoteAddr,
                     TAC_PLUS.PRIV_LVL.USER.code());
 
             String[] cmdParts = command.split(" ", 2);
