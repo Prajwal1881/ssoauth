@@ -50,6 +50,10 @@ public class VirtualRouterController {
             session.setAttribute("vr_username", username);
             session.setAttribute("vr_authenticated", true);
 
+            // 3. Send Accounting Start Record
+            // Flag 1 = TAC_PLUS.ACCT.FLAG.START
+            tacacsService.account(host, port, secret, username, "login", 1);
+
             return "redirect:/virtual-router/terminal";
         } else {
             model.addAttribute("error", "TACACS+ Authentication Failed");
