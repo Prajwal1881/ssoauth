@@ -135,4 +135,47 @@ public class AuthController {
             throw e;
         }
     }
+
+    @PostMapping("/password/change")
+    public ResponseEntity<ApiResponse> changePassword(
+            @Valid @RequestBody PasswordRequests.ChangePasswordRequest request) {
+        log.info("API: POST /api/auth/password/change");
+
+        try {
+            String username = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication().getName();
+
+            authService.changePassword(username, request);
+
+            log.info("Password changed successfully for user: {}", username);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Password changed successfully")
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Password change failed", e);
+            throw e; // Global exception handler should catch this
+        }
+    }
+
+    @PostMapping("/public/reset-password")
+    public ResponseEntity<ApiResponse> publicResetPassword(
+            @Valid @RequestBody PasswordRequests.PublicResetPasswordRequest request) {
+        log.info("API: POST /api/auth/public/reset-password for user: {}", request.getUsernameOrEmail());
+
+        try {
+            authService.publicResetPassword(request);
+
+            log.info("Public password reset successful for user: {}", request.getUsernameOrEmail());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Password reset successfully")
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Public password reset failed", e);
+            throw e;
+        }
+    }
 }

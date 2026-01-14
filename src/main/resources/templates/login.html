@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,7 +63,8 @@
             margin-bottom: 1.5rem;
             text-align: left;
         }
-         .login-form label {
+
+        .login-form label {
             display: block;
             margin-bottom: 0.5rem;
             font-size: 0.9rem;
@@ -123,7 +125,7 @@
 
         /* This class is now added dynamically by the script */
         .sso-button {
-             display: inline-block;
+            display: inline-block;
         }
 
         .divider {
@@ -174,160 +176,334 @@
             font-size: 0.9rem;
             display: none;
         }
+
+        /* RESET PASSWORD MODAL STYLES */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 12px;
+            text-align: center;
+            position: relative;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 15px;
+            top: 5px;
+        }
+
+        .close-modal:hover,
+        .close-modal:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .reset-link-container {
+            margin-top: 1rem;
+            display: none;
+            /* Hidden by default, shown after failure */
+        }
+
+        .reset-link-container a {
+            color: var(--error-color);
+            font-weight: 600;
+            cursor: pointer;
+        }
     </style>
 </head>
+
 <body>
 
-<div class="login-container">
-    <img src="" alt="Tenant Logo" class="branding-logo" id="branding-logo" />
+    <div class="login-container">
+        <img src="" alt="Tenant Logo" class="branding-logo" id="branding-logo" />
 
-    <h2 id="login-title">Sign In</h2>
+        <h2 id="login-title">Sign In</h2>
 
-    <div id="error-message"></div>
+        <div id="error-message"></div>
 
-    <form id="login-form" class="login-form">
-        <div class="form-group">
-            <label for="usernameOrEmail">Username or Email</label>
-            <input type="text" id="usernameOrEmail" name="usernameOrEmail" required>
+        <form id="login-form" class="login-form">
+            <div class="form-group">
+                <label for="usernameOrEmail">Username or Email</label>
+                <input type="text" id="usernameOrEmail" name="usernameOrEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+
+        <div class="divider" id="sso-divider" style="display: none;">OR</div>
+
+        <div id="sso-button-container"></div>
+
+
+        <div class="signup-link">
+            <span th:if="${isTenant}">
+                Don't have an account? <a href="/signup">Sign up here</a>
+            </span>
+
+            <span th:unless="${isTenant}">
+                Need an account? <a href="/register">Create an Organization</a>
+            </span>
         </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
+        <div class="reset-link-container" id="reset-link-container">
+            <a id="open-reset-modal" style="cursor: pointer; color: var(--link-color); text-decoration: none;">Forgot
+                Password ?</a>
         </div>
-        <button type="submit" class="btn btn-primary">Sign In</button>
-    </form>
-
-    <div class="divider" id="sso-divider" style="display: none;">OR</div>
-
-    <div id="sso-button-container"></div>
-
-
-    <div class="signup-link">
-        <span th:if="${isTenant}">
-            Don't have an account? <a href="/signup">Sign up here</a>
-        </span>
-
-        <span th:unless="${isTenant}">
-            Need an account? <a href="/register">Create an Organization</a>
-        </span>
     </div>
-</div>
 
-<script>
-    // --- Logic for Local Login ---
-    document.getElementById('login-form').addEventListener('submit', async function(event) {
-        event.preventDefault();
-        const usernameOrEmail = document.getElementById('usernameOrEmail').value;
-        const password = document.getElementById('password').value;
-        const errorMessageDiv = document.getElementById('error-message');
-        errorMessageDiv.style.display = 'none';
+    <!-- RESET PASSWORD MODAL -->
+    <div id="reset-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3 style="color: var(--error-color);">Reset Password</h3>
+            <p style="font-size: 0.85rem; color: #555; margin-bottom: 1rem;">
+                <strong>Warning:</strong> This will immediately change your password.
+            </p>
+            <form id="reset-form" class="login-form">
+                <div class="form-group">
+                    <label for="resetUsername">Username or Email</label>
+                    <input type="text" id="resetUsername" name="resetUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="confirmNewPassword">Confirm New Password</label>
+                    <input type="password" id="confirmNewPassword" name="confirmNewPassword" required minlength="6">
+                </div>
+                <div id="reset-error-message"
+                    style="color: var(--error-color); display:none; margin-bottom: 1rem; font-size: 0.85rem;"></div>
+                <div id="reset-success-message"
+                    style="color: #28a745; display:none; margin-bottom: 1rem; font-size: 0.85rem;"></div>
 
-        try {
-            const response = await fetch('/api/auth/signin', {
-                 method: 'POST',
-                 headers: {'Content-Type': 'application/json'},
-                 body: JSON.stringify({ usernameOrEmail: usernameOrEmail, password: password })
-            });
-            const data = await response.json();
-            if (response.ok && data.accessToken && data.userInfo) {
-                localStorage.setItem('accessToken', data.accessToken);
-                localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
+                <button type="submit" class="btn btn-primary" style="background-color: var(--error-color);">Reset
+                    Password</button>
+            </form>
+        </div>
+    </div>
 
-                let targetUrl = '/dashboard';
-                if (data.userInfo.roles) {
-                    if (data.userInfo.roles.includes('ROLE_SUPER_ADMIN')) {
-                        targetUrl = '/super-admin/dashboard';
-                    } else if (data.userInfo.roles.includes('ROLE_ADMIN')) {
-                        targetUrl = '/admin/dashboard';
+    <script>
+
+
+        // --- Logic for Reset Password Modal ---
+        let failedAttempts = 0;
+        const resetLinkContainer = document.getElementById('reset-link-container');
+        const resetModal = document.getElementById('reset-modal');
+        const openResetBtn = document.getElementById('open-reset-modal');
+        const closeResetBtn = document.querySelector('.close-modal');
+
+        openResetBtn.onclick = function () {
+            resetModal.style.display = "flex";
+            // Pre-fill username if available
+            document.getElementById('resetUsername').value = document.getElementById('usernameOrEmail').value;
+        }
+
+        closeResetBtn.onclick = function () {
+            resetModal.style.display = "none";
+        }
+
+        window.onclick = function (event) {
+            if (event.target == resetModal) {
+                resetModal.style.display = "none";
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const usernameOrEmail = document.getElementById('usernameOrEmail').value;
+            const password = document.getElementById('password').value;
+            const errorMessageDiv = document.getElementById('error-message');
+            errorMessageDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/auth/signin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usernameOrEmail: usernameOrEmail, password: password })
+                });
+                const data = await response.json();
+                if (response.ok && data.accessToken && data.userInfo) {
+                    // ... login success logic ...
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
+
+                    // Redirect based on role
+                    let targetUrl = '/dashboard';
+                    if (data.userInfo.roles) {
+                        if (data.userInfo.roles.includes('ROLE_SUPER_ADMIN')) {
+                            targetUrl = '/super-admin/dashboard';
+                        } else if (data.userInfo.roles.includes('ROLE_ADMIN')) {
+                            targetUrl = '/admin/dashboard';
+                        }
                     }
+                    window.location.href = targetUrl;
+                } else {
+                    // FAILED LOGIN
+                    failedAttempts++;
+                    if (failedAttempts >= 1) {
+                        resetLinkContainer.style.display = 'block';
+                    }
+
+                    let message = data.message || `Login failed (Status: ${response.status})`;
+                    if (message.includes("organization's login URL")) {
+                        message = "Please use your organization's specific login URL (e.g., acme.localhost:8080)";
+                    }
+                    if (data.errors) { message = Object.values(data.errors).join('; '); }
+                    errorMessageDiv.textContent = message;
+                    errorMessageDiv.style.display = 'block';
                 }
-                window.location.href = targetUrl;
-            } else {
-                let message = data.message || `Login failed (Status: ${response.status})`;
-                // This handles the new security rule for subdomain-only login
-                if (message.includes("organization's login URL")) {
-                    message = "Please use your organization's specific login URL (e.g., acme.localhost:8080)";
-                }
-                if (data.errors) { message = Object.values(data.errors).join('; '); }
-                errorMessageDiv.textContent = message;
+            } catch (error) {
+                console.error('Login failed:', error);
+                errorMessageDiv.textContent = 'Error connecting to the server. Please try again later.';
                 errorMessageDiv.style.display = 'block';
             }
-        } catch (error) {
-            console.error('Login failed:', error);
-            errorMessageDiv.textContent = 'Error connecting to the server. Please try again later.';
-            errorMessageDiv.style.display = 'block';
-        }
-    });
+        });
 
-    // --- UPDATED: Logic for Dynamic SSO Buttons & Branding ---
-    (async function initializeTenantLogin() {
-        const ssoDivider = document.getElementById('sso-divider');
-        const ssoButtonContainer = document.getElementById('sso-button-container');
+        // --- Logic for Reset Form Submission ---
+        document.getElementById('reset-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const username = document.getElementById('resetUsername').value;
+            const newPass = document.getElementById('newPassword').value;
+            const confirmPass = document.getElementById('confirmNewPassword').value;
+            const errorDiv = document.getElementById('reset-error-message');
+            const successDiv = document.getElementById('reset-success-message');
 
-        // --- 1. Fetch Branding ---
-        try {
-            const response = await fetch('/api/public/branding');
-            if (response.ok) {
-                const branding = await response.json();
-                if (branding.tenantName) {
-                     document.getElementById('login-title').textContent = `Sign In to ${branding.tenantName}`;
-                }
-                if (branding.brandingLogoUrl) {
-                    const logoEl = document.getElementById('branding-logo');
-                    logoEl.src = branding.brandingLogoUrl;
-                    logoEl.style.display = 'block';
-                }
-                if (branding.brandingPrimaryColor) {
-                    document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
-                }
-            } else {
-                 console.log("No custom branding found, using defaults.");
-            }
-        } catch (error) {
-            console.error('Error fetching branding:', error);
-        }
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
 
-        // --- 2. Fetch Enabled SSO Providers (NEW LOGIC) ---
-        try {
-            // This API now returns List<EnabledProviderDto>
-            const response = await fetch('/api/sso/enabled-providers');
-
-            if (!response.ok) {
-                console.error("Failed to fetch enabled SSO providers:", response.status);
+            if (newPass !== confirmPass) {
+                errorDiv.textContent = "Passwords do not match!";
+                errorDiv.style.display = 'block';
                 return;
             }
 
-            const enabledProviders = await response.json();
-
-            if (enabledProviders && Array.isArray(enabledProviders) && enabledProviders.length > 0) {
-                // Show the "OR" divider
-                ssoDivider.style.display = 'flex';
-
-                // Clear any old buttons
-                ssoButtonContainer.innerHTML = '';
-
-                // Dynamically create a button for each enabled provider
-                enabledProviders.forEach(provider => {
-                    const ssoButton = document.createElement('a');
-                    ssoButton.href = provider.ssoUrl;
-                    ssoButton.textContent = provider.displayName; // Use the display name from the DB
-                    ssoButton.className = 'btn btn-secondary sso-button'; // Apply standard classes
-
-                    ssoButtonContainer.appendChild(ssoButton);
-                    console.log("Enabled SSO button:", provider.displayName);
+            try {
+                const response = await fetch('/api/auth/public/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usernameOrEmail: username,
+                        newPassword: newPass,
+                        confirmNewPassword: confirmPass
+                    })
                 });
-            } else {
-                console.log("No SSO providers are enabled for this tenant.");
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    successDiv.textContent = "Password reset successfully! You can now login.";
+                    successDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = data.message || "Reset failed.";
+                    errorDiv.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error(error);
+                errorDiv.textContent = "An error occurred.";
+                errorDiv.style.display = 'block';
+            }
+        });
+
+        // --- UPDATED: Logic for Dynamic SSO Buttons & Branding ---
+        (async function initializeTenantLogin() {
+            const ssoDivider = document.getElementById('sso-divider');
+            const ssoButtonContainer = document.getElementById('sso-button-container');
+
+            // --- 1. Fetch Branding ---
+            try {
+                const response = await fetch('/api/public/branding');
+                if (response.ok) {
+                    const branding = await response.json();
+                    if (branding.tenantName) {
+                        document.getElementById('login-title').textContent = `Sign In to ${branding.tenantName}`;
+                    }
+                    if (branding.brandingLogoUrl) {
+                        const logoEl = document.getElementById('branding-logo');
+                        logoEl.src = branding.brandingLogoUrl;
+                        logoEl.style.display = 'block';
+                    }
+                    if (branding.brandingPrimaryColor) {
+                        document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+                    }
+                } else {
+                    // No custom branding found
+                }
+            } catch (error) {
+                console.error('Error fetching branding:', error);
+            }
+
+            // --- 2. Fetch Enabled SSO Providers (NEW LOGIC) ---
+            try {
+                // This API now returns List<EnabledProviderDto>
+                const response = await fetch('/api/sso/enabled-providers');
+
+                if (!response.ok) {
+                    console.error("Failed to fetch enabled SSO providers:", response.status);
+                    return;
+                }
+
+                const enabledProviders = await response.json();
+
+                if (enabledProviders && Array.isArray(enabledProviders) && enabledProviders.length > 0) {
+                    // Show the "OR" divider
+                    ssoDivider.style.display = 'flex';
+
+                    // Clear any old buttons
+                    ssoButtonContainer.innerHTML = '';
+
+                    // Dynamically create a button for each enabled provider
+                    enabledProviders.forEach(provider => {
+                        const ssoButton = document.createElement('a');
+                        ssoButton.href = provider.ssoUrl;
+                        ssoButton.textContent = provider.displayName; // Use the display name from the DB
+                        ssoButton.className = 'btn btn-secondary sso-button'; // Apply standard classes
+
+                        ssoButtonContainer.appendChild(ssoButton);
+                    });
+                } else {
+                    // No SSO providers enabled
+                    ssoDivider.style.display = 'none';
+                    ssoButtonContainer.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error fetching or processing enabled SSO providers:', error);
                 ssoDivider.style.display = 'none';
                 ssoButtonContainer.innerHTML = '';
             }
-        } catch (error) {
-            console.error('Error fetching or processing enabled SSO providers:', error);
-             ssoDivider.style.display = 'none';
-             ssoButtonContainer.innerHTML = '';
-        }
-    })();
-</script>
+        })();
+    </script>
 
 </body>
+
 </html>

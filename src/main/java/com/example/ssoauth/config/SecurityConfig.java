@@ -64,21 +64,19 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
-                                                          AuthenticationSuccessHandler oidcLoginSuccessHandler,
-                                                          AuthenticationSuccessHandler samlLoginSuccessHandler
-    ) throws Exception {
+            AuthenticationSuccessHandler oidcLoginSuccessHandler,
+            AuthenticationSuccessHandler samlLoginSuccessHandler) throws Exception {
         http
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers(
-                                "/login/saml2/sso/**",    // Standard Spring SAML ACS
+                                "/login/saml2/sso/**", // Standard Spring SAML ACS
                                 "/login/jwt/callback/**", // Existing JWT Callback
-                                "/login/sso/direct/**",   // NEW: Unified Direct Token Endpoint
+                                "/login/sso/direct/**", // NEW: Unified Direct Token Endpoint
                                 "/api/auth/**", // Allow Login/Signup API without CSRF
-                                "/api/public/**",   // Public APIs
+                                "/api/public/**", // Public APIs
                                 "/api/super-admin/**",
-                                "/api/admin/**"  //OPTIONAL: if Admin APIs also fail
-                        )
-                )
+                                "/api/admin/**" // OPTIONAL: if Admin APIs also fail
+                        ))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint))
@@ -86,7 +84,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/login", "/signup", "/error", "/register",
                                 "/css/**", "/js/**", "/images/**",
-                                "/api/auth/**",
+                                "/api/auth/signin",
+                                "/api/auth/signup",
+                                "/api/auth/public/**",
+                                "/api/auth/validate",
+                                "/api/auth/public/reset-password",
                                 "/api/sso/enabled-providers",
                                 "/api/public/**",
                                 "/api/sso/test-attributes/**",
@@ -102,24 +104,21 @@ public class SecurityConfig {
                                 "/admin/sso-test-result",
                                 "/super-admin/dashboard",
                                 "/login/sso/direct/**",
-                                "/login/saml2/sso/**"
-                        ).permitAll()
+                                "/login/saml2/sso/**")
+                        .permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/super-admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
                         .clientRegistrationRepository(dynamicOidcRepository)
                         .successHandler(oidcLoginSuccessHandler)
-                        .failureHandler(failureHandler)
-                )
+                        .failureHandler(failureHandler))
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
-                        .successHandler(samlLoginSuccessHandler)
-                )
+                        .successHandler(samlLoginSuccessHandler))
                 .authenticationProvider(authenticationProvider())
                 // Ensure tenant context is set BEFORE any security processing
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
@@ -159,8 +158,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationSuccessHandler oidcLoginSuccessHandler(
             AuthService authService,
-            JwtTokenProvider jwtTokenProvider
-    ) {
+            JwtTokenProvider jwtTokenProvider) {
         return (request, response, authentication) -> {
             HttpSession session = request.getSession();
             String testProviderId = (String) session.getAttribute("sso_test_provider_id");
@@ -223,8 +221,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationSuccessHandler samlLoginSuccessHandler(
             AuthService authService,
-            JwtTokenProvider jwtTokenProvider
-    ) {
+            JwtTokenProvider jwtTokenProvider) {
         return (request, response, authentication) -> {
             log.info("📢 Processing SAML Login Success");
 
@@ -257,7 +254,8 @@ public class SecurityConfig {
                 String accessToken = jwtTokenProvider.generateTokenFromUsername(appUser.getUsername());
 
                 // 4. Determine Target URL (Handle Unsolicited Responses)
-                // In IdP-initiated flow, RelayState might be missing or empty. Default to dashboards.
+                // In IdP-initiated flow, RelayState might be missing or empty. Default to
+                // dashboards.
                 String targetUrl = "/dashboard";
                 if (appUser.hasRole("ROLE_SUPER_ADMIN")) {
                     targetUrl = "/super-admin/dashboard";
@@ -265,7 +263,8 @@ public class SecurityConfig {
                     targetUrl = "/admin/dashboard";
                 }
 
-                log.info("✅ SAML IdP-Initiated Login Success. User: {}, Redirecting to: {}", appUser.getUsername(), targetUrl);
+                log.info("✅ SAML IdP-Initiated Login Success. User: {}, Redirecting to: {}", appUser.getUsername(),
+                        targetUrl);
 
                 String redirectUrl = targetUrl + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
                 response.sendRedirect(redirectUrl);
