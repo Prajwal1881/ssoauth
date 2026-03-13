@@ -21,7 +21,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @Controller
-@RequestMapping("/login/sso/direct")
+@RequestMapping("/login/sso")
 @RequiredArgsConstructor
 @Slf4j
 public class IdpInitiatedSsoController {

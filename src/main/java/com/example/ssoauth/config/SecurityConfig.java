@@ -71,7 +71,7 @@ public class SecurityConfig {
                         .ignoringRequestMatchers(
                                 "/login/saml2/sso/**", // Standard Spring SAML ACS
                                 "/login/jwt/callback/**", // Existing JWT Callback
-                                "/login/sso/direct/**", // NEW: Unified Direct Token Endpoint
+                                "/login/sso/**", // Unified Direct Token & IDP-Initiated Endpoint
                                 "/api/auth/**", // Allow Login/Signup API without CSRF
                                 "/api/public/**", // Public APIs
                                 "/api/super-admin/**",
@@ -86,6 +86,7 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**",
                                 "/api/auth/signin",
                                 "/api/auth/signup",
+                                "/api/auth/external",
                                 "/api/auth/public/**",
                                 "/api/auth/validate",
                                 "/api/auth/public/reset-password",
@@ -103,7 +104,7 @@ public class SecurityConfig {
                                 "/admin/dashboard",
                                 "/admin/sso-test-result",
                                 "/super-admin/dashboard",
-                                "/login/sso/direct/**",
+                                "/login/sso/**",
                                 "/login/saml2/sso/**")
                         .permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
