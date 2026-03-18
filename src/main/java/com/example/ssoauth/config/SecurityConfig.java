@@ -75,7 +75,8 @@ public class SecurityConfig {
                                 "/api/auth/**", // Allow Login/Signup API without CSRF
                                 "/api/public/**", // Public APIs
                                 "/api/super-admin/**",
-                                "/api/admin/**" // OPTIONAL: if Admin APIs also fail
+                                "/api/admin/**", // OPTIONAL: if Admin APIs also fail
+                                "/auth/ad/**" // AD Login POST Endpoint
                         ))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exception -> exception
