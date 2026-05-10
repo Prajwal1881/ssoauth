@@ -15,11 +15,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter;
+import org.springframework.security.saml2.provider.service.web.Saml2WebSsoAuthenticationRequestFilter;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,6 +62,8 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
+    private final HybridSaml2AuthenticationRequestRepository samlRequestRepository;
+    private final SsoTestRegistry ssoTestRegistry;
     private final TenantIdentificationFilter tenantIdentificationFilter;
     private final CustomAuthenticationFailureHandler failureHandler;
 
@@ -121,7 +126,21 @@ public class SecurityConfig {
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
-                        .successHandler(samlLoginSuccessHandler))
+                        .successHandler(samlLoginSuccessHandler)
+                        .withObjectPostProcessor(new ObjectPostProcessor<Saml2WebSsoAuthenticationFilter>() {
+                            @Override
+                            public <O extends Saml2WebSsoAuthenticationFilter> O postProcess(O filter) {
+                                filter.setAuthenticationRequestRepository(samlRequestRepository);
+                                return filter;
+                            }
+                        })
+                        .withObjectPostProcessor(new ObjectPostProcessor<Saml2WebSsoAuthenticationRequestFilter>() {
+                            @Override
+                            public <O extends Saml2WebSsoAuthenticationRequestFilter> O postProcess(O filter) {
+                                filter.setAuthenticationRequestRepository(samlRequestRepository);
+                                return filter;
+                            }
+                        }))
                 .authenticationProvider(authenticationProvider())
                 // Ensure tenant context is set BEFORE any security processing
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)
@@ -164,7 +183,6 @@ public class SecurityConfig {
             JwtTokenProvider jwtTokenProvider) {
         return (request, response, authentication) -> {
             HttpSession session = request.getSession();
-            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
 
             String registrationId = null;
             OidcUser oidcUser = null;
@@ -182,27 +200,14 @@ public class SecurityConfig {
                 throw new SSOAuthenticationException("Invalid authentication type for OIDC");
             }
 
-            if (testProviderId != null) {
-                String baseTestId = testProviderId;
-                Long tenantId = TenantContext.getCurrentTenant();
-                if (tenantId != null) {
-                    String suffix = "-" + tenantId;
-                    if (testProviderId.endsWith(suffix)) {
-                        baseTestId = testProviderId.substring(0, testProviderId.length() - suffix.length());
-                    }
-                }
-
-                if (registrationId != null && registrationId.contains(baseTestId)) {
-                    log.info("🧪 OIDC login is an attribute test for: {}", testProviderId);
-                    Map<String, String> attributes = new HashMap<>();
-                    oidcUser.getClaims().forEach((key, value) -> {
-                        attributes.put(key, value.toString());
-                    });
-
-                    session.setAttribute("sso_test_attributes", attributes);
-                    response.sendRedirect("/admin/sso-test-result");
-                    return;
-                }
+            if (ssoTestRegistry.isTestContains(registrationId)) {
+                log.info("🧪 OIDC login is an attribute test for: {}", registrationId);
+                ssoTestRegistry.complete(registrationId);
+                Map<String, String> attributes = new HashMap<>();
+                oidcUser.getClaims().forEach((key, value) -> attributes.put(key, value.toString()));
+                session.setAttribute("sso_test_attributes", attributes);
+                response.sendRedirect("/admin/sso-test-result");
+                return;
             }
 
             User appUser = authService.processOidcLogin(oidcUser, registrationId);
@@ -233,9 +238,9 @@ public class SecurityConfig {
             String registrationId = samlUser.getRelyingPartyRegistrationId();
 
             // 1. Check for Test Mode (IdP-Initiated or SP-Initiated)
-            String testProviderId = (String) session.getAttribute("sso_test_provider_id");
-            if (testProviderId != null && testProviderId.equals(registrationId)) {
+            if (ssoTestRegistry.isTest(registrationId)) {
                 log.info("🧪 SAML login detected as Attribute Test for: {}", registrationId);
+                ssoTestRegistry.complete(registrationId);
                 Map<String, String> attributes = new HashMap<>();
                 attributes.put("NameID", samlUser.getName());
                 samlUser.getAttributes().forEach((key, value) -> {

@@ -5,9 +5,9 @@ import com.example.ssoauth.dto.EnabledProviderDto;
 import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.repository.TenantRepository;
+import com.example.ssoauth.config.SsoTestRegistry;
 import com.example.ssoauth.service.SsoConfigService;
 import com.example.ssoauth.service.storage.StorageService;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,6 +33,7 @@ public class PublicSsoController {
     private final SsoConfigService ssoConfigService;
     private final TenantRepository tenantRepository;
     private final StorageService storageService;
+    private final SsoTestRegistry ssoTestRegistry;
 
     @GetMapping("/enabled-providers")
     public ResponseEntity<List<EnabledProviderDto>> getEnabledProviders() {
@@ -65,11 +66,11 @@ public class PublicSsoController {
     }
 
     @GetMapping("/test-attributes/{providerId}")
-    public ResponseEntity<Void> testAttributes(@PathVariable String providerId, HttpSession session) {
+    public ResponseEntity<Void> testAttributes(@PathVariable String providerId) {
 
         log.info("Initiating attribute test for provider: {}", providerId);
 
-        session.setAttribute("sso_test_provider_id", providerId);
+        ssoTestRegistry.markAsTest(providerId);
 
         SsoProviderConfig config = ssoConfigService.getConfigByProviderId(providerId)
                 .orElseThrow(() -> new RuntimeException("Provider not found: " + providerId));
