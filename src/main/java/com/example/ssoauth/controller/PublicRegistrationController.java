@@ -7,6 +7,7 @@ import com.example.ssoauth.dto.TenantRegistrationRequest;
 import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.service.SuperAdminService;
+import com.example.ssoauth.service.storage.StorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ public class PublicRegistrationController {
 
     private final SuperAdminService superAdminService;
     private final TenantRepository tenantRepository;
+    private final StorageService storageService;
 
     @PostMapping("/register-tenant")
     public ResponseEntity<ApiResponse> registerTenant(@Valid @RequestBody TenantRegistrationRequest request) {
@@ -56,8 +58,8 @@ public class PublicRegistrationController {
                 Map.entry("tenantName", tenant.getName() != null ? tenant.getName() : ""),
                 Map.entry("brandingLogoUrl", tenant.getBrandingLogoUrl() != null ? tenant.getBrandingLogoUrl() : ""),
                 Map.entry("brandingPrimaryColor", tenant.getBrandingPrimaryColor() != null ? tenant.getBrandingPrimaryColor() : ""),
-                Map.entry("logoFileUrl", tenant.getLogoPath() != null ? "/uploads/" + tenant.getLogoPath() : ""),
-                Map.entry("faviconUrl", tenant.getFaviconPath() != null ? "/uploads/" + tenant.getFaviconPath() : "")
+                Map.entry("logoFileUrl", tenant.getLogoPath() != null ? storageService.buildUrl(tenant.getLogoPath()) : ""),
+                Map.entry("faviconUrl", tenant.getFaviconPath() != null ? storageService.buildUrl(tenant.getFaviconPath()) : "")
         );
         return ResponseEntity.ok(branding);
     }
