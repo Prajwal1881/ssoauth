@@ -709,7 +709,7 @@
                         <div
                             style="margin-left: 245px; margin-top: -10px; font-size: 0.85rem; color: #888; margin-bottom: 15px;">
                             Login URL:
-                            <code>https://<span id="subdomain-preview">your-name</span>.prajwal.cfd/login</code>
+                            <code><span class="dynamic-origin">http://your-name.localhost:8080</span>/login</code>
                         </div>
                         <div class="form-row"><label for="brandingLogoUrl">Logo URL (Optional)</label><input type="url"
                                 id="brandingLogoUrl" placeholder="https://example.com/logo.png"></div>
@@ -718,6 +718,54 @@
                         <div class="btn-container"><button type="submit" class="btn-save">Save Branding
                                 Settings</button></div>
                     </form>
+
+                    <h4 style="margin-top: 30px;">Login Page Logo</h4>
+                    <p style="margin-left: 245px; font-size: 0.85rem; color: #666; margin-top: -10px; margin-bottom: 15px;">
+                        Displayed above the Sign In label on the login page. Supported formats: JPG, PNG, SVG, GIF, WEBP (max 5 MB).
+                    </p>
+                    <div class="form-row" style="align-items: flex-start;">
+                        <label style="padding-top: 8px;">Current Logo</label>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <img id="logoPreview" src="" alt="Logo preview"
+                                style="max-height: 64px; max-width: 200px; object-fit: contain; border: 1px solid #ddd; border-radius: 6px; padding: 6px; display: none; background: #f9f9f9;">
+                            <span id="logoNone" style="font-size: 0.85rem; color: #999;">No logo uploaded</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="logoFile">Upload New Logo</label>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <input type="file" id="logoFile" accept=".jpg,.jpeg,.png,.gif,.svg,.webp"
+                                style="font-size: 0.9rem; padding: 4px 0; flex-grow: 1; min-width: 200px; max-width: 320px;">
+                            <button type="button" class="btn-save" id="uploadLogoBtn" onclick="uploadLogo()"
+                                style="background-color: #17a2b8; white-space: nowrap;">
+                                <i class="fas fa-upload"></i> Upload Logo
+                            </button>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top: 30px;">Favicon</h4>
+                    <p style="margin-left: 245px; font-size: 0.85rem; color: #666; margin-top: -10px; margin-bottom: 15px;">
+                        Displayed as the browser tab icon on the login page. Supported formats: JPG, PNG, ICO, SVG, GIF, WEBP (max 5 MB).
+                    </p>
+                    <div class="form-row" style="align-items: flex-start;">
+                        <label style="padding-top: 8px;">Current Favicon</label>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <img id="faviconPreview" src="" alt="Favicon preview"
+                                style="width: 48px; height: 48px; object-fit: contain; border: 1px solid #ddd; border-radius: 6px; padding: 4px; display: none; background: #f9f9f9;">
+                            <span id="faviconNone" style="font-size: 0.85rem; color: #999;">No favicon uploaded</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="faviconFile">Upload New Favicon</label>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <input type="file" id="faviconFile" accept=".jpg,.jpeg,.png,.gif,.ico,.svg,.webp"
+                                style="font-size: 0.9rem; padding: 4px 0; flex-grow: 1; min-width: 200px; max-width: 320px;">
+                            <button type="button" class="btn-save" id="uploadFaviconBtn" onclick="uploadFavicon()"
+                                style="background-color: #17a2b8; white-space: nowrap;">
+                                <i class="fas fa-upload"></i> Upload Favicon
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="userManagement" class="user-management-container" style="display: none; padding: 30px;">
@@ -792,9 +840,9 @@
                     <div class="url-display-box">
                         <h4>Your Service Provider (SP) URLs</h4>
                         <label>SP Entity
-                            ID:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/saml2/service-provider-metadata/saml_miniorange</code>
+                            ID:</label><code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/saml2/service-provider-metadata/saml_miniorange</code>
                         <label>ACS
-                            URL:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/saml2/sso/saml_miniorange</code>
+                            URL:</label><code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/login/saml2/sso/saml_miniorange</code>
                     </div>
                 </div>
 
@@ -840,9 +888,9 @@
                     <div class="url-display-box">
                         <h4>Your OIDC Redirect URI</h4>
                         <label>Redirect
-                            URI:</label><code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/oauth2/code/oidc_miniorange</code>
+                            URI:</label><code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/login/oauth2/code/oidc_miniorange</code>
                         <label style="margin-top: 15px;">Login URL / App Launch URL:</label>
-                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/sso/initiate/oidc_miniorange</code>
+                        <code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/login/sso/initiate/oidc_miniorange</code>
                         <small style="color: #666; font-size: 0.8rem;">* Use this URL for the "App Icon" in your
                             Identity Provider dashboard to support IdP-initiated login.</small>
                     </div>
@@ -910,7 +958,7 @@
                     <div class="url-display-box">
                         <h4>Service Provider (SP) / Redirect URL</h4>
                         <label>Redirect URI:</label>
-                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/jwt/callback</code>
+                        <code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/login/jwt/callback</code>
                     </div>
                 </div>
 
@@ -1029,7 +1077,7 @@
                     <div class="url-display-box">
                         <h4>AD Login URL</h4>
                         <label>Direct Login Link:</label>
-                        <code>https://<span class="dynamic-subdomain">your-subdomain</span>.prajwal.cfd/login/ad/ad_ldap</code>
+                        <code><span class="dynamic-origin">http://your-subdomain.localhost:8080</span>/login/ad/ad_ldap</code>
                     </div>
                 </div>
 
@@ -1227,7 +1275,6 @@
         const brandingSubdomainInput = document.getElementById('brandingSubdomain');
         const brandingLogoUrlInput = document.getElementById('brandingLogoUrl');
         const brandingPrimaryColorInput = document.getElementById('brandingPrimaryColor');
-        const subdomainPreview = document.getElementById('subdomain-preview');
         let configDataStore = {};
 
         (async function init() {
@@ -1245,6 +1292,8 @@
                     if (b.brandingLogoUrl) document.getElementById('header-logo').src = b.brandingLogoUrl;
                     if (b.tenantName) document.getElementById('header-logo-text').textContent = `${b.tenantName} Admin Panel`;
                     if (b.brandingPrimaryColor) document.documentElement.style.setProperty('--primary-orange', b.brandingPrimaryColor);
+                    if (b.logoFileUrl) updateLogoPreview(b.logoFileUrl);
+                    if (b.faviconUrl) updateFaviconPreview(b.faviconUrl);
                 }
             } catch (e) {
                 if (e.message !== "Session Expired") console.error("Branding load failed", e);
@@ -1273,10 +1322,22 @@
             }
         };
 
+        function buildOrigin(subdomain) {
+            const proto = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const parts = hostname.split('.');
+            const baseDomain = parts.length > 1 ? parts.slice(1).join('.') : hostname;
+            const portStr = port ? ':' + port : '';
+            const sub = subdomain ? subdomain.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
+            return `${proto}//${sub}.${baseDomain}${portStr}`;
+        }
+
         function updateDynamicSubdomainUrls(sub) {
             const txt = sub ? sub.trim().toLowerCase().replaceAll(' ', '-') : 'your-subdomain';
-            if (document.getElementById('subdomain-preview')) document.getElementById('subdomain-preview').textContent = txt;
             document.querySelectorAll('.dynamic-subdomain').forEach(el => el.textContent = txt);
+            const origin = buildOrigin(txt);
+            document.querySelectorAll('.dynamic-origin').forEach(el => el.textContent = origin);
         }
 
         async function loadBrandingSettings() {
@@ -1288,9 +1349,103 @@
                     brandingLogoUrlInput.value = b.brandingLogoUrl || '';
                     brandingPrimaryColorInput.value = b.brandingPrimaryColor || '';
                     updateDynamicSubdomainUrls(b.subdomain);
+                    updateLogoPreview(b.logoFileUrl);
+                    updateFaviconPreview(b.faviconUrl);
                 }
             } catch (e) { }
         }
+
+        function updateLogoPreview(logoFileUrl) {
+            const preview = document.getElementById('logoPreview');
+            const noneLabel = document.getElementById('logoNone');
+            if (logoFileUrl) {
+                preview.src = logoFileUrl + '?t=' + Date.now();
+                preview.style.display = 'block';
+                noneLabel.style.display = 'none';
+            } else {
+                preview.style.display = 'none';
+                noneLabel.style.display = 'inline';
+            }
+        }
+
+        function updateFaviconPreview(faviconUrl) {
+            const preview = document.getElementById('faviconPreview');
+            const noneLabel = document.getElementById('faviconNone');
+            if (faviconUrl) {
+                preview.src = faviconUrl + '?t=' + Date.now();
+                preview.style.display = 'block';
+                noneLabel.style.display = 'none';
+            } else {
+                preview.style.display = 'none';
+                noneLabel.style.display = 'inline';
+            }
+        }
+
+        window.uploadLogo = async function () {
+            const fileInput = document.getElementById('logoFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Please select a file first.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('uploadLogoBtn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetchWithAuth('/api/admin/branding/logo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Upload failed');
+                showToast('Logo uploaded successfully!', 'success');
+                updateLogoPreview(data.logoFileUrl);
+                fileInput.value = '';
+            } catch (e) {
+                if (e.message !== 'Session Expired') showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        window.uploadFavicon = async function () {
+            const fileInput = document.getElementById('faviconFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Please select a file first.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('uploadFaviconBtn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetchWithAuth('/api/admin/branding/favicon', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Upload failed');
+                showToast('Favicon uploaded successfully!', 'success');
+                updateFaviconPreview(data.faviconUrl);
+                fileInput.value = '';
+            } catch (e) {
+                if (e.message !== 'Session Expired') showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
 
         brandingSubdomainInput.addEventListener('input', (e) => { updateDynamicSubdomainUrls(e.target.value); });
 
@@ -1605,7 +1760,7 @@
                     data.signatureAlgorithm = document.getElementById('jwtSignatureAlgorithm').value;
 
                     const sub = document.getElementById('brandingSubdomain').value || 'example';
-                    data.jwtRedirectUri = `https://${sub}.prajwal.cfd/login/jwt/callback`;
+                    data.jwtRedirectUri = buildOrigin(sub) + '/login/jwt/callback';
                 } else {
                     if (document.getElementById(`${type}ClientId`)) data.clientId = document.getElementById(`${type}ClientId`).value;
                     if (document.getElementById(`${type}IssuerUri`)) data.issuerUri = document.getElementById(`${type}IssuerUri`).value;

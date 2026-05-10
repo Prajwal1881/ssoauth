@@ -1,7 +1,7 @@
 package com.example.ssoauth.controller;
 
 import com.example.ssoauth.dto.ApiResponse;
-import com.example.ssoauth.dto.BrandingRequestDto; // NEW IMPORT
+import com.example.ssoauth.dto.BrandingRequestDto;
 import com.example.ssoauth.dto.SignUpRequest;
 import com.example.ssoauth.dto.UserUpdateRequest;
 import com.example.ssoauth.dto.UserInfo;
@@ -9,11 +9,14 @@ import com.example.ssoauth.service.AdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -32,9 +35,34 @@ public class AdminController {
 
     @PutMapping("/branding")
     public ResponseEntity<BrandingRequestDto> updateBranding(@Valid @RequestBody BrandingRequestDto request) {
-        // The service method handles the uniqueness check
         BrandingRequestDto updatedBranding = adminService.updateTenantBranding(request);
         return ResponseEntity.ok(updatedBranding);
+    }
+
+    @PostMapping(value = "/branding/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadLogo(@RequestParam("file") MultipartFile file) {
+        try {
+            String logoFileUrl = adminService.uploadLogo(file);
+            return ResponseEntity.ok(Map.of("logoFileUrl", logoFileUrl));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to upload logo: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/branding/favicon", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadFavicon(@RequestParam("file") MultipartFile file) {
+        try {
+            String faviconUrl = adminService.uploadFavicon(file);
+            return ResponseEntity.ok(Map.of("faviconUrl", faviconUrl));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to upload favicon: " + e.getMessage()));
+        }
     }
 
     // --- NEW Settings Endpoint ---

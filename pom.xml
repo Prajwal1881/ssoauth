@@ -127,6 +127,13 @@
             <artifactId>spring-session-core</artifactId>
         </dependency>
 
+        <!-- Cloudinary SDK — active only when cloud profile is used -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http44</artifactId>
+            <version>1.38.0</version>
+        </dependency>
+
     </dependencies>
     <repositories>
         <repository>

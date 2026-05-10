@@ -36,6 +36,12 @@ public class Tenant {
     @Column(name = "branding_primary_color", length = 20)
     private String brandingPrimaryColor;
 
+    @Column(name = "logo_path")
+    private String logoPath;
+
+    @Column(name = "favicon_path")
+    private String faviconPath;
+
     @Column(name = "api_key", length = 100)
     private String apiKey;
 

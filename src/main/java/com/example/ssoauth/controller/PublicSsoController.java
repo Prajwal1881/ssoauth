@@ -6,6 +6,7 @@ import com.example.ssoauth.entity.SsoProviderConfig;
 import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.service.SsoConfigService;
+import com.example.ssoauth.service.storage.StorageService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class PublicSsoController {
 
     private final SsoConfigService ssoConfigService;
     private final TenantRepository tenantRepository;
+    private final StorageService storageService;
 
     @GetMapping("/enabled-providers")
     public ResponseEntity<List<EnabledProviderDto>> getEnabledProviders() {
@@ -55,7 +57,9 @@ public class PublicSsoController {
         Map<String, String> branding = Map.ofEntries(
                 Map.entry("tenantName", tenant.getName() != null ? tenant.getName() : ""),
                 Map.entry("brandingLogoUrl", tenant.getBrandingLogoUrl() != null ? tenant.getBrandingLogoUrl() : ""),
-                Map.entry("brandingPrimaryColor", tenant.getBrandingPrimaryColor() != null ? tenant.getBrandingPrimaryColor() : "")
+                Map.entry("brandingPrimaryColor", tenant.getBrandingPrimaryColor() != null ? tenant.getBrandingPrimaryColor() : ""),
+                Map.entry("logoFileUrl", tenant.getLogoPath() != null ? storageService.buildUrl(tenant.getLogoPath()) : ""),
+                Map.entry("faviconUrl", tenant.getFaviconPath() != null ? storageService.buildUrl(tenant.getFaviconPath()) : "")
         );
         return ResponseEntity.ok(branding);
     }

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - SSO Authentication</title>
+    <link id="dynamic-favicon" rel="icon" type="image/x-icon" href="/favicon.ico">
 
     <style>
         :root {
@@ -45,12 +46,11 @@
 
         /* NEW: Branding Logo */
         .branding-logo {
+            display: none;
             max-height: 70px;
             max-width: 80%;
-            margin-bottom: 1.5rem;
+            margin: 0 auto 1.5rem auto;
             object-fit: contain;
-            /* Hide if no src is set */
-            display: none;
         }
 
         h2 {
@@ -445,16 +445,19 @@
                 const response = await fetch('/api/public/branding');
                 if (response.ok) {
                     const branding = await response.json();
-                    if (branding.tenantName) {
-                        document.getElementById('login-title').textContent = `Sign In to ${branding.tenantName}`;
-                    }
-                    if (branding.brandingLogoUrl) {
+                    const logoUrl = branding.logoFileUrl || branding.brandingLogoUrl;
+                    if (logoUrl) {
                         const logoEl = document.getElementById('branding-logo');
-                        logoEl.src = branding.brandingLogoUrl;
+                        logoEl.src = logoUrl;
                         logoEl.style.display = 'block';
+                        logoEl.style.margin = '0 auto 1.5rem auto';
                     }
                     if (branding.brandingPrimaryColor) {
                         document.documentElement.style.setProperty('--primary-orange', branding.brandingPrimaryColor);
+                    }
+                    if (branding.faviconUrl) {
+                        const faviconEl = document.getElementById('dynamic-favicon');
+                        faviconEl.href = branding.faviconUrl;
                     }
                 } else {
                     // No custom branding found

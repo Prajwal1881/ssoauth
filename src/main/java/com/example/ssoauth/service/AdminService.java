@@ -10,6 +10,8 @@ import com.example.ssoauth.entity.User;
 import com.example.ssoauth.exception.ResourceAlreadyExistsException;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.repository.UserRepository;
+import com.example.ssoauth.service.storage.StorageService;
+import com.example.ssoauth.service.storage.UploadResult;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -30,6 +34,7 @@ public class AdminService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TenantRepository tenantRepository;
+    private final StorageService storageService;
 
     /**
      * CRITICAL FIX: Always validate tenant context before operations.
@@ -82,11 +87,37 @@ public class AdminService {
         return mapTenantToBrandingDto(savedTenant);
     }
 
+    @Transactional
+    public String uploadLogo(MultipartFile file) throws IOException {
+        Long tenantId = getTenantIdFromContextOrFail();
+        UploadResult result = storageService.uploadLogo(file, tenantId);
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+        tenant.setLogoPath(result.storedPath());
+        tenantRepository.save(tenant);
+        log.info("✓ Logo uploaded for tenantId={}: {}", tenantId, result.url());
+        return result.url();
+    }
+
+    @Transactional
+    public String uploadFavicon(MultipartFile file) throws IOException {
+        Long tenantId = getTenantIdFromContextOrFail();
+        UploadResult result = storageService.uploadFavicon(file, tenantId);
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+        tenant.setFaviconPath(result.storedPath());
+        tenantRepository.save(tenant);
+        log.info("✓ Favicon uploaded for tenantId={}: {}", tenantId, result.url());
+        return result.url();
+    }
+
     private BrandingRequestDto mapTenantToBrandingDto(Tenant tenant) {
         return BrandingRequestDto.builder()
                 .subdomain(tenant.getSubdomain())
                 .brandingLogoUrl(tenant.getBrandingLogoUrl())
                 .brandingPrimaryColor(tenant.getBrandingPrimaryColor())
+                .logoFileUrl(storageService.buildUrl(tenant.getLogoPath()))
+                .faviconUrl(storageService.buildUrl(tenant.getFaviconPath()))
                 .build();
     }
 

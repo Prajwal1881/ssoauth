@@ -1,8 +1,10 @@
 package com.example.ssoauth.controller;
 
+import com.example.ssoauth.config.TenantContext;
 import com.example.ssoauth.dto.ApiResponse;
 import com.example.ssoauth.dto.TenantDto;
 import com.example.ssoauth.dto.TenantRegistrationRequest;
+import com.example.ssoauth.entity.Tenant;
 import com.example.ssoauth.repository.TenantRepository;
 import com.example.ssoauth.service.SuperAdminService;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/public")
@@ -35,7 +38,27 @@ public class PublicRegistrationController {
     @GetMapping("/check-subdomain")
     public ResponseEntity<Map<String, Boolean>> checkSubdomain(@RequestParam String subdomain) {
         boolean exists = tenantRepository.findBySubdomain(subdomain.toLowerCase().trim()).isPresent();
-        // Return true if available (does not exist)
         return ResponseEntity.ok(Map.of("available", !exists));
+    }
+
+    @GetMapping("/branding")
+    public ResponseEntity<Map<String, String>> getPublicBranding() {
+        Long tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null) {
+            return ResponseEntity.ok(Map.of());
+        }
+        Optional<Tenant> tenantOpt = tenantRepository.findById(tenantId);
+        if (tenantOpt.isEmpty()) {
+            return ResponseEntity.ok(Map.of());
+        }
+        Tenant tenant = tenantOpt.get();
+        Map<String, String> branding = Map.ofEntries(
+                Map.entry("tenantName", tenant.getName() != null ? tenant.getName() : ""),
+                Map.entry("brandingLogoUrl", tenant.getBrandingLogoUrl() != null ? tenant.getBrandingLogoUrl() : ""),
+                Map.entry("brandingPrimaryColor", tenant.getBrandingPrimaryColor() != null ? tenant.getBrandingPrimaryColor() : ""),
+                Map.entry("logoFileUrl", tenant.getLogoPath() != null ? "/uploads/" + tenant.getLogoPath() : ""),
+                Map.entry("faviconUrl", tenant.getFaviconPath() != null ? "/uploads/" + tenant.getFaviconPath() : "")
+        );
+        return ResponseEntity.ok(branding);
     }
 }
