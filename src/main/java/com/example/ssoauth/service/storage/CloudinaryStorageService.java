@@ -11,7 +11,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,11 +34,10 @@ public class CloudinaryStorageService implements StorageService {
                         "folder",     "tenant-assets/" + tenantId + "/logos",
                         "public_id",  "logo",
                         "overwrite",  true,
-                        "transformation", List.of(
-                                new Transformation().width(400).height(200).crop("limit"),
-                                new Transformation().quality("auto:good"),
-                                new Transformation().fetchFormat("auto")
-                        )
+                        "transformation", new Transformation()
+                                .width(400).height(200).crop("limit")
+                                .chain().quality("auto:good")
+                                .chain().fetchFormat("auto")
                 ));
 
         String url = (String) result.get("secure_url");
@@ -56,11 +54,10 @@ public class CloudinaryStorageService implements StorageService {
                         "folder",     "tenant-assets/" + tenantId + "/favicons",
                         "public_id",  "favicon",
                         "overwrite",  true,
-                        "transformation", List.of(
-                                new Transformation().width(64).height(64).crop("fill"),
-                                new Transformation().quality("auto"),
-                                new Transformation().fetchFormat("auto")
-                        )
+                        "transformation", new Transformation()
+                                .width(64).height(64).crop("fill")
+                                .chain().quality("auto")
+                                .chain().fetchFormat("auto")
                 ));
 
         String url = (String) result.get("secure_url");
