@@ -15,14 +15,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter;
-import org.springframework.security.saml2.provider.service.web.Saml2WebSsoAuthenticationRequestFilter;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -62,7 +59,6 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final DynamicClientRegistrationRepository dynamicOidcRepository;
     private final DynamicRelyingPartyRegistrationRepository dynamicSamlRepository;
-    private final HybridSaml2AuthenticationRequestRepository samlRequestRepository;
     private final SsoTestRegistry ssoTestRegistry;
     private final TenantIdentificationFilter tenantIdentificationFilter;
     private final CustomAuthenticationFailureHandler failureHandler;
@@ -126,21 +122,7 @@ public class SecurityConfig {
                 .saml2Login(saml2 -> saml2
                         .loginPage("/login")
                         .relyingPartyRegistrationRepository(dynamicSamlRepository)
-                        .successHandler(samlLoginSuccessHandler)
-                        .withObjectPostProcessor(new ObjectPostProcessor<Saml2WebSsoAuthenticationFilter>() {
-                            @Override
-                            public <O extends Saml2WebSsoAuthenticationFilter> O postProcess(O filter) {
-                                filter.setAuthenticationRequestRepository(samlRequestRepository);
-                                return filter;
-                            }
-                        })
-                        .withObjectPostProcessor(new ObjectPostProcessor<Saml2WebSsoAuthenticationRequestFilter>() {
-                            @Override
-                            public <O extends Saml2WebSsoAuthenticationRequestFilter> O postProcess(O filter) {
-                                filter.setAuthenticationRequestRepository(samlRequestRepository);
-                                return filter;
-                            }
-                        }))
+                        .successHandler(samlLoginSuccessHandler))
                 .authenticationProvider(authenticationProvider())
                 // Ensure tenant context is set BEFORE any security processing
                 .addFilterBefore(tenantIdentificationFilter, SecurityContextHolderFilter.class)

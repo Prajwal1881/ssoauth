@@ -34,7 +34,18 @@ public class HybridSaml2AuthenticationRequestRepository
 
     @Override
     public AbstractSaml2AuthenticationRequest loadAuthenticationRequest(HttpServletRequest request) {
-        return sessionDelegate.loadAuthenticationRequest(request);
+        AbstractSaml2AuthenticationRequest saved = sessionDelegate.loadAuthenticationRequest(request);
+        if (saved != null) return saved;
+
+        String inResponseTo = extractInResponseTo(request.getParameter("SAMLResponse"));
+        if (inResponseTo != null) {
+            AbstractSaml2AuthenticationRequest fallback = memStore.get(inResponseTo);
+            if (fallback != null) {
+                log.info("SAML AuthnRequest resolved from memory fallback (load): id={}", inResponseTo);
+                return fallback;
+            }
+        }
+        return null;
     }
 
     @Override
